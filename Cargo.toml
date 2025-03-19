@@ -50,6 +50,8 @@ members = [
     "examples/overflow/guest",
     "examples/memory-ops",
     "examples/memory-ops/guest",
+    "examples/gradient-boost",
+    "examples/gradient-boost/guest",
 ]
 
 [features]
