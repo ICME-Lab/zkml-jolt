@@ -1,0 +1,12 @@
+[package]
+name = "onnx"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+jolt-sdk = { path = "../../jolt-sdk", features = ["host"] }
+guest = { package = "onnx-guest", path = "./guest" }
+rand = "0.7.3"
+
+[features]
+icicle = ["jolt-sdk/icicle"]

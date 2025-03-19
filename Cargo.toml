@@ -52,6 +52,8 @@ members = [
     "examples/memory-ops/guest",
     "examples/gradient-boost",
     "examples/gradient-boost/guest",
+    "examples/onnx",
+    "examples/onnx/guest",
 ]
 
 [features]

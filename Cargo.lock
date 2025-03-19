@@ -2278,6 +2278,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1261fe7e33c73b354eab43b1273a57c8f967d0391e80353e51f764ac02cf6775"
 
 [[package]]
+name = "onnx"
+version = "0.1.0"
+dependencies = [
+ "jolt-sdk",
+ "onnx-guest",
+ "rand 0.7.3",
+]
+
+[[package]]
+name = "onnx-guest"
+version = "0.1.0"
+dependencies = [
+ "jolt-sdk",
+]
+
+[[package]]
 name = "oorandom"
 version = "11.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
