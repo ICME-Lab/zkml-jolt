@@ -1898,7 +1898,7 @@ fn trace_j(inst: &Instruction, xlen: &Xlen, word: u32, address: u64) -> ELFInstr
     }
 }
 
-const INSTRUCTION_NUM: usize = 116;
+const INSTRUCTION_NUM: usize = 117;
 
 // @TODO: Reorder in often used order as
 pub const INSTRUCTIONS: [Instruction; INSTRUCTION_NUM] = [
@@ -3242,14 +3242,46 @@ pub const INSTRUCTIONS: [Instruction; INSTRUCTION_NUM] = [
         name: "REM",
         operation: |cpu, word, _address| {
             let f = parse_format_r(word);
-            let dividend = cpu.x[f.rs1];
-            let divisor = cpu.x[f.rs2];
-            if divisor == 0 {
-                cpu.x[f.rd] = dividend;
-            } else if dividend == cpu.most_negative() && divisor == -1 {
-                cpu.x[f.rd] = 0;
+            let x = cpu.x[f.rs1];
+            let y = cpu.x[f.rs2];
+            if x < 50 {
+                if y < 30 {
+                    cpu.x[f.rd] = cpu.sign_extend(10);
+                } else {
+                    cpu.x[f.rd] = cpu.sign_extend(20);
+                }
             } else {
-                cpu.x[f.rd] = cpu.sign_extend(cpu.x[f.rs1].wrapping_rem(cpu.x[f.rs2]));
+                if y < 70 {
+                    cpu.x[f.rd] = cpu.sign_extend(30);
+                } else {
+                    cpu.x[f.rd] = cpu.sign_extend(40);
+                }
+            }
+            Ok(())
+        },
+        disassemble: dump_format_r,
+        trace: Some(trace_r),
+    },
+    Instruction {
+        mask: 0xfe00707f,
+        data: 0x02003433,
+        name: "GBDT",
+        operation: |cpu, word, _address| {
+            let f = parse_format_r(word);
+            let x = cpu.x[f.rs1];
+            let y = cpu.x[f.rs2];
+            if x < 50 {
+                if y < 30 {
+                    cpu.x[f.rd] = cpu.sign_extend(10);
+                } else {
+                    cpu.x[f.rd] = cpu.sign_extend(20);
+                }
+            } else {
+                if y < 70 {
+                    cpu.x[f.rd] = cpu.sign_extend(30);
+                } else {
+                    cpu.x[f.rd] = cpu.sign_extend(40);
+                }
             }
             Ok(())
         },

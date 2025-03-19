@@ -1306,6 +1306,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
 
 [[package]]
+name = "gradient-boost"
+version = "0.1.0"
+dependencies = [
+ "gradient-boost-guest",
+ "jolt-sdk",
+ "rand 0.7.3",
+]
+
+[[package]]
+name = "gradient-boost-guest"
+version = "0.1.0"
+dependencies = [
+ "jolt-sdk",
+]
+
+[[package]]
 name = "group"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
