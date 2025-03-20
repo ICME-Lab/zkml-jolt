@@ -7,4 +7,9 @@ edition = "2021"
 guest = []
 
 [dependencies]
-jolt = { package = "jolt-sdk", path = "../../../jolt-sdk" }
+jolt = { package = "jolt-sdk", path = "../../../jolt-sdk", features = ["guest-std"] }
+tract-onnx = "0.21.1"
+anyhow = "1.0.75"
+ndarray = "0.16.1"
+getrandom = { version = "0.2", features = ["custom"] }
+
