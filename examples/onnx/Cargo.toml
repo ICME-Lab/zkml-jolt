@@ -12,3 +12,11 @@ anyhow = "1.0.75"
 
 [features]
 icicle = ["jolt-sdk/icicle"]
+
+[[bin]]
+name = "parse"
+path = "./src/onnxparser.rs"
+
+[[bin]]
+name = "inference"
+path = "./src/inference.rs"
