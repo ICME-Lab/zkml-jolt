@@ -11,6 +11,8 @@ pub enum OperationType {
     MatMul,
     Add,
     Relu,
+    Reshape,
+    TreeEnsembleClassifier,
     Unknown(String),
 }
 
@@ -96,6 +98,8 @@ impl ONNXParser {
                 "MatMul" => OperationType::MatMul,
                 "Add" => OperationType::Add,
                 "Relu" => OperationType::Relu,
+                "Reshape" => OperationType::Reshape,
+                "TreeEnsembleClassifier" => OperationType::TreeEnsembleClassifier,
                 _ => OperationType::Unknown(op_name.to_string()),
             };
 
@@ -118,7 +122,7 @@ pub fn main() {
     println!("ONNX Parser Implementation Demo");
 
     // Create a full path for the ONNX model
-    let model_path = "examples/onnx/data/cnn.onnx";
+    let model_path = "examples/onnx/data/xgboost.onnx";
 
     // Parse the ONNX model using our custom parser
     println!("\nParsing ONNX model with our custom parser...");
