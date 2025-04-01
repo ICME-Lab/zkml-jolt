@@ -16,7 +16,7 @@ icicle = ["jolt-sdk/icicle"]
 
 [[bin]]
 name = "parse"
-path = "./src/onnxparser.rs"
+path = "./src/parse.rs"
 
 [[bin]]
 name = "inference"
