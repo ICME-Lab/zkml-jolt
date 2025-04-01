@@ -2517,6 +2517,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "ndarray",
+ "serde",
  "tract-onnx",
 ]
 

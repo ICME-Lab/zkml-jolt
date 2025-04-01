@@ -1,5 +1,6 @@
 extern crate alloc;
 use alloc::vec::Vec;
+use serde::{Deserialize, Serialize};
 
 /// Represents an operation in the computational graph
 /// 0 = Input
@@ -23,6 +24,7 @@ pub const OP_TREE_ENSEMBLE_CLASSIFIER: usize = 6;
 pub const OP_UNKNOWN: usize = 7;
 
 /// Represents a node in the computational graph
+#[derive(Serialize, Deserialize)]
 pub struct GraphNode {
     pub id: usize,
     pub op_type: OperationType,
@@ -30,6 +32,7 @@ pub struct GraphNode {
 }
 
 /// Represents the computational graph
+#[derive(Serialize, Deserialize)]
 pub struct ComputationalGraph {
     pub nodes: Vec<GraphNode>,
     pub input_count: usize,

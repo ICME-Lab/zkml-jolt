@@ -20,7 +20,7 @@ pub fn main() {
 
     // Execute the guest code with the computational graph
     let (prove_execute_graph, verify_execute_graph) = guest::build_execute_graph();
-    let (output, proof) = prove_execute_graph(input_data);
+    let (output, proof) = prove_execute_graph(graph, input_data);
     let is_valid = verify_execute_graph(proof);
     assert!(is_valid, "Invalid output for execute_graph");
     println!("Output from execute_graph: {}", output);
