@@ -2500,6 +2500,7 @@ dependencies = [
  "ndarray",
  "onnx-guest",
  "onnx-util",
+ "rand 0.8.5",
  "tract-onnx",
 ]
 

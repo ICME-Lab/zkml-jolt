@@ -5,7 +5,7 @@ pub fn main() {
     println!("ONNX Parser Implementation Demo");
 
     // Create a full path for the ONNX model
-    let model_path = "examples/onnx/data/cnn.onnx";
+    let model_path = "examples/onnx/data/int8_cnn.onnx";
 
     // Parse the ONNX model using our custom parser
     println!("\nParsing ONNX model with our custom parser...");
