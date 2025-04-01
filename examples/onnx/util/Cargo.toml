@@ -1,0 +1,14 @@
+[package]
+name = "onnx-util"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["host"]
+host = ["tract-onnx", "ndarray", "anyhow"]
+guest = []
+
+[dependencies]
+tract-onnx = { version = "0.21.1", optional = true }
+ndarray = { version = "0.16.1", optional = true }
+anyhow = { version = "1.0.75", optional = true }

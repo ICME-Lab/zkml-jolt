@@ -1,14 +1,27 @@
-pub fn main() {
-    let input_data = vec![
-        0.5, 0.2, 0.1, 0.8, 0.3, // Sample 1
-        0.1, 0.7, 0.5, 0.2, 0.9, // Sample 2
-        0.3, 0.4, 0.6, 0.7, 0.2, // Sample 3
-    ];
-    let model_path = "examples/onnx/data/xgboost.onnx";
+use onnx_util::ONNXParser;
 
-    let (prove_onnx, verify_onnx) = guest::build_onnx();
-    let (output, proof) = prove_onnx(model_path, &input_data);
-    let is_valid = verify_onnx(proof);
-    assert!(is_valid, "Invalid output for ONNX implementation");
-    println!("Output: {}", output);
+pub fn main() {
+    let input_data = [50, 20];
+    // Use cnn.onnx instead of xgboost.onnx as per user's instruction
+    let model_path = "examples/onnx/data/cnn.onnx";
+
+    // Parse the ONNX model to get the computational graph
+    println!("Parsing ONNX model to get computational graph...");
+    let graph = match ONNXParser::load_model(model_path) {
+        Ok(g) => {
+            println!("Successfully parsed the model.");
+            g
+        }
+        Err(e) => {
+            println!("Failed to parse ONNX model: {}", e);
+            return;
+        }
+    };
+
+    // Execute the guest code with the computational graph
+    let (prove_execute_graph, verify_execute_graph) = guest::build_execute_graph();
+    let (output, proof) = prove_execute_graph(input_data);
+    let is_valid = verify_execute_graph(proof);
+    assert!(is_valid, "Invalid output for execute_graph");
+    println!("Output from execute_graph: {}", output);
 }
