@@ -11,6 +11,7 @@ ndarray = "0.16.1"
 anyhow = "1.0.75"
 onnx-util = { package = "onnx-util", path = "./util" }
 rand = "0.8.5"
+clap = "4.5.35"
 
 [features]
 icicle = ["jolt-sdk/icicle"]

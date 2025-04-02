@@ -3,7 +3,7 @@ use onnx_util::ONNXParser;
 pub fn main() {
     let input_data = [50, 20];
     // Use cnn.onnx instead of xgboost.onnx as per user's instruction
-    let model_path = "examples/onnx/data/cnn.onnx";
+    let model_path = "examples/onnx/data/linear.onnx";
 
     // Parse the ONNX model to get the computational graph
     println!("Parsing ONNX model to get computational graph...");

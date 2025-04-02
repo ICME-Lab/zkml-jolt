@@ -1,11 +1,19 @@
+use clap::Parser;
 use onnx_util::ONNXParser;
 use tract_onnx::prelude::*;
 
-pub fn main() {
-    println!("ONNX Parser Implementation Demo");
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Name of the person to greet
+    #[arg(short, long, default_value_t = String::from("examples/onnx/data/network_reg.onnx"))]
+    model_path: String,
+}
 
-    // Create a full path for the ONNX model
-    let model_path = "examples/onnx/data/int8_cnn.onnx";
+pub fn main() {
+    let args = Args::parse();
+    let model_path = args.model_path.as_str();
+    println!("ONNX Parser Implementation Demo");
 
     // Parse the ONNX model using our custom parser
     println!("\nParsing ONNX model with our custom parser...");

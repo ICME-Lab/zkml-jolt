@@ -1,18 +1,15 @@
 #![allow(unused_assignments, asm_sub_register)]
 
-use onnx_util::{ComputationalGraph, OP_INPUT};
+use onnx_util::ComputationalGraph;
 
 #[jolt::provable]
 fn execute_graph(graph: ComputationalGraph, input_data: [u32; 2]) -> u32 {
     // Process each node in the graph
-    for node in &graph.nodes {
-        // Skip input nodes
-        if node.op_type == OP_INPUT {
-            continue;
-        }
-
+    for node in &graph.nodes[1..] {
         let a = input_data[0]; // Placeholder for actual input data
         let b = input_data[1]; // Placeholder for actual input data
+
+        let _ = node.op_type;
 
         // For now, we'll just execute an add operation for any non-input node
         return execute_add_with_asm(a, b);
