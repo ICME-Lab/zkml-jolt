@@ -1898,7 +1898,7 @@ fn trace_j(inst: &Instruction, xlen: &Xlen, word: u32, address: u64) -> ELFInstr
     }
 }
 
-const INSTRUCTION_NUM: usize = 117;
+const INSTRUCTION_NUM: usize = 118;
 
 // @TODO: Reorder in often used order as
 pub const INSTRUCTIONS: [Instruction; INSTRUCTION_NUM] = [
@@ -3290,16 +3290,59 @@ pub const INSTRUCTIONS: [Instruction; INSTRUCTION_NUM] = [
     },
     Instruction {
         mask: 0xfe00707f,
+        data: 0x02003434,
+        name: "MATMUL",
+        operation: |cpu, word, _address| {
+            let format = parse_format_r(word);
+            let x = cpu.x[format.rs1];
+            let y = cpu.x[format.rs2];
+
+            let a = (x >> 48) & 0xffff;
+            let b = (x >> 32) & 0xffff;
+            let c = (x >> 16) & 0xffff;
+            let d = x & 0xffff;
+
+            let e = (y >> 48) & 0xffff;
+            let f = (y >> 32) & 0xffff;
+            let g = (y >> 16) & 0xffff;
+            let h = y & 0xffff;
+
+            let z0 = a.wrapping_mul(e).wrapping_add(b.wrapping_mul(g)) & 0xFFFF;
+            let z1 = a.wrapping_mul(f).wrapping_add(b.wrapping_mul(h)) & 0xFFFF;
+            let z2 = c.wrapping_mul(e).wrapping_add(d.wrapping_mul(g)) & 0xFFFF;
+            let z3 = c.wrapping_mul(f).wrapping_add(d.wrapping_mul(h)) & 0xFFFF;
+
+            cpu.x[format.rd] = cpu.sign_extend(((z0 << 48) | (z1 << 32) | (z2 << 16) | z3) as i64);
+            Ok(())
+        },
+        disassemble: dump_format_r,
+        trace: Some(trace_r),
+    },
+    Instruction {
+        mask: 0xfe00707f,
         data: 0x02007033,
         name: "REMU",
         operation: |cpu, word, _address| {
-            let f = parse_format_r(word);
-            let dividend = cpu.unsigned_data(cpu.x[f.rs1]);
-            let divisor = cpu.unsigned_data(cpu.x[f.rs2]);
-            cpu.x[f.rd] = match divisor {
-                0 => cpu.sign_extend(dividend as i64),
-                _ => cpu.sign_extend(dividend.wrapping_rem(divisor) as i64),
-            };
+            let format = parse_format_r(word);
+            let x = cpu.x[format.rs1];
+            let y = cpu.x[format.rs2];
+
+            let a = (x >> 48) & 0xffff;
+            let b = (x >> 32) & 0xffff;
+            let c = (x >> 16) & 0xffff;
+            let d = x & 0xffff;
+
+            let e = (y >> 48) & 0xffff;
+            let f = (y >> 32) & 0xffff;
+            let g = (y >> 16) & 0xffff;
+            let h = y & 0xffff;
+
+            let z0 = a.wrapping_mul(e).wrapping_add(b.wrapping_mul(g)) & 0xFFFF;
+            let z1 = a.wrapping_mul(f).wrapping_add(b.wrapping_mul(h)) & 0xFFFF;
+            let z2 = c.wrapping_mul(e).wrapping_add(d.wrapping_mul(g)) & 0xFFFF;
+            let z3 = c.wrapping_mul(f).wrapping_add(d.wrapping_mul(h)) & 0xFFFF;
+
+            cpu.x[format.rd] = cpu.sign_extend(((z0 << 48) | (z1 << 32) | (z2 << 16) | z3) as i64);
             Ok(())
         },
         disassemble: dump_format_r,

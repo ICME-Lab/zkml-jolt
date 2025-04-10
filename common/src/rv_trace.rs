@@ -522,7 +522,7 @@ impl FromStr for RV32IM {
             "DIV" => Ok(Self::DIV),
             "DIVU" => Ok(Self::DIVU),
             "REM" => Ok(Self::GBDT),
-            "REMU" => Ok(Self::REMU),
+            "REMU" => Ok(Self::MATMUL),
             "FENCE" => Ok(Self::FENCE),
             "UNIMPL" => Ok(Self::UNIMPL),
             "GBDT" => Ok(Self::GBDT),
