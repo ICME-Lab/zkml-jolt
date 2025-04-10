@@ -1,7 +1,7 @@
 use onnx_util::ONNXParser;
 
 pub fn main() {
-    let input_data = [[50, 20], [30, 40]];
+    let input_data = [[5, 2], [3, 4]];
     // Use cnn.onnx instead of xgboost.onnx as per user's instruction
     let model_path = "examples/onnx/data/linear.onnx";
 

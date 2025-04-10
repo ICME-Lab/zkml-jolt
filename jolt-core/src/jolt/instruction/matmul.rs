@@ -322,23 +322,6 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for MATMULInstruction<WO
     }
 }
 
-// #[cfg(test)]
-// mod test {
-//     use super::*;
-//     use crate::{jolt::instruction::JoltInstruction, jolt_virtual_sequence_test};
-//             advice_value: None,
-//             precompile_input: None,
-//             precompile_output_address: None,
-//         });
-
-//         virtual_trace
-//     }
-
-//     fn sequence_output(x: u64, y: u64) -> u64 {
-//         Self::matrix_multiply(x, y)
-//     }
-// }
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -347,5 +330,13 @@ mod test {
     #[test]
     fn gradient_boost_sequence_32() {
         jolt_virtual_sequence_test!(MATMULInstruction<32>, RV32IM::MATMUL);
+    }
+
+    #[test]
+    fn test_mat2uint() {
+        let matrix: [[u32; 2]; 2] = [[100, 200], [220, 250]];
+        let packed = MATMULInstruction::<32>::mat2uint(matrix);
+        let unpacked = MATMULInstruction::<32>::uint2mat(packed);
+        assert_eq!(matrix, unpacked);
     }
 }
