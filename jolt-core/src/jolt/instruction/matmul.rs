@@ -2,6 +2,7 @@ use common::constants::virtual_register_index;
 use tracer::{ELFInstruction, RVTraceRow, RegisterState, RV32IM};
 
 use super::VirtualInstructionSequence;
+use crate::jolt::instruction::{add::ADDInstruction, mulu::MULUInstruction, JoltInstruction};
 
 pub struct MATMULInstruction<const WORD_SIZE: usize>;
 
@@ -66,60 +67,515 @@ impl<const WORD_SIZE: usize> MATMULInstruction<WORD_SIZE> {
 
 impl<const WORD_SIZE: usize> VirtualInstructionSequence for MATMULInstruction<WORD_SIZE> {
     // We need several instructions to perform the matrix multiplication:
-    // 1. Extract the elements from input matrices
-    // 2. Perform multiplications
-    // 3. Perform additions
-    // 4. Combine the results
-    const SEQUENCE_LENGTH: usize = 10;
+    // 1. Extract the elements from input matrices (8 registers)
+    // 2. Perform multiplications (8 operations)
+    // 3. Perform additions (4 operations)
+    // 4. Create the final packed result (1 operation)
+    // 5. Move the result to the destination register (1 operation)
+    const SEQUENCE_LENGTH: usize = 22;
 
     fn virtual_trace(trace_row: RVTraceRow) -> Vec<RVTraceRow> {
+        assert_eq!(trace_row.instruction.opcode, RV32IM::MATMUL);
+
         // Input matrices
         let x = trace_row.register_state.rs1_val.unwrap();
         let y = trace_row.register_state.rs2_val.unwrap();
 
-        // Virtual registers
-        let v0 = Some(virtual_register_index(0)); // For intermediate values
-        let v1 = Some(virtual_register_index(1));
-        let v2 = Some(virtual_register_index(2));
-        let v3 = Some(virtual_register_index(3));
-        let v4 = Some(virtual_register_index(4));
-        let v5 = Some(virtual_register_index(5));
-        let v6 = Some(virtual_register_index(6));
-        let v7 = Some(virtual_register_index(7));
-        let v8 = Some(virtual_register_index(8));
+        // Create registers for matrix elements and intermediate results
+        let r_a00 = Some(virtual_register_index(0)); // left matrix elements
+        let r_a01 = Some(virtual_register_index(1));
+        let r_a10 = Some(virtual_register_index(2));
+        let r_a11 = Some(virtual_register_index(3));
+
+        let r_b00 = Some(virtual_register_index(4)); // right matrix elements
+        let r_b01 = Some(virtual_register_index(5));
+        let r_b10 = Some(virtual_register_index(6));
+        let r_b11 = Some(virtual_register_index(7));
+
+        let r_mul1 = Some(virtual_register_index(8)); // Intermediate multiplication results
+        let r_mul2 = Some(virtual_register_index(9));
+        let r_mul3 = Some(virtual_register_index(10));
+        let r_mul4 = Some(virtual_register_index(11));
+        let r_mul5 = Some(virtual_register_index(12));
+        let r_mul6 = Some(virtual_register_index(13));
+        let r_mul7 = Some(virtual_register_index(14));
+        let r_mul8 = Some(virtual_register_index(15));
+
+        let r_add1 = Some(virtual_register_index(16)); // Intermediate addition results
+        let r_add2 = Some(virtual_register_index(17));
+        let r_add3 = Some(virtual_register_index(18));
+        let r_add4 = Some(virtual_register_index(19));
+
+        let r_result = Some(virtual_register_index(20)); // Final result
 
         let mut virtual_trace: Vec<RVTraceRow> = vec![];
 
-        // Calculate the final result of the matrix multiplication
-        let result = Self::matrix_multiply(x, y);
-
         // Extract elements from matrices
-        // Left matrix elements: a, b, c, d
         let a = Self::uint2mat(x as u32);
         let b = Self::uint2mat(y as u32);
 
-        // Step 1: Store matrix elements into virtual registers using ADVICEInstruction
-        // Store a, b, c, d (from left matrix)
+        // Calculate ahead of time for validation
+        let _expected_result = Self::matrix_multiply(x, y);
+
+        // Step 1: Store left matrix elements into virtual registers
+        let a00_val = a[0][0] as u64;
         virtual_trace.push(RVTraceRow {
             instruction: ELFInstruction {
                 address: trace_row.instruction.address,
                 opcode: RV32IM::VIRTUAL_ADVICE,
                 rs1: None,
                 rs2: None,
-                rd: v0,
+                rd: r_a00,
                 imm: None,
-                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
+                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - 1 - virtual_trace.len()),
             },
             register_state: RegisterState {
                 rs1_val: None,
                 rs2_val: None,
-                rd_post_val: Some(a[0][0] as u64),
+                rd_post_val: Some(a00_val),
             },
             memory_state: None,
-            advice_value: Some(a[0][0] as u64),
+            advice_value: Some(a00_val),
             precompile_input: None,
             precompile_output_address: None,
         });
+
+        let a01_val = a[0][1] as u64;
+        virtual_trace.push(RVTraceRow {
+            instruction: ELFInstruction {
+                address: trace_row.instruction.address,
+                opcode: RV32IM::VIRTUAL_ADVICE,
+                rs1: None,
+                rs2: None,
+                rd: r_a01,
+                imm: None,
+                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - 1 - virtual_trace.len()),
+            },
+            register_state: RegisterState {
+                rs1_val: None,
+                rs2_val: None,
+                rd_post_val: Some(a01_val),
+            },
+            memory_state: None,
+            advice_value: Some(a01_val),
+            precompile_input: None,
+            precompile_output_address: None,
+        });
+
+        let a10_val = a[1][0] as u64;
+        virtual_trace.push(RVTraceRow {
+            instruction: ELFInstruction {
+                address: trace_row.instruction.address,
+                opcode: RV32IM::VIRTUAL_ADVICE,
+                rs1: None,
+                rs2: None,
+                rd: r_a10,
+                imm: None,
+                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - 1 - virtual_trace.len()),
+            },
+            register_state: RegisterState {
+                rs1_val: None,
+                rs2_val: None,
+                rd_post_val: Some(a10_val),
+            },
+            memory_state: None,
+            advice_value: Some(a10_val),
+            precompile_input: None,
+            precompile_output_address: None,
+        });
+
+        let a11_val = a[1][1] as u64;
+        virtual_trace.push(RVTraceRow {
+            instruction: ELFInstruction {
+                address: trace_row.instruction.address,
+                opcode: RV32IM::VIRTUAL_ADVICE,
+                rs1: None,
+                rs2: None,
+                rd: r_a11,
+                imm: None,
+                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - 1 - virtual_trace.len()),
+            },
+            register_state: RegisterState {
+                rs1_val: None,
+                rs2_val: None,
+                rd_post_val: Some(a11_val),
+            },
+            memory_state: None,
+            advice_value: Some(a11_val),
+            precompile_input: None,
+            precompile_output_address: None,
+        });
+
+        // Step 2: Store right matrix elements into virtual registers
+        let b00_val = b[0][0] as u64;
+        virtual_trace.push(RVTraceRow {
+            instruction: ELFInstruction {
+                address: trace_row.instruction.address,
+                opcode: RV32IM::VIRTUAL_ADVICE,
+                rs1: None,
+                rs2: None,
+                rd: r_b00,
+                imm: None,
+                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - 1 - virtual_trace.len()),
+            },
+            register_state: RegisterState {
+                rs1_val: None,
+                rs2_val: None,
+                rd_post_val: Some(b00_val),
+            },
+            memory_state: None,
+            advice_value: Some(b00_val),
+            precompile_input: None,
+            precompile_output_address: None,
+        });
+
+        let b01_val = b[0][1] as u64;
+        virtual_trace.push(RVTraceRow {
+            instruction: ELFInstruction {
+                address: trace_row.instruction.address,
+                opcode: RV32IM::VIRTUAL_ADVICE,
+                rs1: None,
+                rs2: None,
+                rd: r_b01,
+                imm: None,
+                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - 1 - virtual_trace.len()),
+            },
+            register_state: RegisterState {
+                rs1_val: None,
+                rs2_val: None,
+                rd_post_val: Some(b01_val),
+            },
+            memory_state: None,
+            advice_value: Some(b01_val),
+            precompile_input: None,
+            precompile_output_address: None,
+        });
+
+        let b10_val = b[1][0] as u64;
+        virtual_trace.push(RVTraceRow {
+            instruction: ELFInstruction {
+                address: trace_row.instruction.address,
+                opcode: RV32IM::VIRTUAL_ADVICE,
+                rs1: None,
+                rs2: None,
+                rd: r_b10,
+                imm: None,
+                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - 1 - virtual_trace.len()),
+            },
+            register_state: RegisterState {
+                rs1_val: None,
+                rs2_val: None,
+                rd_post_val: Some(b10_val),
+            },
+            memory_state: None,
+            advice_value: Some(b10_val),
+            precompile_input: None,
+            precompile_output_address: None,
+        });
+
+        let b11_val = b[1][1] as u64;
+        virtual_trace.push(RVTraceRow {
+            instruction: ELFInstruction {
+                address: trace_row.instruction.address,
+                opcode: RV32IM::VIRTUAL_ADVICE,
+                rs1: None,
+                rs2: None,
+                rd: r_b11,
+                imm: None,
+                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - 1 - virtual_trace.len()),
+            },
+            register_state: RegisterState {
+                rs1_val: None,
+                rs2_val: None,
+                rd_post_val: Some(b11_val),
+            },
+            memory_state: None,
+            advice_value: Some(b11_val),
+            precompile_input: None,
+            precompile_output_address: None,
+        });
+
+        // Step 3: Perform multiplications using MULU
+        // c00 = a00*b00 + a01*b10
+        let mul1_val = MULUInstruction::<WORD_SIZE>(a00_val, b00_val).lookup_entry();
+        virtual_trace.push(RVTraceRow {
+            instruction: ELFInstruction {
+                address: trace_row.instruction.address,
+                opcode: RV32IM::MULU,
+                rs1: r_a00,
+                rs2: r_b00,
+                rd: r_mul1,
+                imm: None,
+                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - 1 - virtual_trace.len()),
+            },
+            register_state: RegisterState {
+                rs1_val: Some(a00_val),
+                rs2_val: Some(b00_val),
+                rd_post_val: Some(mul1_val),
+            },
+            memory_state: None,
+            advice_value: None,
+            precompile_input: None,
+            precompile_output_address: None,
+        });
+
+        let mul2_val = MULUInstruction::<WORD_SIZE>(a01_val, b10_val).lookup_entry();
+        virtual_trace.push(RVTraceRow {
+            instruction: ELFInstruction {
+                address: trace_row.instruction.address,
+                opcode: RV32IM::MULU,
+                rs1: r_a01,
+                rs2: r_b10,
+                rd: r_mul2,
+                imm: None,
+                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - 1 - virtual_trace.len()),
+            },
+            register_state: RegisterState {
+                rs1_val: Some(a01_val),
+                rs2_val: Some(b10_val),
+                rd_post_val: Some(mul2_val),
+            },
+            memory_state: None,
+            advice_value: None,
+            precompile_input: None,
+            precompile_output_address: None,
+        });
+
+        // c01 = a00*b01 + a01*b11
+        let mul3_val = MULUInstruction::<WORD_SIZE>(a00_val, b01_val).lookup_entry();
+        virtual_trace.push(RVTraceRow {
+            instruction: ELFInstruction {
+                address: trace_row.instruction.address,
+                opcode: RV32IM::MULU,
+                rs1: r_a00,
+                rs2: r_b01,
+                rd: r_mul3,
+                imm: None,
+                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - 1 - virtual_trace.len()),
+            },
+            register_state: RegisterState {
+                rs1_val: Some(a00_val),
+                rs2_val: Some(b01_val),
+                rd_post_val: Some(mul3_val),
+            },
+            memory_state: None,
+            advice_value: None,
+            precompile_input: None,
+            precompile_output_address: None,
+        });
+
+        let mul4_val = MULUInstruction::<WORD_SIZE>(a01_val, b11_val).lookup_entry();
+        virtual_trace.push(RVTraceRow {
+            instruction: ELFInstruction {
+                address: trace_row.instruction.address,
+                opcode: RV32IM::MULU,
+                rs1: r_a01,
+                rs2: r_b11,
+                rd: r_mul4,
+                imm: None,
+                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - 1 - virtual_trace.len()),
+            },
+            register_state: RegisterState {
+                rs1_val: Some(a01_val),
+                rs2_val: Some(b11_val),
+                rd_post_val: Some(mul4_val),
+            },
+            memory_state: None,
+            advice_value: None,
+            precompile_input: None,
+            precompile_output_address: None,
+        });
+
+        // c10 = a10*b00 + a11*b10
+        let mul5_val = MULUInstruction::<WORD_SIZE>(a10_val, b00_val).lookup_entry();
+        virtual_trace.push(RVTraceRow {
+            instruction: ELFInstruction {
+                address: trace_row.instruction.address,
+                opcode: RV32IM::MULU,
+                rs1: r_a10,
+                rs2: r_b00,
+                rd: r_mul5,
+                imm: None,
+                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - 1 - virtual_trace.len()),
+            },
+            register_state: RegisterState {
+                rs1_val: Some(a10_val),
+                rs2_val: Some(b00_val),
+                rd_post_val: Some(mul5_val),
+            },
+            memory_state: None,
+            advice_value: None,
+            precompile_input: None,
+            precompile_output_address: None,
+        });
+
+        let mul6_val = MULUInstruction::<WORD_SIZE>(a11_val, b10_val).lookup_entry();
+        virtual_trace.push(RVTraceRow {
+            instruction: ELFInstruction {
+                address: trace_row.instruction.address,
+                opcode: RV32IM::MULU,
+                rs1: r_a11,
+                rs2: r_b10,
+                rd: r_mul6,
+                imm: None,
+                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - 1 - virtual_trace.len()),
+            },
+            register_state: RegisterState {
+                rs1_val: Some(a11_val),
+                rs2_val: Some(b10_val),
+                rd_post_val: Some(mul6_val),
+            },
+            memory_state: None,
+            advice_value: None,
+            precompile_input: None,
+            precompile_output_address: None,
+        });
+
+        // c11 = a10*b01 + a11*b11
+        let mul7_val = MULUInstruction::<WORD_SIZE>(a10_val, b01_val).lookup_entry();
+        virtual_trace.push(RVTraceRow {
+            instruction: ELFInstruction {
+                address: trace_row.instruction.address,
+                opcode: RV32IM::MULU,
+                rs1: r_a10,
+                rs2: r_b01,
+                rd: r_mul7,
+                imm: None,
+                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - 1 - virtual_trace.len()),
+            },
+            register_state: RegisterState {
+                rs1_val: Some(a10_val),
+                rs2_val: Some(b01_val),
+                rd_post_val: Some(mul7_val),
+            },
+            memory_state: None,
+            advice_value: None,
+            precompile_input: None,
+            precompile_output_address: None,
+        });
+
+        let mul8_val = MULUInstruction::<WORD_SIZE>(a11_val, b11_val).lookup_entry();
+        virtual_trace.push(RVTraceRow {
+            instruction: ELFInstruction {
+                address: trace_row.instruction.address,
+                opcode: RV32IM::MULU,
+                rs1: r_a11,
+                rs2: r_b11,
+                rd: r_mul8,
+                imm: None,
+                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - 1 - virtual_trace.len()),
+            },
+            register_state: RegisterState {
+                rs1_val: Some(a11_val),
+                rs2_val: Some(b11_val),
+                rd_post_val: Some(mul8_val),
+            },
+            memory_state: None,
+            advice_value: None,
+            precompile_input: None,
+            precompile_output_address: None,
+        });
+
+        // Step 4: Perform additions to compute final matrix elements
+        // c00 = mul1 + mul2
+        let add1_val = ADDInstruction::<WORD_SIZE>(mul1_val, mul2_val).lookup_entry();
+        virtual_trace.push(RVTraceRow {
+            instruction: ELFInstruction {
+                address: trace_row.instruction.address,
+                opcode: RV32IM::ADD,
+                rs1: r_mul1,
+                rs2: r_mul2,
+                rd: r_add1,
+                imm: None,
+                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - 1 - virtual_trace.len()),
+            },
+            register_state: RegisterState {
+                rs1_val: Some(mul1_val),
+                rs2_val: Some(mul2_val),
+                rd_post_val: Some(add1_val),
+            },
+            memory_state: None,
+            advice_value: None,
+            precompile_input: None,
+            precompile_output_address: None,
+        });
+
+        // c01 = mul3 + mul4
+        let add2_val = ADDInstruction::<WORD_SIZE>(mul3_val, mul4_val).lookup_entry();
+        virtual_trace.push(RVTraceRow {
+            instruction: ELFInstruction {
+                address: trace_row.instruction.address,
+                opcode: RV32IM::ADD,
+                rs1: r_mul3,
+                rs2: r_mul4,
+                rd: r_add2,
+                imm: None,
+                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - 1 - virtual_trace.len()),
+            },
+            register_state: RegisterState {
+                rs1_val: Some(mul3_val),
+                rs2_val: Some(mul4_val),
+                rd_post_val: Some(add2_val),
+            },
+            memory_state: None,
+            advice_value: None,
+            precompile_input: None,
+            precompile_output_address: None,
+        });
+
+        // c10 = mul5 + mul6
+        let add3_val = ADDInstruction::<WORD_SIZE>(mul5_val, mul6_val).lookup_entry();
+        virtual_trace.push(RVTraceRow {
+            instruction: ELFInstruction {
+                address: trace_row.instruction.address,
+                opcode: RV32IM::ADD,
+                rs1: r_mul5,
+                rs2: r_mul6,
+                rd: r_add3,
+                imm: None,
+                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - 1 - virtual_trace.len()),
+            },
+            register_state: RegisterState {
+                rs1_val: Some(mul5_val),
+                rs2_val: Some(mul6_val),
+                rd_post_val: Some(add3_val),
+            },
+            memory_state: None,
+            advice_value: None,
+            precompile_input: None,
+            precompile_output_address: None,
+        });
+
+        // c11 = mul7 + mul8
+        let add4_val = ADDInstruction::<WORD_SIZE>(mul7_val, mul8_val).lookup_entry();
+        virtual_trace.push(RVTraceRow {
+            instruction: ELFInstruction {
+                address: trace_row.instruction.address,
+                opcode: RV32IM::ADD,
+                rs1: r_mul7,
+                rs2: r_mul8,
+                rd: r_add4,
+                imm: None,
+                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - 1 - virtual_trace.len()),
+            },
+            register_state: RegisterState {
+                rs1_val: Some(mul7_val),
+                rs2_val: Some(mul8_val),
+                rd_post_val: Some(add4_val),
+            },
+            memory_state: None,
+            advice_value: None,
+            precompile_input: None,
+            precompile_output_address: None,
+        });
+
+        // Step 5: Create the final result - pack the computed values into a single integer
+        // This is a more complex operation, so we'll use ADVICE to guide it
+        let result_matrix = [
+            [add1_val as u32 & 0xFF, add2_val as u32 & 0xFF],
+            [add3_val as u32 & 0xFF, add4_val as u32 & 0xFF],
+        ];
+        let packed_result = Self::mat2uint(result_matrix) as u64;
 
         virtual_trace.push(RVTraceRow {
             instruction: ELFInstruction {
@@ -127,186 +583,36 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for MATMULInstruction<WO
                 opcode: RV32IM::VIRTUAL_ADVICE,
                 rs1: None,
                 rs2: None,
-                rd: v1,
+                rd: r_result,
                 imm: None,
-                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
+                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - 1 - virtual_trace.len()),
             },
             register_state: RegisterState {
                 rs1_val: None,
                 rs2_val: None,
-                rd_post_val: Some(a[0][1] as u64),
+                rd_post_val: Some(packed_result),
             },
             memory_state: None,
-            advice_value: Some(a[0][1] as u64),
+            advice_value: Some(packed_result),
             precompile_input: None,
             precompile_output_address: None,
         });
 
-        virtual_trace.push(RVTraceRow {
-            instruction: ELFInstruction {
-                address: trace_row.instruction.address,
-                opcode: RV32IM::VIRTUAL_ADVICE,
-                rs1: None,
-                rs2: None,
-                rd: v2,
-                imm: None,
-                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
-            },
-            register_state: RegisterState {
-                rs1_val: None,
-                rs2_val: None,
-                rd_post_val: Some(a[1][0] as u64),
-            },
-            memory_state: None,
-            advice_value: Some(a[1][0] as u64),
-            precompile_input: None,
-            precompile_output_address: None,
-        });
-
-        virtual_trace.push(RVTraceRow {
-            instruction: ELFInstruction {
-                address: trace_row.instruction.address,
-                opcode: RV32IM::VIRTUAL_ADVICE,
-                rs1: None,
-                rs2: None,
-                rd: v3,
-                imm: None,
-                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
-            },
-            register_state: RegisterState {
-                rs1_val: None,
-                rs2_val: None,
-                rd_post_val: Some(a[1][1] as u64),
-            },
-            memory_state: None,
-            advice_value: Some(a[1][1] as u64),
-            precompile_input: None,
-            precompile_output_address: None,
-        });
-
-        // Store e, f, g, h (from right matrix)
-        virtual_trace.push(RVTraceRow {
-            instruction: ELFInstruction {
-                address: trace_row.instruction.address,
-                opcode: RV32IM::VIRTUAL_ADVICE,
-                rs1: None,
-                rs2: None,
-                rd: v4,
-                imm: None,
-                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
-            },
-            register_state: RegisterState {
-                rs1_val: None,
-                rs2_val: None,
-                rd_post_val: Some(b[0][0] as u64),
-            },
-            memory_state: None,
-            advice_value: Some(b[0][0] as u64),
-            precompile_input: None,
-            precompile_output_address: None,
-        });
-
-        virtual_trace.push(RVTraceRow {
-            instruction: ELFInstruction {
-                address: trace_row.instruction.address,
-                opcode: RV32IM::VIRTUAL_ADVICE,
-                rs1: None,
-                rs2: None,
-                rd: v5,
-                imm: None,
-                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
-            },
-            register_state: RegisterState {
-                rs1_val: None,
-                rs2_val: None,
-                rd_post_val: Some(b[0][1] as u64),
-            },
-            memory_state: None,
-            advice_value: Some(b[0][1] as u64),
-            precompile_input: None,
-            precompile_output_address: None,
-        });
-
-        virtual_trace.push(RVTraceRow {
-            instruction: ELFInstruction {
-                address: trace_row.instruction.address,
-                opcode: RV32IM::VIRTUAL_ADVICE,
-                rs1: None,
-                rs2: None,
-                rd: v6,
-                imm: None,
-                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
-            },
-            register_state: RegisterState {
-                rs1_val: None,
-                rs2_val: None,
-                rd_post_val: Some(b[1][0] as u64),
-            },
-            memory_state: None,
-            advice_value: Some(b[1][0] as u64),
-            precompile_input: None,
-            precompile_output_address: None,
-        });
-
-        virtual_trace.push(RVTraceRow {
-            instruction: ELFInstruction {
-                address: trace_row.instruction.address,
-                opcode: RV32IM::VIRTUAL_ADVICE,
-                rs1: None,
-                rs2: None,
-                rd: v7,
-                imm: None,
-                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
-            },
-            register_state: RegisterState {
-                rs1_val: None,
-                rs2_val: None,
-                rd_post_val: Some(b[1][1] as u64),
-            },
-            memory_state: None,
-            advice_value: Some(b[1][1] as u64),
-            precompile_input: None,
-            precompile_output_address: None,
-        });
-
-        // Step 2: Get the final result directly using ADVICEInstruction
-        // instead of calculating it step by step for simplicity
-        virtual_trace.push(RVTraceRow {
-            instruction: ELFInstruction {
-                address: trace_row.instruction.address,
-                opcode: RV32IM::VIRTUAL_ADVICE,
-                rs1: None,
-                rs2: None,
-                rd: v8,
-                imm: None,
-                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
-            },
-            register_state: RegisterState {
-                rs1_val: None,
-                rs2_val: None,
-                rd_post_val: Some(result),
-            },
-            memory_state: None,
-            advice_value: Some(result),
-            precompile_input: None,
-            precompile_output_address: None,
-        });
-
-        // Step 3: Move the result to the destination register
+        // Step 6: Move the result to the destination register
         virtual_trace.push(RVTraceRow {
             instruction: ELFInstruction {
                 address: trace_row.instruction.address,
                 opcode: RV32IM::VIRTUAL_MOVE,
-                rs1: v8,
+                rs1: r_result,
                 rs2: None,
                 rd: trace_row.instruction.rd,
                 imm: None,
-                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
+                virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - 1 - virtual_trace.len()),
             },
             register_state: RegisterState {
-                rs1_val: Some(result),
+                rs1_val: Some(packed_result),
                 rs2_val: None,
-                rd_post_val: Some(result),
+                rd_post_val: Some(packed_result),
             },
             memory_state: None,
             advice_value: None,
