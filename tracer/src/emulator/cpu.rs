@@ -3324,25 +3324,43 @@ pub const INSTRUCTIONS: [Instruction; INSTRUCTION_NUM] = [
         name: "REMU",
         operation: |cpu, word, _address| {
             let format = parse_format_r(word);
-            let x = cpu.x[format.rs1];
-            let y = cpu.x[format.rs2];
+            let x = cpu.x[format.rs1] as u32;
+            let y = cpu.x[format.rs2] as u32;
 
-            let a = (x >> 48) & 0xffff;
-            let b = (x >> 32) & 0xffff;
-            let c = (x >> 16) & 0xffff;
-            let d = x & 0xffff;
+            let a = [
+                [((x >> 24) & 0xFF) as u32, ((x >> 16) & 0xFF) as u32],
+                [((x >> 8) & 0xFF) as u32, (x & 0xFF) as u32],
+            ];
+            let b = [
+                [((y >> 24) & 0xFF) as u32, ((y >> 16) & 0xFF) as u32],
+                [((y >> 8) & 0xFF) as u32, (y & 0xFF) as u32],
+            ];
 
-            let e = (y >> 48) & 0xffff;
-            let f = (y >> 32) & 0xffff;
-            let g = (y >> 16) & 0xffff;
-            let h = y & 0xffff;
+            let z = [
+                [
+                    a[0][0]
+                        .wrapping_mul(b[0][0])
+                        .wrapping_add(a[0][1].wrapping_mul(b[1][0])),
+                    a[0][0]
+                        .wrapping_mul(b[0][1])
+                        .wrapping_add(a[0][1].wrapping_mul(b[1][1])),
+                ],
+                [
+                    a[1][0]
+                        .wrapping_mul(b[0][0])
+                        .wrapping_add(a[1][1].wrapping_mul(b[1][0])),
+                    a[1][0]
+                        .wrapping_mul(b[0][1])
+                        .wrapping_add(a[1][1].wrapping_mul(b[1][1])),
+                ],
+            ];
 
-            let z0 = a.wrapping_mul(e).wrapping_add(b.wrapping_mul(g)) & 0xFFFF;
-            let z1 = a.wrapping_mul(f).wrapping_add(b.wrapping_mul(h)) & 0xFFFF;
-            let z2 = c.wrapping_mul(e).wrapping_add(d.wrapping_mul(g)) & 0xFFFF;
-            let z3 = c.wrapping_mul(f).wrapping_add(d.wrapping_mul(h)) & 0xFFFF;
-
-            cpu.x[format.rd] = cpu.sign_extend(((z0 << 48) | (z1 << 32) | (z2 << 16) | z3) as i64);
+            cpu.x[format.rd] = cpu.sign_extend(
+                (((z[0][0] & 0xFF) << 24)
+                    | ((z[0][1] & 0xFF) << 16)
+                    | ((z[1][0] & 0xFF) << 8)
+                    | (z[1][1] & 0xFF)) as i64,
+            );
             Ok(())
         },
         disassemble: dump_format_r,

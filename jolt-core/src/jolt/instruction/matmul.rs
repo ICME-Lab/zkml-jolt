@@ -6,35 +6,61 @@ use super::VirtualInstructionSequence;
 pub struct MATMULInstruction<const WORD_SIZE: usize>;
 
 impl<const WORD_SIZE: usize> MATMULInstruction<WORD_SIZE> {
+    /// Converts a 2x2 matrix to a 64-bit integer
+    /// Each element is stored as a 16-bit value in the result
+    /// Matrix format: [[a, b], [c, d]] -> 0xAAAABBBBCCCCDDDD
+    pub fn mat2uint(matrix: [[u32; 2]; 2]) -> u32 {
+        let a = (matrix[0][0] & 0xFF) << 24;
+        let b = (matrix[0][1] & 0xFF) << 16;
+        let c = (matrix[1][0] & 0xFF) << 8;
+        let d = matrix[1][1] & 0xFF;
+
+        a | b | c | d
+    }
+
+    /// Converts a 64-bit integer to a 2x2 matrix
+    /// Each 16-bit segment is extracted into a matrix element
+    /// Integer format: 0xAAAABBBBCCCCDDDD -> [[a, b], [c, d]]
+    pub fn uint2mat(val: u32) -> [[u32; 2]; 2] {
+        let a = (val >> 24) & 0xFF;
+        let b = (val >> 16) & 0xFF;
+        let c = (val >> 8) & 0xFF;
+        let d = val & 0xFF;
+
+        [[a, b], [c, d]]
+    }
+
     // Simple matrix multiplication operation for 2x2 matrices
     // The matrices are represented as flattened arrays in row-major order
     // Input: x = [a, b, c, d], y = [e, f, g, h]
     // Output: z = [a*e + b*g, a*f + b*h, c*e + d*g, c*f + d*h]
     fn matrix_multiply(left: u64, right: u64) -> u64 {
         // Extract the matrix elements from the inputs
-        // For this simple implementation, we're assuming 2x2 matrices
-        // Each element is 16 bits, allowing us to pack the entire matrix into a 64-bit value
+        let left_mat = Self::uint2mat(left as u32);
+        let right_mat = Self::uint2mat(right as u32);
 
-        // Extract elements from left matrix
-        let a = (left >> 48) & 0xFFFF;
-        let b = (left >> 32) & 0xFFFF;
-        let c = (left >> 16) & 0xFFFF;
-        let d = left & 0xFFFF;
+        // Perform matrix multiplication
+        let result = [
+            [
+                left_mat[0][0]
+                    .wrapping_mul(right_mat[0][0])
+                    .wrapping_add(left_mat[0][1].wrapping_mul(right_mat[1][0])),
+                left_mat[0][0]
+                    .wrapping_mul(right_mat[0][1])
+                    .wrapping_add(left_mat[0][1].wrapping_mul(right_mat[1][1])),
+            ],
+            [
+                left_mat[1][0]
+                    .wrapping_mul(right_mat[0][0])
+                    .wrapping_add(left_mat[1][1].wrapping_mul(right_mat[1][0])),
+                left_mat[1][0]
+                    .wrapping_mul(right_mat[0][1])
+                    .wrapping_add(left_mat[1][1].wrapping_mul(right_mat[1][1])),
+            ],
+        ];
 
-        // Extract elements from right matrix
-        let e = (right >> 48) & 0xFFFF;
-        let f = (right >> 32) & 0xFFFF;
-        let g = (right >> 16) & 0xFFFF;
-        let h = right & 0xFFFF;
-
-        // Compute the result matrix
-        let z0 = a.wrapping_mul(e).wrapping_add(b.wrapping_mul(g)) & 0xFFFF;
-        let z1 = a.wrapping_mul(f).wrapping_add(b.wrapping_mul(h)) & 0xFFFF;
-        let z2 = c.wrapping_mul(e).wrapping_add(d.wrapping_mul(g)) & 0xFFFF;
-        let z3 = c.wrapping_mul(f).wrapping_add(d.wrapping_mul(h)) & 0xFFFF;
-
-        // Pack the result into a 64-bit value
-        (z0 << 48) | (z1 << 32) | (z2 << 16) | z3
+        // Convert the result back to a 64-bit integer
+        Self::mat2uint(result) as u64
     }
 }
 
@@ -69,16 +95,8 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for MATMULInstruction<WO
 
         // Extract elements from matrices
         // Left matrix elements: a, b, c, d
-        let a = (x >> 48) & 0xFFFF;
-        let b = (x >> 32) & 0xFFFF;
-        let c = (x >> 16) & 0xFFFF;
-        let d = x & 0xFFFF;
-
-        // Right matrix elements: e, f, g, h
-        let e = (y >> 48) & 0xFFFF;
-        let f = (y >> 32) & 0xFFFF;
-        let g = (y >> 16) & 0xFFFF;
-        let h = y & 0xFFFF;
+        let a = Self::uint2mat(x as u32);
+        let b = Self::uint2mat(y as u32);
 
         // Step 1: Store matrix elements into virtual registers using ADVICEInstruction
         // Store a, b, c, d (from left matrix)
@@ -95,10 +113,10 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for MATMULInstruction<WO
             register_state: RegisterState {
                 rs1_val: None,
                 rs2_val: None,
-                rd_post_val: Some(a),
+                rd_post_val: Some(a[0][0] as u64),
             },
             memory_state: None,
-            advice_value: Some(a),
+            advice_value: Some(a[0][0] as u64),
             precompile_input: None,
             precompile_output_address: None,
         });
@@ -116,10 +134,10 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for MATMULInstruction<WO
             register_state: RegisterState {
                 rs1_val: None,
                 rs2_val: None,
-                rd_post_val: Some(b),
+                rd_post_val: Some(a[0][1] as u64),
             },
             memory_state: None,
-            advice_value: Some(b),
+            advice_value: Some(a[0][1] as u64),
             precompile_input: None,
             precompile_output_address: None,
         });
@@ -137,10 +155,10 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for MATMULInstruction<WO
             register_state: RegisterState {
                 rs1_val: None,
                 rs2_val: None,
-                rd_post_val: Some(c),
+                rd_post_val: Some(a[1][0] as u64),
             },
             memory_state: None,
-            advice_value: Some(c),
+            advice_value: Some(a[1][0] as u64),
             precompile_input: None,
             precompile_output_address: None,
         });
@@ -158,10 +176,10 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for MATMULInstruction<WO
             register_state: RegisterState {
                 rs1_val: None,
                 rs2_val: None,
-                rd_post_val: Some(d),
+                rd_post_val: Some(a[1][1] as u64),
             },
             memory_state: None,
-            advice_value: Some(d),
+            advice_value: Some(a[1][1] as u64),
             precompile_input: None,
             precompile_output_address: None,
         });
@@ -180,10 +198,10 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for MATMULInstruction<WO
             register_state: RegisterState {
                 rs1_val: None,
                 rs2_val: None,
-                rd_post_val: Some(e),
+                rd_post_val: Some(b[0][0] as u64),
             },
             memory_state: None,
-            advice_value: Some(e),
+            advice_value: Some(b[0][0] as u64),
             precompile_input: None,
             precompile_output_address: None,
         });
@@ -201,10 +219,10 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for MATMULInstruction<WO
             register_state: RegisterState {
                 rs1_val: None,
                 rs2_val: None,
-                rd_post_val: Some(f),
+                rd_post_val: Some(b[0][1] as u64),
             },
             memory_state: None,
-            advice_value: Some(f),
+            advice_value: Some(b[0][1] as u64),
             precompile_input: None,
             precompile_output_address: None,
         });
@@ -222,10 +240,10 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for MATMULInstruction<WO
             register_state: RegisterState {
                 rs1_val: None,
                 rs2_val: None,
-                rd_post_val: Some(g),
+                rd_post_val: Some(b[1][0] as u64),
             },
             memory_state: None,
-            advice_value: Some(g),
+            advice_value: Some(b[1][0] as u64),
             precompile_input: None,
             precompile_output_address: None,
         });
@@ -243,10 +261,10 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for MATMULInstruction<WO
             register_state: RegisterState {
                 rs1_val: None,
                 rs2_val: None,
-                rd_post_val: Some(h),
+                rd_post_val: Some(b[1][1] as u64),
             },
             memory_state: None,
-            advice_value: Some(h),
+            advice_value: Some(b[1][1] as u64),
             precompile_input: None,
             precompile_output_address: None,
         });
@@ -303,6 +321,23 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for MATMULInstruction<WO
         Self::matrix_multiply(x, y)
     }
 }
+
+// #[cfg(test)]
+// mod test {
+//     use super::*;
+//     use crate::{jolt::instruction::JoltInstruction, jolt_virtual_sequence_test};
+//             advice_value: None,
+//             precompile_input: None,
+//             precompile_output_address: None,
+//         });
+
+//         virtual_trace
+//     }
+
+//     fn sequence_output(x: u64, y: u64) -> u64 {
+//         Self::matrix_multiply(x, y)
+//     }
+// }
 
 #[cfg(test)]
 mod test {
