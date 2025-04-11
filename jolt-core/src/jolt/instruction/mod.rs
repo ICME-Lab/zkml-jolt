@@ -162,6 +162,7 @@ pub mod lb;
 pub mod lbu;
 pub mod lh;
 pub mod lhu;
+pub mod matmul;
 pub mod mul;
 pub mod mulh;
 pub mod mulhsu;

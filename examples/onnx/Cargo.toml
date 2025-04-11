@@ -1,0 +1,25 @@
+[package]
+name = "onnx"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+jolt-sdk = { path = "../../jolt-sdk", features = ["host"] }
+guest = { package = "onnx-guest", path = "./guest" }
+tract-onnx = "0.21.1"
+ndarray = "0.16.1"
+anyhow = "1.0.75"
+onnx-util = { package = "onnx-util", path = "./util" }
+rand = "0.8.5"
+clap = "4.5.35"
+
+[features]
+icicle = ["jolt-sdk/icicle"]
+
+[[bin]]
+name = "parse"
+path = "./src/parse.rs"
+
+[[bin]]
+name = "inference"
+path = "./src/inference.rs"

@@ -53,6 +53,7 @@ use super::instruction::lb::LBInstruction;
 use super::instruction::lbu::LBUInstruction;
 use super::instruction::lh::LHInstruction;
 use super::instruction::lhu::LHUInstruction;
+use super::instruction::matmul::MATMULInstruction;
 use super::instruction::sb::SBInstruction;
 use super::instruction::sh::SHInstruction;
 use super::instruction::JoltInstructionSet;
@@ -323,7 +324,7 @@ where
                 tracer::RV32IM::DIV => DIVInstruction::<32>::virtual_sequence(instruction),
                 tracer::RV32IM::DIVU => DIVUInstruction::<32>::virtual_sequence(instruction),
                 // tracer::RV32IM::REM => REMInstruction::<32>::virtual_sequence(instruction),
-                tracer::RV32IM::REM => GBDTInstruction::<32>::virtual_sequence(instruction),
+                tracer::RV32IM::REM => REMInstruction::<32>::virtual_sequence(instruction),
                 tracer::RV32IM::REMU => REMUInstruction::<32>::virtual_sequence(instruction),
                 tracer::RV32IM::SH => SHInstruction::<32>::virtual_sequence(instruction),
                 tracer::RV32IM::SB => SBInstruction::<32>::virtual_sequence(instruction),
@@ -332,6 +333,7 @@ where
                 tracer::RV32IM::LB => LBInstruction::<32>::virtual_sequence(instruction),
                 tracer::RV32IM::LH => LHInstruction::<32>::virtual_sequence(instruction),
                 tracer::RV32IM::GBDT => GBDTInstruction::<32>::virtual_sequence(instruction),
+                tracer::RV32IM::MATMUL => MATMULInstruction::<32>::virtual_sequence(instruction),
                 _ => vec![instruction],
             })
             .map(|instruction| BytecodeRow::from_instruction::<Self::InstructionSet>(&instruction))

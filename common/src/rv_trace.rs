@@ -105,6 +105,7 @@ impl From<&RVTraceRow> for [MemoryOp; MEMORY_OPS_PER_INSTRUCTION] {
             | RV32IM::DIVU
             | RV32IM::REM
             | RV32IM::GBDT
+            | RV32IM::MATMUL
             | RV32IM::REMU => [rs1_read(), rs2_read(), rd_write(), MemoryOp::noop_read()],
 
             RV32IM::LUI | RV32IM::AUIPC | RV32IM::VIRTUAL_ADVICE => [
@@ -453,6 +454,7 @@ pub enum RV32IM {
     DIVU,
     REM,
     GBDT,
+    MATMUL,
     REMU,
     FENCE,
     UNIMPL,
@@ -520,10 +522,11 @@ impl FromStr for RV32IM {
             "DIV" => Ok(Self::DIV),
             "DIVU" => Ok(Self::DIVU),
             "REM" => Ok(Self::GBDT),
-            "REMU" => Ok(Self::REMU),
+            "REMU" => Ok(Self::MATMUL),
             "FENCE" => Ok(Self::FENCE),
             "UNIMPL" => Ok(Self::UNIMPL),
             "GBDT" => Ok(Self::GBDT),
+            "MATMUL" => Ok(Self::MATMUL),
             _ => Err("Could not match instruction to RV32IM set.".to_string()),
         }
     }
