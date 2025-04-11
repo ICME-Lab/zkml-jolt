@@ -1,3 +1,8 @@
+/// Its a virtual instruction for matrix multiplication
+/// It takes two 2x2 matrices as input and returns a single 64-bit integer
+/// The matrices are represented as 32-bit integers, where each 8-bit segment
+/// Actually we want to pack the each element of the matrix into a single 32/64-bit integer
+/// This will be solved after precompile supports
 use common::constants::virtual_register_index;
 use tracer::{ELFInstruction, RVTraceRow, RegisterState, RV32IM};
 
@@ -7,9 +12,9 @@ use crate::jolt::instruction::{add::ADDInstruction, mulu::MULUInstruction, JoltI
 pub struct MATMULInstruction<const WORD_SIZE: usize>;
 
 impl<const WORD_SIZE: usize> MATMULInstruction<WORD_SIZE> {
-    /// Converts a 2x2 matrix to a 64-bit integer
-    /// Each element is stored as a 16-bit value in the result
-    /// Matrix format: [[a, b], [c, d]] -> 0xAAAABBBBCCCCDDDD
+    /// Converts a 2x2 matrix to a 32-bit integer
+    /// Each element is stored as a 8-bit value in the result
+    /// Matrix format: [[a, b], [c, d]] -> 0xAABBCCDD
     pub fn mat2uint(matrix: [[u32; 2]; 2]) -> u32 {
         let a = (matrix[0][0] & 0xFF) << 24;
         let b = (matrix[0][1] & 0xFF) << 16;
@@ -19,9 +24,9 @@ impl<const WORD_SIZE: usize> MATMULInstruction<WORD_SIZE> {
         a | b | c | d
     }
 
-    /// Converts a 64-bit integer to a 2x2 matrix
-    /// Each 16-bit segment is extracted into a matrix element
-    /// Integer format: 0xAAAABBBBCCCCDDDD -> [[a, b], [c, d]]
+    /// Converts a 32-bit integer to a 2x2 matrix
+    /// Each 8-bit segment is extracted into a matrix element
+    /// Integer format: 0xAABBCCDD -> [[a, b], [c, d]]
     pub fn uint2mat(val: u32) -> [[u32; 2]; 2] {
         let a = (val >> 24) & 0xFF;
         let b = (val >> 16) & 0xFF;

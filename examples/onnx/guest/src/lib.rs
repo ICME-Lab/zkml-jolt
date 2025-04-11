@@ -5,7 +5,7 @@ use onnx_util::{ComputationalGraph, OperationType};
 #[jolt::provable]
 fn execute_graph(graph: ComputationalGraph, input: [[u32; 2]; 2]) -> [[u32; 2]; 2] {
     // Define weights for the linear model (would come from model in real implementation)
-    // Simple 2x1 weight matrix
+    // Simple 2x2 weight matrix (actually a 2x1 matrix, padding with 0s)
     let weights = [[3, 0], [2, 0]];
 
     // Initialize result
@@ -49,10 +49,10 @@ fn uint2mat(a: u32) -> [[u32; 2]; 2] {
 }
 
 // Execute matrix multiplication operation
-// This implements a 1x2 * 2x1 matrix multiplication (dot product)
+// This implements a 2x2 * 2x2 matrix multiplication (dot product)
 fn execute_matmul(a: [[u32; 2]; 2], b: [[u32; 2]; 2]) -> u32 {
-    // Pack the 2x2 matrix a into a 64-bit value
-    // Each element is truncated to 16 bits
+    // Pack the 2x2 matrix a into a 32-bit value
+    // Each element is truncated to 8 bits
     let a_packed = mat2uint32(a);
     let b_packed = mat2uint32(b);
 
