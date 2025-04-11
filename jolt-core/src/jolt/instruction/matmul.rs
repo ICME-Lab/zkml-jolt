@@ -581,6 +581,8 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for MATMULInstruction<WO
             [add3_val as u32 & 0xFF, add4_val as u32 & 0xFF],
         ];
         let packed_result = Self::mat2uint(result_matrix) as u64;
+        let exact_result = Self::matrix_multiply(x, y);
+        assert_eq!(packed_result, exact_result);
 
         virtual_trace.push(RVTraceRow {
             instruction: ELFInstruction {
