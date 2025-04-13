@@ -1,6 +1,8 @@
 #![allow(unused_assignments, asm_sub_register)]
 
+use anyhow::Context;
 use onnx_util::{ComputationalGraph, OperationType};
+use tract_onnx::prelude::*;
 
 #[jolt::provable]
 fn execute_graph(graph: ComputationalGraph, input: [[u32; 2]; 2]) -> [[u32; 2]; 2] {
@@ -69,4 +71,38 @@ fn execute_matmul(a: [[u32; 2]; 2], b: [[u32; 2]; 2]) -> u32 {
 
         result_matmul
     }
+}
+
+#[jolt::provable]
+fn onnx(model_path: &str, test_value: f32) -> f32 {
+    let mut model = tract_onnx::onnx()
+        .model_for_path(model_path)
+        .context("Failed to load model")
+        .unwrap();
+
+    // Set input shape (batch size 1, input dimension 1)
+    model
+        .set_input_fact(0, InferenceFact::dt_shape(f32::datum_type(), tvec!(1, 1)))
+        .context("Failed to set input shape")
+        .unwrap();
+
+    // Optimize model and make it runnable
+    let model = model
+        .into_optimized()
+        .context("Failed to optimize model")
+        .unwrap()
+        .into_runnable()
+        .context("Failed to convert to runnable model")
+        .unwrap();
+
+    let input = tract_ndarray::arr1(&[test_value])
+        .into_shape_with_order((1, 1))
+        .unwrap()
+        .into_tvalue();
+
+    let result = model
+        .run(tvec!(input))
+        .context("Failed to run inference")
+        .unwrap();
+    result.get(0).unwrap().to_array_view::<f32>().unwrap()[0]
 }

@@ -23,3 +23,7 @@ path = "./src/parse.rs"
 [[bin]]
 name = "inference"
 path = "./src/inference.rs"
+
+[[bin]]
+name = "prove_onnx"
+path = "./src/prove_onnx.rs"
