@@ -12,6 +12,7 @@ anyhow = "1.0.75"
 onnx-util = { package = "onnx-util", path = "./util" }
 rand = "0.8.5"
 clap = "4.5.35"
+ort = "2.0.0-rc.9"
 
 [features]
 icicle = ["jolt-sdk/icicle"]
@@ -23,3 +24,11 @@ path = "./src/parse.rs"
 [[bin]]
 name = "inference"
 path = "./src/inference.rs"
+
+[[bin]]
+name = "prove_onnx"
+path = "./src/prove_onnx.rs"
+
+[[bin]]
+name = "ort"
+path = "./src/ort.rs"
