@@ -1,7 +1,6 @@
 use crate::jolt::vm::{bytecode::BytecodeRow, rv32i_vm::RV32I, JoltTraceStep};
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
-use std::path::PathBuf;
 use wasmi_tracer::args::Args;
 
 #[derive(Clone)]
@@ -12,7 +11,7 @@ pub struct WASMProgram {
 }
 
 impl WASMProgram {
-    fn trace(&self) -> Vec<JoltTraceStep<RV32I>> {
+    pub fn trace(&self) -> Vec<JoltTraceStep<RV32I>> {
         let raw_trace = wasmi_tracer::trace(self.into()).unwrap();
         let trace: Vec<_> = raw_trace
             .into_par_iter()
