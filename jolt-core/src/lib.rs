@@ -24,3 +24,4 @@ pub mod r1cs;
 pub mod subprotocols;
 pub mod utils;
 pub mod wasm_host;
+pub mod zkEngine;
