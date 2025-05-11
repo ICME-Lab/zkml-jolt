@@ -1,12 +1,14 @@
-use std::fs;
-use std::fs::File;
+//! This module provides a wrapper around the `wasmi_tracer` library to trace
+//! the execution of WASM programs and decode their bytecode.
 
 use crate::jolt::vm::{bytecode::BytecodeRow, rv32i_vm::RV32I, JoltTraceStep};
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
+use std::fs;
 use tracer::ELFInstruction;
 use wasmi_tracer::args::Args;
 
+/// Represents a WASM program via its file path, function name, and inputs.
 #[derive(Clone)]
 pub struct WASMProgram {
     pub func: String,
@@ -15,8 +17,16 @@ pub struct WASMProgram {
 }
 
 impl WASMProgram {
+    /// Get the execution trace of the WASM program.
+    ///
+    /// # Returns
+    ///
+    /// * `Vec<JoltTraceStep<RV32I>>`: The execution trace of the WASM program.
+    /// * `JoltWASMDevice`: The program i/o.
     pub fn trace(&self) -> Vec<JoltTraceStep<RV32I>> {
         let raw_trace = wasmi_tracer::trace(self.into()).unwrap();
+
+        // Convert raw trace (Vec<RVTraceRow>) to JoltTraceStep
         let trace: Vec<_> = raw_trace
             .into_par_iter()
             .map(|row| {
@@ -57,18 +67,7 @@ mod tests {
 
     #[test]
     fn test_wasm_trace() {
-        // WASM inputs
-        let stake = "1500".to_string(); // Amount of LP tokens or liquidity staked by the user.
-        let duration_boost = "3".to_string(); // Boost multiplier based on how long the stake was held (e.g., 3 = 3 months).
-        let volume_boost = "2".to_string(); // Additional multiplier based on trading volume in the pool during the staking period.
-        let penalty = "500".to_string(); // Penalty applied for early withdrawal or performance issues (e.g., protocol downgrade).
-
-        let wasm_program = WASMProgram {
-            func: "main".to_string(),
-            inputs: vec![stake, duration_boost, volume_boost, penalty],
-            file_path: "./wasms/add_sub_mul_32.wat".to_string(),
-        };
-
+        let wasm_program = testing_wasm_program();
         let (_wasm_bytecode, _init_memory) = wasm_program.decode();
         let trace = wasm_program.trace();
         println!("WASM Trace: {trace:#?}");

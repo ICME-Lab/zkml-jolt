@@ -103,23 +103,23 @@ pub type BytecodeProof<F, PCS, ProofTranscript> =
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BytecodeRow {
     /// Memory address as read from the ELF.
-    address: usize,
+    pub(crate) address: usize,
     /// Packed instruction/circuit flags, used for r1cs
     pub bitflags: u64,
     /// Index of the destination register for this instruction (0 if register is unused).
-    rd: u8,
+    pub(crate) rd: u8,
     /// Index of the first source register for this instruction (0 if register is unused).
-    rs1: u8,
+    pub(crate) rs1: u8,
     /// Index of the second source register for this instruction (0 if register is unused).
-    rs2: u8,
+    pub(crate) rs2: u8,
     /// "Immediate" value for this instruction (0 if unused).
-    imm: i64,
+    pub(crate) imm: i64,
     /// If this instruction is part of a "virtual sequence" (see Section 6.2 of the
     /// Jolt paper), then this contains the number of virtual instructions after this
     /// one in the sequence. I.e. if this is the last instruction in the sequence,
     /// `virtual_sequence_remaining` will be Some(0); if this is the penultimate instruction
     /// in the sequence, `virtual_sequence_remaining` will be Some(1); etc.
-    virtual_sequence_remaining: Option<usize>,
+    pub(crate) virtual_sequence_remaining: Option<usize>,
 }
 
 impl BytecodeRow {
