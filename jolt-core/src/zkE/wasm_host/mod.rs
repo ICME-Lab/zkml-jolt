@@ -1,12 +1,16 @@
+use std::fs;
+use std::fs::File;
+
 use crate::jolt::vm::{bytecode::BytecodeRow, rv32i_vm::RV32I, JoltTraceStep};
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
+use tracer::ELFInstruction;
 use wasmi_tracer::args::Args;
 
 #[derive(Clone)]
 pub struct WASMProgram {
-    func: String,
-    inputs: Vec<String>,
+    pub func: String,
+    pub inputs: Vec<String>,
     pub file_path: String,
 }
 
@@ -27,6 +31,18 @@ impl WASMProgram {
             .collect();
         trace
     }
+
+    /// Decodes the WASM bytecode and returns the decoded instructions and initial memory state.
+    ///
+    /// First converts [`PathBuf`] to &[u8] and then passes it to [`wasmi_tracer::decode`].
+    ///
+    /// # Returns
+    /// * `Vec<ELFInstruction>`: The decoded instructions (bytecode).
+    /// * `Vec<(u64, u8)>`: Memory addr, val tuples for the bytecode. i.e. the initial memory state of the bytecode.
+    pub fn decode(&self) -> (Vec<ELFInstruction>, Vec<(u64, u8)>) {
+        let wasm_bytecode = fs::read(&self.file_path).unwrap();
+        wasmi_tracer::decode(&wasm_bytecode)
+    }
 }
 
 impl From<&WASMProgram> for Args {
@@ -37,7 +53,7 @@ impl From<&WASMProgram> for Args {
 
 #[cfg(test)]
 mod tests {
-    use crate::wasm_host::WASMProgram;
+    use crate::zkE::wasm_host::WASMProgram;
 
     #[test]
     fn test_wasm_trace() {
@@ -53,6 +69,7 @@ mod tests {
             file_path: "./wasms/add_sub_mul_32.wat".to_string(),
         };
 
+        let (_wasm_bytecode, _init_memory) = wasm_program.decode();
         let trace = wasm_program.trace();
         println!("WASM Trace: {trace:#?}");
     }

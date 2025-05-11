@@ -4492,6 +4492,7 @@ dependencies = [
  "anyhow",
  "clap",
  "common",
+ "tracing",
  "wasmi",
  "wasmi_wasi",
 ]
