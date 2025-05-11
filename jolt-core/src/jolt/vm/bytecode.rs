@@ -44,8 +44,8 @@ pub struct BytecodeStuff<T: CanonicalSerialize + CanonicalDeserialize> {
     pub(crate) t_read: T,
     /// Final timestamps for offline memory-checking
     pub(crate) t_final: T,
-    a_init_final: VerifierComputedOpening<T>,
-    v_init_final: VerifierComputedOpening<[T; 6]>,
+    pub(crate) a_init_final: VerifierComputedOpening<T>,
+    pub(crate) v_init_final: VerifierComputedOpening<[T; 6]>,
 }
 
 /// Note –– F: JoltField bound is not enforced.
@@ -461,13 +461,13 @@ where
             bytecode_map.insert(bytecode_row.address, bytecode_row);
         }
 
-        for trace_row in trace {
-            assert_eq!(
-                **bytecode_map
-                    .get(&trace_row.address)
-                    .expect("couldn't find in bytecode"),
-                *trace_row
-            );
+        for (i, trace_row) in trace.iter().enumerate() {
+            let expected = *bytecode_map
+                .get(&trace_row.address)
+                .expect("couldn't find in bytecode");
+            if *expected != *trace_row {
+                panic!("Mismatch at index {i}: expected {expected:?}, got {trace_row:?}",);
+            }
         }
     }
 }

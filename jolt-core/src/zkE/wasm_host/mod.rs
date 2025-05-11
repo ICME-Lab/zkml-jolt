@@ -6,6 +6,7 @@ use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
 use std::fs;
 use tracer::ELFInstruction;
+use tracer::JoltDevice;
 use wasmi_tracer::args::Args;
 
 /// Represents a WASM program via its file path, function name, and inputs.
@@ -23,7 +24,7 @@ impl WASMProgram {
     ///
     /// * `Vec<JoltTraceStep<RV32I>>`: The execution trace of the WASM program.
     /// * `JoltWASMDevice`: The program i/o.
-    pub fn trace(&self) -> Vec<JoltTraceStep<RV32I>> {
+    pub fn trace(&self) -> (Vec<JoltTraceStep<RV32I>>, JoltDevice) {
         let raw_trace = wasmi_tracer::trace(self.into()).unwrap();
 
         // Convert raw trace (Vec<RVTraceRow>) to JoltTraceStep
@@ -39,7 +40,8 @@ impl WASMProgram {
                 }
             })
             .collect();
-        trace
+        // TODO: JoltDevice
+        (trace, JoltDevice::new(0, 0))
     }
 
     /// Decodes the WASM bytecode and returns the decoded instructions and initial memory state.
@@ -63,13 +65,16 @@ impl From<&WASMProgram> for Args {
 
 #[cfg(test)]
 mod tests {
-    use crate::zkE::wasm_host::WASMProgram;
+    use crate::zkE::{tests::testing_wasm_program, wasm_host::WASMProgram};
 
     #[test]
     fn test_wasm_trace() {
         let wasm_program = testing_wasm_program();
-        let (_wasm_bytecode, _init_memory) = wasm_program.decode();
-        let trace = wasm_program.trace();
+        let (wasm_bytecode, _init_memory) = wasm_program.decode();
+        let (trace, _jolt_device) = wasm_program.trace();
+        println!("WASM Bytecode: {wasm_bytecode:#?}");
+        println!("===========================");
+        println!("WASM Trace Length: {}", trace.len());
         println!("WASM Trace: {trace:#?}");
     }
 }

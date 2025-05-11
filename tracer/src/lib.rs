@@ -70,52 +70,51 @@ pub fn trace(
 }
 
 #[tracing::instrument(skip_all)]
-pub fn decode(wasm: &[u8]) -> (Vec<ELFInstruction>, Vec<(u64, u8)>) {
-    // let obj = object::File::parse(elf).unwrap();
+pub fn decode(elf: &[u8]) -> (Vec<ELFInstruction>, Vec<(u64, u8)>) {
+    let obj = object::File::parse(elf).unwrap();
 
-    // let sections = obj
-    //     .sections()
-    //     .filter(|s| s.address() >= RAM_START_ADDRESS)
-    //     .collect::<Vec<_>>();
+    let sections = obj
+        .sections()
+        .filter(|s| s.address() >= RAM_START_ADDRESS)
+        .collect::<Vec<_>>();
 
-    // let mut instructions = Vec::new();
-    // let mut data = Vec::new();
+    let mut instructions = Vec::new();
+    let mut data = Vec::new();
 
-    // for section in sections {
-    //     let raw_data = section.data().unwrap();
+    for section in sections {
+        let raw_data = section.data().unwrap();
 
-    //     if let SectionKind::Text = section.kind() {
-    //         for (chunk, word) in raw_data.chunks(4).enumerate() {
-    //             let word = u32::from_le_bytes(word.try_into().unwrap());
-    //             let address = chunk as u64 * 4 + section.address();
+        if let SectionKind::Text = section.kind() {
+            for (chunk, word) in raw_data.chunks(4).enumerate() {
+                let word = u32::from_le_bytes(word.try_into().unwrap());
+                let address = chunk as u64 * 4 + section.address();
 
-    //             if let Ok(inst) = decode_raw(word) {
-    //                 if let Some(trace) = inst.trace {
-    //                     let inst = trace(&inst, &get_xlen(), word, address);
-    //                     instructions.push(inst);
-    //                     continue;
-    //                 }
-    //             }
-    //             // Unrecognized instruction, or from a ReadOnlyData section
-    //             instructions.push(ELFInstruction {
-    //                 address,
-    //                 opcode: RV32IM::UNIMPL,
-    //                 rs1: None,
-    //                 rs2: None,
-    //                 rd: None,
-    //                 imm: None,
-    //                 virtual_sequence_remaining: None,
-    //             });
-    //         }
-    //     }
-    //     let address = section.address();
-    //     for (offset, byte) in raw_data.iter().enumerate() {
-    //         data.push((address + offset as u64, *byte));
-    //     }
-    // }
+                if let Ok(inst) = decode_raw(word) {
+                    if let Some(trace) = inst.trace {
+                        let inst = trace(&inst, &get_xlen(), word, address);
+                        instructions.push(inst);
+                        continue;
+                    }
+                }
+                // Unrecognized instruction, or from a ReadOnlyData section
+                instructions.push(ELFInstruction {
+                    address,
+                    opcode: RV32IM::UNIMPL,
+                    rs1: None,
+                    rs2: None,
+                    rd: None,
+                    imm: None,
+                    virtual_sequence_remaining: None,
+                });
+            }
+        }
+        let address = section.address();
+        for (offset, byte) in raw_data.iter().enumerate() {
+            data.push((address + offset as u64, *byte));
+        }
+    }
 
-    // (instructions, data)
-    todo!("Decode function is not implemented yet");
+    (instructions, data)
 }
 
 fn get_xlen() -> Xlen {
