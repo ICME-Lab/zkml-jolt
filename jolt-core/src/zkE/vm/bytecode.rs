@@ -1,25 +1,36 @@
 //! This module provides implementations reguarding the ByteCode secition of the Jolt proof.
-
+use crate::lasso::memory_checking::ExogenousOpenings;
+use crate::poly::compact_polynomial::SmallScalar;
+use crate::poly::multilinear_polynomial::PolynomialEvaluation;
 use crate::{
     field::JoltField,
     jolt::{
         instruction::JoltInstructionSet,
         vm::{
-            bytecode::{BytecodeOpenings, BytecodePolynomials, BytecodeRow, BytecodeStuff},
-            JoltTraceStep,
+            bytecode::{
+                BytecodeCommitments, BytecodeOpenings, BytecodePolynomials, BytecodeRow,
+                BytecodeStuff,
+            },
+            JoltPolynomials, JoltTraceStep,
         },
     },
-    lasso::memory_checking::{MemoryCheckingProof, NoExogenousOpenings},
-    poly::{
-        commitment::commitment_scheme::CommitmentScheme,
-        multilinear_polynomial::MultilinearPolynomial,
+    lasso::memory_checking::{
+        MemoryCheckingProof, MemoryCheckingProver, MemoryCheckingVerifier, MultisetHashes,
+        NoExogenousOpenings, StructuredPolynomialData,
     },
+    poly::{
+        commitment::commitment_scheme::CommitmentScheme, compact_polynomial::CompactPolynomial,
+        identity_poly::IdentityPolynomial, multilinear_polynomial::MultilinearPolynomial,
+    },
+    subprotocols::grand_product::BatchedGrandProductProof,
     utils::transcript::Transcript,
 };
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use std::collections::{BTreeMap, HashSet};
+use rayon::iter::*;
+use std::collections::BTreeMap;
+#[cfg(test)]
+use std::collections::HashSet;
 use tracer::ELFInstruction;
-
 #[derive(Clone, CanonicalSerialize, CanonicalDeserialize, Debug)]
 pub struct WASMBytecodePreprocessing<F: JoltField> {
     /// Size of the (padded) bytecode.
@@ -108,8 +119,286 @@ where
     WASMBytecodePreprocessing::<F>::preprocess(bytecode_rows)
 }
 
+// HACK
+#[derive(CanonicalSerialize, CanonicalDeserialize)]
+pub struct WASMMemoryCheckingProof<F, PCS, Openings, OtherOpenings, ProofTranscript>
+where
+    F: JoltField,
+    PCS: CommitmentScheme<ProofTranscript, Field = F>,
+    ProofTranscript: Transcript,
+    Openings: StructuredPolynomialData<F> + Sync + CanonicalSerialize + CanonicalDeserialize,
+    OtherOpenings: ExogenousOpenings<F> + Sync,
+{
+    /// Read/write/init/final multiset hashes for each memory
+    pub multiset_hashes: MultisetHashes<F>,
+    /// The read and write grand products for every memory has the same size,
+    /// so they can be batched.
+    pub read_write_grand_product: BatchedGrandProductProof<PCS, ProofTranscript>,
+    /// The init and final grand products for every memory has the same size,
+    /// so they can be batched.
+    pub init_final_grand_product: BatchedGrandProductProof<PCS, ProofTranscript>,
+    /// The openings associated with the grand products.
+    pub openings: Openings,
+    pub exogenous_openings: OtherOpenings,
+}
+
+impl<F, PCS, Openings, OtherOpenings, ProofTranscript>
+    From<MemoryCheckingProof<F, PCS, Openings, OtherOpenings, ProofTranscript>>
+    for WASMMemoryCheckingProof<F, PCS, Openings, OtherOpenings, ProofTranscript>
+where
+    F: JoltField,
+    PCS: CommitmentScheme<ProofTranscript, Field = F>,
+    Openings: StructuredPolynomialData<F> + Sync + CanonicalSerialize + CanonicalDeserialize,
+    OtherOpenings: ExogenousOpenings<F> + Sync,
+    ProofTranscript: Transcript,
+{
+    fn from(proof: MemoryCheckingProof<F, PCS, Openings, OtherOpenings, ProofTranscript>) -> Self {
+        Self {
+            multiset_hashes: proof.multiset_hashes,
+            read_write_grand_product: proof.read_write_grand_product,
+            init_final_grand_product: proof.init_final_grand_product,
+            openings: proof.openings,
+            exogenous_openings: proof.exogenous_openings,
+        }
+    }
+}
+
 pub type WASMBytecodeProof<F, PCS, ProofTranscript> =
-    MemoryCheckingProof<F, PCS, BytecodeOpenings<F>, NoExogenousOpenings, ProofTranscript>;
+    WASMMemoryCheckingProof<F, PCS, BytecodeOpenings<F>, NoExogenousOpenings, ProofTranscript>;
+
+impl<F, PCS, ProofTranscript> MemoryCheckingProver<F, PCS, ProofTranscript>
+    for WASMBytecodeProof<F, PCS, ProofTranscript>
+where
+    F: JoltField,
+    PCS: CommitmentScheme<ProofTranscript, Field = F>,
+    ProofTranscript: Transcript,
+{
+    type Polynomials = BytecodePolynomials<F>;
+    type Openings = BytecodeOpenings<F>;
+    type Commitments = BytecodeCommitments<PCS, ProofTranscript>;
+    type Preprocessing = WASMBytecodePreprocessing<F>;
+
+    // [virtual_address, elf_address, opcode, rd, rs1, rs2, imm, t]
+    type MemoryTuple = [F; 8];
+
+    fn fingerprint(inputs: &Self::MemoryTuple, gamma: &F, tau: &F) -> F {
+        let mut result = F::zero();
+        let mut gamma_term = F::one();
+        for input in inputs {
+            result += *input * gamma_term;
+            gamma_term *= *gamma;
+        }
+        result - *tau
+    }
+
+    #[tracing::instrument(skip_all, name = "BytecodePolynomials::compute_leaves")]
+    fn compute_leaves(
+        preprocessing: &WASMBytecodePreprocessing<F>,
+        polynomials: &Self::Polynomials,
+        _: &JoltPolynomials<F>,
+        gamma: &F,
+        tau: &F,
+    ) -> ((Vec<F>, usize), (Vec<F>, usize)) {
+        let num_ops = polynomials.a_read_write.len();
+        let bytecode_size = preprocessing.v_init_final[0].len();
+
+        let mut gamma_terms = [F::zero(); 7];
+        let mut gamma_term = F::one();
+        for i in 0..7 {
+            gamma_term *= *gamma;
+            gamma_terms[i] = gamma_term;
+        }
+
+        let a: &CompactPolynomial<u32, F> = (&polynomials.a_read_write).try_into().unwrap();
+        let v_address: &CompactPolynomial<u64, F> =
+            (&polynomials.v_read_write[0]).try_into().unwrap();
+        let v_bitflags: &CompactPolynomial<u64, F> =
+            (&polynomials.v_read_write[1]).try_into().unwrap();
+        let v_rd: &CompactPolynomial<u8, F> = (&polynomials.v_read_write[2]).try_into().unwrap();
+        let v_rs1: &CompactPolynomial<u8, F> = (&polynomials.v_read_write[3]).try_into().unwrap();
+        let v_rs2: &CompactPolynomial<u8, F> = (&polynomials.v_read_write[4]).try_into().unwrap();
+        let v_imm: &CompactPolynomial<i64, F> = (&polynomials.v_read_write[5]).try_into().unwrap();
+        let t: &CompactPolynomial<u32, F> = (&polynomials.t_read).try_into().unwrap();
+
+        let read_leaves: Vec<F> = (0..num_ops)
+            .into_par_iter()
+            .map(|i| {
+                F::from_i64(v_imm[i])
+                    + a[i].field_mul(gamma_terms[0])
+                    + v_address[i].field_mul(gamma_terms[1])
+                    + v_bitflags[i].field_mul(gamma_terms[2])
+                    + v_rd[i].field_mul(gamma_terms[3])
+                    + v_rs1[i].field_mul(gamma_terms[4])
+                    + v_rs2[i].field_mul(gamma_terms[5])
+                    + t[i].field_mul(gamma_terms[6])
+                    - tau
+            })
+            .collect();
+
+        // TODO(moodlezoup): Compute write_leaves from read_leaves
+        let write_leaves: Vec<F> = (0..num_ops)
+            .into_par_iter()
+            .map(|i| {
+                F::from_i64(v_imm[i])
+                    + a[i].field_mul(gamma_terms[0])
+                    + v_address[i].field_mul(gamma_terms[1])
+                    + v_bitflags[i].field_mul(gamma_terms[2])
+                    + v_rd[i].field_mul(gamma_terms[3])
+                    + v_rs1[i].field_mul(gamma_terms[4])
+                    + v_rs2[i].field_mul(gamma_terms[5])
+                    + (t[i] + 1).field_mul(gamma_terms[6])
+                    - tau
+            })
+            .collect();
+
+        let v_address: &CompactPolynomial<u64, F> =
+            (&preprocessing.v_init_final[0]).try_into().unwrap();
+        let v_bitflags: &CompactPolynomial<u64, F> =
+            (&preprocessing.v_init_final[1]).try_into().unwrap();
+        let v_rd: &CompactPolynomial<u8, F> = (&preprocessing.v_init_final[2]).try_into().unwrap();
+        let v_rs1: &CompactPolynomial<u8, F> = (&preprocessing.v_init_final[3]).try_into().unwrap();
+        let v_rs2: &CompactPolynomial<u8, F> = (&preprocessing.v_init_final[4]).try_into().unwrap();
+        let v_imm: &CompactPolynomial<i64, F> =
+            (&preprocessing.v_init_final[5]).try_into().unwrap();
+
+        let init_leaves: Vec<F> = (0..bytecode_size)
+            .into_par_iter()
+            .map(|i| {
+                F::from_i64(v_imm[i])
+                    + (i as u64).field_mul(gamma_terms[0])
+                    + v_address[i].field_mul(gamma_terms[1])
+                    + v_bitflags[i].field_mul(gamma_terms[2])
+                    + v_rd[i].field_mul(gamma_terms[3])
+                    + v_rs1[i].field_mul(gamma_terms[4])
+                    + v_rs2[i].field_mul(gamma_terms[5])
+                    // + gamma_terms[6] * 0
+                    - tau
+            })
+            .collect();
+
+        // TODO(moodlezoup): Compute final_leaves from init_leaves
+        let t_final: &CompactPolynomial<u32, F> = (&polynomials.t_final).try_into().unwrap();
+        let final_leaves: Vec<F> = (0..bytecode_size)
+            .into_par_iter()
+            .map(|i| {
+                F::from_i64(v_imm[i])
+                    + (i as u64).field_mul(gamma_terms[0])
+                    + v_address[i].field_mul(gamma_terms[1])
+                    + v_bitflags[i].field_mul(gamma_terms[2])
+                    + v_rd[i].field_mul(gamma_terms[3])
+                    + v_rs1[i].field_mul(gamma_terms[4])
+                    + v_rs2[i].field_mul(gamma_terms[5])
+                    + t_final[i].field_mul(gamma_terms[6])
+                    - tau
+            })
+            .collect();
+
+        // TODO(moodlezoup): avoid concat
+        (
+            ([read_leaves, write_leaves].concat(), 2),
+            ([init_leaves, final_leaves].concat(), 2),
+        )
+    }
+
+    fn protocol_name() -> &'static [u8] {
+        b"Bytecode memory checking"
+    }
+}
+
+impl<F, PCS, ProofTranscript> MemoryCheckingVerifier<F, PCS, ProofTranscript>
+    for WASMBytecodeProof<F, PCS, ProofTranscript>
+where
+    F: JoltField,
+    PCS: CommitmentScheme<ProofTranscript, Field = F>,
+    ProofTranscript: Transcript,
+{
+    fn compute_verifier_openings(
+        openings: &mut BytecodeOpenings<F>,
+        preprocessing: &Self::Preprocessing,
+        _r_read_write: &[F],
+        r_init_final: &[F],
+    ) {
+        openings.a_init_final =
+            Some(IdentityPolynomial::new(r_init_final.len()).evaluate(r_init_final));
+
+        openings.v_init_final = Some(
+            MultilinearPolynomial::batch_evaluate(
+                &preprocessing.v_init_final.iter().collect::<Vec<_>>(),
+                r_init_final,
+            )
+            .0
+            .try_into()
+            .unwrap(),
+        );
+    }
+
+    fn read_tuples(
+        _: &WASMBytecodePreprocessing<F>,
+        openings: &Self::Openings,
+        _: &NoExogenousOpenings,
+    ) -> Vec<Self::MemoryTuple> {
+        vec![[
+            openings.v_read_write[5], // imm
+            openings.a_read_write,
+            openings.v_read_write[0], // address
+            openings.v_read_write[1], // opcode
+            openings.v_read_write[2], // rd
+            openings.v_read_write[3], // rs1
+            openings.v_read_write[4], // rs2
+            openings.t_read,
+        ]]
+    }
+    fn write_tuples(
+        _: &WASMBytecodePreprocessing<F>,
+        openings: &Self::Openings,
+        _: &NoExogenousOpenings,
+    ) -> Vec<Self::MemoryTuple> {
+        vec![[
+            openings.v_read_write[5], // imm
+            openings.a_read_write,
+            openings.v_read_write[0], // address
+            openings.v_read_write[1], // opcode
+            openings.v_read_write[2], // rd
+            openings.v_read_write[3], // rs1
+            openings.v_read_write[4], // rs2
+            openings.t_read + F::one(),
+        ]]
+    }
+    fn init_tuples(
+        _: &WASMBytecodePreprocessing<F>,
+        openings: &Self::Openings,
+        _: &NoExogenousOpenings,
+    ) -> Vec<Self::MemoryTuple> {
+        let v_init_final = openings.v_init_final.unwrap();
+        vec![[
+            v_init_final[5], // imm
+            openings.a_init_final.unwrap(),
+            v_init_final[0], // address
+            v_init_final[1], // opcode
+            v_init_final[2], // rd
+            v_init_final[3], // rs1
+            v_init_final[4], // rs2
+            F::zero(),
+        ]]
+    }
+    fn final_tuples(
+        _: &WASMBytecodePreprocessing<F>,
+        openings: &Self::Openings,
+        _: &NoExogenousOpenings,
+    ) -> Vec<Self::MemoryTuple> {
+        let v_init_final = openings.v_init_final.unwrap();
+        vec![[
+            v_init_final[5], // imm
+            openings.a_init_final.unwrap(),
+            v_init_final[0], // address
+            v_init_final[1], // opcode
+            v_init_final[2], // rd
+            v_init_final[3], // rs1
+            v_init_final[4], // rs2
+            openings.t_final,
+        ]]
+    }
+}
 
 impl<F, PCS, ProofTranscript> WASMBytecodeProof<F, PCS, ProofTranscript>
 where
@@ -117,7 +406,25 @@ where
     PCS: CommitmentScheme<ProofTranscript, Field = F>,
     ProofTranscript: Transcript,
 {
-    #[tracing::instrument(skip_all, name = "WASMBytecodeProof::generate_witness")]
+    #[tracing::instrument(skip_all, name = "BytecodePolynomials::validate_bytecode")]
+    pub fn validate_bytecode(bytecode: &[BytecodeRow], trace: &[BytecodeRow]) {
+        let mut bytecode_map: BTreeMap<usize, &BytecodeRow> = BTreeMap::new();
+
+        for bytecode_row in bytecode.iter() {
+            bytecode_map.insert(bytecode_row.address, bytecode_row);
+        }
+
+        for (i, trace_row) in trace.iter().enumerate() {
+            let expected = *bytecode_map
+                .get(&trace_row.address)
+                .expect("couldn't find in bytecode");
+            if *expected != *trace_row {
+                panic!("Mismatch at index {i}: expected {expected:?}, got {trace_row:?}",);
+            }
+        }
+    }
+
+    #[tracing::instrument(skip_all, name = "WASMMemoryCheckingProof::generate_witness")]
     pub fn wasm_witness<InstructionSet: JoltInstructionSet>(
         preprocessing: &WASMBytecodePreprocessing<F>,
         trace: &mut Vec<JoltTraceStep<InstructionSet>>,
@@ -269,7 +576,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{preprocess, WASMBytecodeProof};
+    use super::{preprocess, WASMBytecodeProof, WASMMemoryCheckingProof};
     use crate::jolt::vm::bytecode::BytecodeRow;
     use crate::jolt::vm::JoltTraceStep;
     use crate::poly::commitment::hyperkzg::HyperKZG;

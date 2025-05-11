@@ -16,6 +16,7 @@ use crate::lasso::memory_checking::{
 use crate::poly::commitment::commitment_scheme::CommitmentScheme;
 use crate::poly::compact_polynomial::{CompactPolynomial, SmallScalar};
 use crate::poly::multilinear_polynomial::{MultilinearPolynomial, PolynomialEvaluation};
+use crate::zkE::vm::bytecode::WASMBytecodePreprocessing;
 use common::constants::{BYTES_PER_INSTRUCTION, RAM_START_ADDRESS};
 use common::rv_trace::ELFInstruction;
 
@@ -68,6 +69,11 @@ pub type BytecodeCommitments<PCS: CommitmentScheme<ProofTranscript>, ProofTransc
 
 impl<F: JoltField, T: CanonicalSerialize + CanonicalDeserialize + Default>
     Initializable<T, BytecodePreprocessing<F>> for BytecodeStuff<T>
+{
+}
+
+impl<F: JoltField, T: CanonicalSerialize + CanonicalDeserialize + Default>
+    Initializable<T, WASMBytecodePreprocessing<F>> for BytecodeStuff<T>
 {
 }
 
