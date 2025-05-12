@@ -4205,6 +4205,7 @@ name = "wasmi"
 version = "0.46.0"
 dependencies = [
  "arrayvec",
+ "common",
  "multi-stash",
  "smallvec",
  "spin",
@@ -4234,6 +4235,7 @@ dependencies = [
 name = "wasmi_ir"
 version = "0.46.0"
 dependencies = [
+ "common",
  "wasmi_core",
 ]
 
