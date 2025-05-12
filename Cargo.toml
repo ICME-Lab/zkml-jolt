@@ -1,4 +1,27 @@
-[package]
+
+[workspace]
+resolver = "2"
+members = [
+    "jolt-core",
+    "tracer",
+    "common",
+    "jolt-sdk",
+    "jolt-sdk/macros",
+    "zkEngine",
+    # "wasmi/crates/collections",
+    # "wasmi/crates/c_api/artifact",
+    # "wasmi/crates/c_api/macro",
+    "wasmi/crates/tracer",
+    # "wasmi/crates/core",
+    "wasmi/crates/wasmi",
+    # "wasmi/crates/wasi",
+    # "wasmi/crates/ir",
+    # "wasmi/crates/fuzz",
+    # "wasmi/crates/wast",
+    # "wasmi/fuzz",
+]
+
+[workspace.package]
 name = "jolt"
 version = "0.1.0"
 authors = [
@@ -19,64 +42,42 @@ documentation = "https://github.com/a16z/jolt/README.md"
 repository = "https://github.com/a16z/jolt"
 license-file = "LICENSE"
 keywords = ["SNARK", "cryptography", "proofs"]
+license = "MIT/Apache-2.0"
+categories = ["wasm", "no-std", "virtualization"]
+exclude = ["tests"]
 
-[workspace]
-members = [
-    "jolt-core",
-    "tracer",
-    "common",
-    "jolt-sdk",
-    "jolt-sdk/macros",
-    "examples/collatz",
-    "examples/collatz/guest",
-    "examples/fibonacci",
-    "examples/fibonacci/guest",
-    "examples/sha2-ex",
-    "examples/sha2-ex/guest",
-    "examples/sha3-ex",
-    "examples/sha3-ex/guest",
-    "examples/sha2-chain",
-    "examples/sha2-chain/guest",
-    "examples/sha3-chain",
-    "examples/sha3-chain/guest",
-    "examples/multi-function",
-    "examples/multi-function/guest",
-    "examples/alloc",
-    "examples/alloc/guest",
-    "examples/stdlib",
-    "examples/stdlib/guest",
-    "examples/muldiv",
-    "examples/muldiv/guest",
-    "examples/overflow",
-    "examples/overflow/guest",
-    "examples/memory-ops",
-    "examples/memory-ops/guest", "zkEngine",
-]
+[workspace.dependencies]
+# Jolt dependencies
+common = { path = "common" }
 
-[features]
-host = ["jolt-sdk/host"]
-icicle = ["jolt-core/icicle"]
+# Wasmi crates
+wasmi = { path = "wasmi/crates/wasmi", default-features = false }
+wasmi_wasi = { path = "wasmi/crates/wasi", default-features = false }
+wasmi_core = { path = "wasmi/crates/core", default-features = false }
+wasmi_ir = { path = "wasmi/crates/ir", default-features = false }
+wasmi_collections = { path = "wasmi/crates/collections", default-features = false }
+wasmi_c_api_impl = { path = "wasmi/crates/c_api" }
+wasmi_c_api_macros = { path = "wasmi/crates/c_api/macro" }
+wasmi_fuzz = { path = "wasmi/crates/fuzz" }
+wasmi_wast = { path = "wasmi/crates/wast" }
 
-[lib]
-path = "./src/lib.rs"
+# wasm-tools dependencies
+wat = { version = "1.228.0", default-features = false }
+wast = { version = "228.0.0", default-features = false }
+wasmparser = { version = "0.228.0", default-features = false }
+wasm-smith = "0.228.0"
+wasmprinter = { version = "0.228.0", default-features = false }
 
-[[bin]]
-name = "jolt"
-path = "./src/main.rs"
+# Wasmtime dependencies
+wasi-common = { version = "31.0.0", default-features = false }
+wiggle = { version = "31.0.0", default-features = false }
+wasmtime = { version = "31.0.0", default-features = false }
 
-[dependencies]
-clap = { version = "4.5.4", features = ["derive"] }
-eyre = "0.6.12"
-rand = "0.8.5"
-sysinfo = "0.30.8"
-syn = { version = "1.0.0", features = ["full"] }
-serde = { version = "1.0", features = ["derive"] }
-rmp-serde = "1.3.0"
-toml_edit = "0.22.14"
 
-jolt-sdk = { path = "./jolt-sdk" }
-jolt-core = { path = "./jolt-core" }
-common = { path = "./common" }
+# [features]
+# host = ["jolt-sdk/host"]
+# icicle = ["jolt-core/icicle"]
+
 
 [profile.test]
 opt-level = 3
