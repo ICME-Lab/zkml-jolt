@@ -468,6 +468,9 @@ pub enum RV32IM {
     VIRTUAL_POW2I,
     VIRTUAL_SRA_PAD,
     VIRTUAL_SRA_PADI,
+
+    // Temp instructions
+    ReturnImm32,
 }
 
 impl FromStr for RV32IM {
@@ -475,8 +478,8 @@ impl FromStr for RV32IM {
 
     fn from_str(s: &str) -> Result<RV32IM, String> {
         match s {
-            "ADD" => Ok(Self::ADD),
-            "SUB" => Ok(Self::SUB),
+            "I32Add" => Ok(Self::ADD),
+            "I32Sub" => Ok(Self::SUB),
             "XOR" => Ok(Self::XOR),
             "OR" => Ok(Self::OR),
             "AND" => Ok(Self::AND),
@@ -514,7 +517,7 @@ impl FromStr for RV32IM {
             "AUIPC" => Ok(Self::AUIPC),
             "ECALL" => Ok(Self::ECALL),
             "EBREAK" => Ok(Self::EBREAK),
-            "MUL" => Ok(Self::MUL),
+            "I32Mul" => Ok(Self::MUL),
             "MULH" => Ok(Self::MULH),
             "MULHU" => Ok(Self::MULHU),
             "MULHSU" => Ok(Self::MULHSU),
@@ -525,6 +528,9 @@ impl FromStr for RV32IM {
             "REMU" => Ok(Self::REMU),
             "FENCE" => Ok(Self::FENCE),
             "UNIMPL" => Ok(Self::UNIMPL),
+
+            // Temp instructions
+            "ReturnImm32" => Ok(Self::VIRTUAL_ADVICE), // HACK: This should have its own instruction
             _ => Err("Could not match instruction to RV32IM set.".to_string()),
         }
     }

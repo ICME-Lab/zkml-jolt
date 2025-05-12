@@ -10,6 +10,7 @@ use crate::utils::errors::ProofVerifyError;
 use crate::utils::math::Math;
 use crate::utils::thread::drop_in_background_thread;
 use crate::utils::transcript::Transcript;
+use crate::zkE::vm::bytecode::WASMMemoryCheckingProof;
 use crate::{
     poly::commitment::commitment_scheme::CommitmentScheme,
     subprotocols::grand_product::{
@@ -66,6 +67,29 @@ where
     /// The openings associated with the grand products.
     pub openings: Openings,
     pub exogenous_openings: OtherOpenings,
+}
+
+impl<F, PCS, Openings, OtherOpenings, ProofTranscript>
+    From<WASMMemoryCheckingProof<F, PCS, Openings, OtherOpenings, ProofTranscript>>
+    for MemoryCheckingProof<F, PCS, Openings, OtherOpenings, ProofTranscript>
+where
+    F: JoltField,
+    PCS: CommitmentScheme<ProofTranscript, Field = F>,
+    Openings: StructuredPolynomialData<F> + Sync + CanonicalSerialize + CanonicalDeserialize,
+    OtherOpenings: ExogenousOpenings<F> + Sync,
+    ProofTranscript: Transcript,
+{
+    fn from(
+        proof: WASMMemoryCheckingProof<F, PCS, Openings, OtherOpenings, ProofTranscript>,
+    ) -> Self {
+        MemoryCheckingProof {
+            multiset_hashes: proof.multiset_hashes,
+            read_write_grand_product: proof.read_write_grand_product,
+            init_final_grand_product: proof.init_final_grand_product,
+            openings: proof.openings,
+            exogenous_openings: proof.exogenous_openings,
+        }
+    }
 }
 
 /// This type, used within a `StructuredPolynomialData` struct, indicates that the
