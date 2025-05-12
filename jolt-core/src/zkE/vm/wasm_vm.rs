@@ -28,14 +28,13 @@ where
 mod tests {
     use super::{WASMJoltVM, C};
     use crate::utils::transcript::KeccakTranscript;
-    use crate::zkE::tests::testing_wasm_program;
+    use crate::zkE::tests::{add_sub_mul_wasm_program, bitwise_arith_wasm_program};
     use crate::zkE::vm::JoltWASM;
+    use crate::zkE::wasm_host::WASMProgram;
     use crate::{poly::commitment::hyperkzg::HyperKZG, zkE::vm::JoltProverPreprocessing};
     use ark_bn254::{Bn254, Fr};
 
-    #[test]
-    fn test_wasm_e2e() {
-        let wasm_program = testing_wasm_program();
+    fn test_wasm_e2e_with(wasm_program: WASMProgram) {
         let (wasm_bytecode, _init_memory) = wasm_program.decode();
 
         // Preprocessing
@@ -49,5 +48,17 @@ mod tests {
 
         // Verify
         WASMJoltVM::verify(preprocessing.shared, snark, commitments, program_io, None).unwrap();
+    }
+
+    #[test]
+    fn test_add_sub_mul() {
+        let wasm_program = add_sub_mul_wasm_program();
+        test_wasm_e2e_with(wasm_program);
+    }
+
+    #[test]
+    fn test_bitwise_arith() {
+        let wasm_program = bitwise_arith_wasm_program();
+        test_wasm_e2e_with(wasm_program);
     }
 }

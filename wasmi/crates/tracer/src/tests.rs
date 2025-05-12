@@ -7,7 +7,7 @@ pub fn add_sub_mul_32_wasm_program() -> Args {
     let duration_boost = "3".to_string(); // Boost multiplier based on how long the stake was held (e.g., 3 = 3 months).
     let volume_boost = "2".to_string(); // Additional multiplier based on trading volume in the pool during the staking period.
     let penalty = "500".to_string(); // Penalty applied for early withdrawal or performance issues (e.g., protocol downgrade).
-    let file_path = "binaries/add_sub_mul_32.wat";
+    let file_path = "../../../wasms/add_sub_mul_32.wat";
     Args::new(
         file_path,
         "main",
@@ -20,7 +20,7 @@ pub fn bitwise_arith_wasm_program() -> Args {
     let duration_boost = "3".to_string(); // Boost multiplier based on how long the stake was held (e.g., 3 = 3 months).
     let volume_boost = "2".to_string(); // Additional multiplier based on trading volume in the pool during the staking period.
     let penalty = "500".to_string(); // Penalty applied for early withdrawal or performance issues (e.g., protocol downgrade).
-    let file_path = "binaries/bitwise_arith.wat";
+    let file_path = "../../../wasms/bitwise_arith.wat";
     Args::new(
         file_path,
         "main",

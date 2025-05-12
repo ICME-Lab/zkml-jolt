@@ -581,13 +581,13 @@ mod tests {
     use crate::jolt::vm::JoltTraceStep;
     use crate::poly::commitment::hyperkzg::HyperKZG;
     use crate::utils::transcript::KeccakTranscript;
-    use crate::{jolt::vm::rv32i_vm::RV32I, zkE::tests::testing_wasm_program};
+    use crate::{jolt::vm::rv32i_vm::RV32I, zkE::tests::add_sub_mul_wasm_program};
     use ark_bn254::{Bn254, Fr};
     use itertools::Itertools;
 
     #[test]
     fn test_wasm_bytecode() {
-        let wasm_program = testing_wasm_program();
+        let wasm_program = add_sub_mul_wasm_program();
         let (wasm_bytecode, _init_memory) = wasm_program.decode();
         let pp = preprocess::<Fr, RV32I>(&wasm_bytecode);
 

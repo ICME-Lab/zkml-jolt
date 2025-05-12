@@ -308,11 +308,24 @@ impl Instruction {
         match *self {
             Self::I32Add { result, lhs, rhs }
             | Self::I32Sub { result, lhs, rhs }
-            | Self::I32Mul { result, lhs, rhs } => {
+            | Self::I32Mul { result, lhs, rhs }
+            | Self::I32BitXor { result, lhs, rhs }
+            | Self::I32BitAnd { result, lhs, rhs }
+            | Self::I32BitOr { result, lhs, rhs } => {
                 trace_r(self, result, lhs, rhs, instruction_address)
             }
 
             Self::ReturnImm32 { value } => ELFInstruction {
+                address: instruction_address,
+                opcode: RV32IM::from_str(&self.to_string()).unwrap(),
+                rs1: None,
+                rs2: None,
+                rd: Some(value.0 as u16 as u32 as u64),
+                imm: None,
+                virtual_sequence_remaining: None,
+            },
+
+            Self::ReturnReg { value } => ELFInstruction {
                 address: instruction_address,
                 opcode: RV32IM::from_str(&self.to_string()).unwrap(),
                 rs1: None,
@@ -345,8 +358,12 @@ impl ToString for Instruction {
             Self::I32Add { .. } => "I32Add".to_string(),
             Self::I32Sub { .. } => "I32Sub".to_string(),
             Self::I32Mul { .. } => "I32Mul".to_string(),
+            Self::I32BitXor { .. } => "I32BitXor".to_string(),
+            Self::I32BitAnd { .. } => "I32BitAnd".to_string(),
+            Self::I32BitOr { .. } => "I32BitOr".to_string(),
 
             Self::ReturnImm32 { .. } => "ReturnImm32".to_string(),
+            Self::ReturnReg { .. } => "ReturnReg".to_string(),
 
             _ => todo!("to_string instruction: {self:?}"),
         }

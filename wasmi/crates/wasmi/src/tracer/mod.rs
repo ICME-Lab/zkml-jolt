@@ -91,4 +91,10 @@ impl Tracer {
         }
         self.rows.try_borrow_mut().unwrap().pop();
     }
+
+    // HACK: We should not remove returns from the execution trace and instead use them for program i/o in JOLT
+    pub fn visit_return(&self) {
+        self.pop_instruction();
+        self.end_instruction();
+    }
 }

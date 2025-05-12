@@ -480,9 +480,9 @@ impl FromStr for RV32IM {
         match s {
             "I32Add" => Ok(Self::ADD),
             "I32Sub" => Ok(Self::SUB),
-            "XOR" => Ok(Self::XOR),
-            "OR" => Ok(Self::OR),
-            "AND" => Ok(Self::AND),
+            "I32BitXor" => Ok(Self::XOR),
+            "I32BitOr" => Ok(Self::OR),
+            "I32BitAnd" => Ok(Self::AND),
             "SLL" => Ok(Self::SLL),
             "SRL" => Ok(Self::SRL),
             "SRA" => Ok(Self::SRA),
@@ -530,7 +530,7 @@ impl FromStr for RV32IM {
             "UNIMPL" => Ok(Self::UNIMPL),
 
             // Temp instructions
-            "ReturnImm32" => Ok(Self::VIRTUAL_ADVICE), // HACK: This should have its own instruction
+            "ReturnImm32" | "ReturnReg" => Ok(Self::UNIMPL), // HACK: This should have its own instruction
             _ => Err("Could not match instruction to RV32IM set.".to_string()),
         }
     }

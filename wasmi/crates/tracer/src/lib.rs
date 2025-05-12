@@ -117,7 +117,10 @@ pub fn decode(wasm_bytecode: &[u8]) -> (Vec<ELFInstruction>, Vec<(u64, u8)>) {
 pub mod test_lib {
     use std::fs;
 
-    use crate::{tests::add_sub_mul_32_wasm_program, trace};
+    use crate::{
+        tests::{add_sub_mul_32_wasm_program, bitwise_arith_wasm_program},
+        trace,
+    };
 
     #[test]
     fn test_add_sub_mul_32() {
@@ -126,8 +129,14 @@ pub mod test_lib {
     }
 
     #[test]
+    fn test_bitwise_arith() {
+        let execution_trace = trace(bitwise_arith_wasm_program()).unwrap();
+        println!("Execution Trace: {execution_trace:#?}");
+    }
+
+    #[test]
     fn print_code_map() {
-        let wasm_bytecode = fs::read("binaries/bitwise_arith.wat").unwrap();
+        let wasm_bytecode = fs::read("../../../wasms/bitwise_arith.wat").unwrap();
         let engine = wasmi::Engine::new(&wasmi::Config::default());
         let _module = wasmi::Module::new(&engine, wasm_bytecode).unwrap();
         let instructions = engine.instructions();

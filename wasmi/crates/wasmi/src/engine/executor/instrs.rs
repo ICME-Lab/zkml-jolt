@@ -149,21 +149,24 @@ impl<'engine> Executor<'engine> {
                     self.execute_consume_fuel(store.inner_mut(), block_fuel)?
                 }
                 Instr::Return => {
+                    self.tracer.visit_return();
                     forward_return!(self.execute_return(store.inner_mut()))
                 }
                 Instr::ReturnReg { value } => {
+                    self.tracer.visit_return();
                     forward_return!(self.execute_return_reg(store.inner_mut(), value))
                 }
                 Instr::ReturnReg2 { values } => {
+                    self.tracer.visit_return();
                     forward_return!(self.execute_return_reg2(store.inner_mut(), values))
                 }
                 Instr::ReturnReg3 { values } => {
+                    self.tracer.visit_return();
                     forward_return!(self.execute_return_reg3(store.inner_mut(), values))
                 }
                 Instr::ReturnImm32 { value } => {
                     // HACK: This opcode should be handled by the lookups
-                    self.tracer.pop_instruction();
-                    self.tracer.end_instruction();
+                    self.tracer.visit_return();
                     forward_return!(self.execute_return_imm32(store.inner_mut(), value))
                 }
                 Instr::ReturnI64Imm32 { value } => {
