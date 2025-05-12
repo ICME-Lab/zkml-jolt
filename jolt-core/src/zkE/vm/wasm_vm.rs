@@ -44,7 +44,7 @@ mod tests {
 
         // Prove
         let (execution_trace, program_io) = wasm_program.trace();
-        let (snark, commitments, _, _) =
+        let (snark, commitments, _, _debug_info) =
             WASMJoltVM::prove(program_io.clone(), execution_trace, preprocessing.clone());
 
         // Verify

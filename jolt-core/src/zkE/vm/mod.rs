@@ -433,7 +433,7 @@ where
         Self::fiat_shamir_preamble(
             &mut transcript,
             &program_io,
-            // &program_io.memory_layout,
+            &program_io.memory_layout,
             trace_length,
         );
 
@@ -594,12 +594,12 @@ where
         Self::fiat_shamir_preamble(
             &mut transcript,
             &program_io,
-            // &preprocessing.memory_layout,
+            &program_io.memory_layout,
             proof.trace_length,
         );
 
         // Regenerate the uniform Spartan key
-        let padded_trace_length = proof.trace_length.next_power_of_two();
+        // let padded_trace_length = proof.trace_length.next_power_of_two();
         // let memory_start = preprocessing.memory_layout.input_start;
         // let r1cs_builder =
         //     Self::Constraints::construct_constraints(padded_trace_length, memory_start);
@@ -657,7 +657,7 @@ where
         //     &mut transcript,
         // )?;
 
-        // // Batch-verify all openings
+        // Batch-verify all openings
         // opening_accumulator.reduce_and_verify(
         //     &preprocessing.generators,
         //     &proof.opening_proof,
@@ -766,7 +766,7 @@ where
     fn fiat_shamir_preamble(
         transcript: &mut ProofTranscript,
         program_io: &JoltDevice,
-        // memory_layout: &MemoryLayout,
+        memory_layout: &MemoryLayout,
         trace_length: usize,
     ) {
         transcript.append_u64(trace_length as u64);
@@ -774,8 +774,8 @@ where
         transcript.append_u64(M as u64);
         transcript.append_u64(Self::InstructionSet::COUNT as u64);
         transcript.append_u64(Self::Subtables::COUNT as u64);
-        // transcript.append_u64(memory_layout.max_input_size);
-        // transcript.append_u64(memory_layout.max_output_size);
+        transcript.append_u64(memory_layout.max_input_size);
+        transcript.append_u64(memory_layout.max_output_size);
         transcript.append_bytes(&program_io.inputs);
         transcript.append_bytes(&program_io.outputs);
         transcript.append_u64(program_io.panic as u64);

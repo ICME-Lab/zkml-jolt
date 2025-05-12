@@ -65,7 +65,7 @@ impl From<&WASMProgram> for Args {
 
 #[cfg(test)]
 mod tests {
-    use crate::zkE::{tests::testing_wasm_program, wasm_host::WASMProgram};
+    use crate::zkE::tests::testing_wasm_program;
 
     #[test]
     fn test_wasm_trace() {
