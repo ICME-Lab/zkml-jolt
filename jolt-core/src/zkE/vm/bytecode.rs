@@ -576,15 +576,12 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{preprocess, WASMBytecodeProof, WASMMemoryCheckingProof};
+    use super::{preprocess, WASMBytecodeProof};
     use crate::jolt::vm::bytecode::BytecodeRow;
     use crate::jolt::vm::JoltTraceStep;
     use crate::poly::commitment::hyperkzg::HyperKZG;
-    use crate::utils::transcript::{KeccakTranscript, Transcript};
-    use crate::{
-        jolt::vm::rv32i_vm::RV32I,
-        zkE::{tests::testing_wasm_program, wasm_host::WASMProgram},
-    };
+    use crate::utils::transcript::KeccakTranscript;
+    use crate::{jolt::vm::rv32i_vm::RV32I, zkE::tests::testing_wasm_program};
     use ark_bn254::{Bn254, Fr};
     use itertools::Itertools;
 
@@ -612,7 +609,7 @@ mod tests {
                 .collect_vec(),
         );
 
-        let witness = WASMBytecodeProof::<Fr, HyperKZG<Bn254, _>, KeccakTranscript>::wasm_witness::<
+        let _witness = WASMBytecodeProof::<Fr, HyperKZG<Bn254, _>, KeccakTranscript>::wasm_witness::<
             RV32I,
         >(&pp, &mut execution_trace);
     }
