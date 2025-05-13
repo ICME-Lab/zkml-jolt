@@ -311,7 +311,10 @@ impl Instruction {
             | Self::I32Mul { result, lhs, rhs }
             | Self::I32BitXor { result, lhs, rhs }
             | Self::I32BitAnd { result, lhs, rhs }
-            | Self::I32BitOr { result, lhs, rhs } => {
+            | Self::I32BitOr { result, lhs, rhs }
+            | Self::I32Shl { result, lhs, rhs }
+            | Self::I32ShrS { result, lhs, rhs }
+            | Self::I32ShrU { result, lhs, rhs } => {
                 trace_r(self, result, lhs, rhs, instruction_address)
             }
 
@@ -361,6 +364,9 @@ impl ToString for Instruction {
             Self::I32BitXor { .. } => "I32BitXor".to_string(),
             Self::I32BitAnd { .. } => "I32BitAnd".to_string(),
             Self::I32BitOr { .. } => "I32BitOr".to_string(),
+            Self::I32Shl { .. } => "I32Shl".to_string(),
+            Self::I32ShrS { .. } => "I32ShrS".to_string(),
+            Self::I32ShrU { .. } => "I32ShrU".to_string(),
 
             Self::ReturnImm32 { .. } => "ReturnImm32".to_string(),
             Self::ReturnReg { .. } => "ReturnReg".to_string(),

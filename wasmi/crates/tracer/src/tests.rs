@@ -1,31 +1,28 @@
 use super::*;
-use core::borrow::Borrow;
+use std::borrow::Borrow;
 use wasmi::{core::ValType, FuncType};
 
 pub fn add_sub_mul_32_wasm_program() -> Args {
-    let stake = "1500".to_string(); // Amount of LP tokens or liquidity staked by the user.
-    let duration_boost = "3".to_string(); // Boost multiplier based on how long the stake was held (e.g., 3 = 3 months).
-    let volume_boost = "2".to_string(); // Additional multiplier based on trading volume in the pool during the staking period.
-    let penalty = "500".to_string(); // Penalty applied for early withdrawal or performance issues (e.g., protocol downgrade).
-    let file_path = "../../../wasms/add_sub_mul_32.wat";
-    Args::new(
-        file_path,
-        "main",
-        vec![stake, duration_boost, volume_boost, penalty],
-    )
+    let file_path = "./wasms/add_sub_mul_32.wat";
+    Args::new(file_path, "main", testing_func_args())
 }
 
 pub fn bitwise_arith_wasm_program() -> Args {
+    let file_path = "./wasms/bitwise_arith.wat";
+    Args::new(file_path, "main", testing_func_args())
+}
+
+pub fn shifts_arith_wasm_program() -> Args {
+    let file_path = "./wasms/shifts_arith.wat";
+    Args::new(file_path, "main", testing_func_args())
+}
+
+fn testing_func_args() -> Vec<String> {
     let stake = "1500".to_string(); // Amount of LP tokens or liquidity staked by the user.
     let duration_boost = "3".to_string(); // Boost multiplier based on how long the stake was held (e.g., 3 = 3 months).
     let volume_boost = "2".to_string(); // Additional multiplier based on trading volume in the pool during the staking period.
     let penalty = "500".to_string(); // Penalty applied for early withdrawal or performance issues (e.g., protocol downgrade).
-    let file_path = "../../../wasms/bitwise_arith.wat";
-    Args::new(
-        file_path,
-        "main",
-        vec![stake, duration_boost, volume_boost, penalty],
-    )
+    vec![stake, duration_boost, volume_boost, penalty]
 }
 
 fn assert_display(func_type: impl Borrow<FuncType>, expected: &str) {

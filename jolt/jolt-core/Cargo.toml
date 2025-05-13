@@ -92,7 +92,7 @@ sysinfo = "0.30.8"
 syn = { version = "1.0.0", features = ["full"] }
 rmp-serde = "1.3.0"
 toml_edit = "0.22.14"
-wasmi_tracer = { path = "../wasmi/crates/tracer" }
+wasmi_tracer = { path = "../../wasmi/crates/tracer" }
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports"] }

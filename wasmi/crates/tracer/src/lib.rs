@@ -1,3 +1,8 @@
+extern crate anyhow;
+extern crate clap;
+extern crate common;
+extern crate wasmi;
+extern crate wasmi_wasi;
 use crate::{args::Args, display::DisplayFuncType};
 use anyhow::bail;
 use common::rv_trace::{ELFInstruction, RVTraceRow};
@@ -118,7 +123,11 @@ pub mod test_lib {
     use std::fs;
 
     use crate::{
-        tests::{add_sub_mul_32_wasm_program, bitwise_arith_wasm_program},
+        tests::{
+            add_sub_mul_32_wasm_program,
+            bitwise_arith_wasm_program,
+            shifts_arith_wasm_program,
+        },
         trace,
     };
 
@@ -135,8 +144,14 @@ pub mod test_lib {
     }
 
     #[test]
+    fn test_shifts_arith() {
+        let execution_trace = trace(shifts_arith_wasm_program()).unwrap();
+        println!("Execution Trace: {execution_trace:#?}");
+    }
+
+    #[test]
     fn print_code_map() {
-        let wasm_bytecode = fs::read("../../../wasms/bitwise_arith.wat").unwrap();
+        let wasm_bytecode = fs::read("./wasms/bitwise_arith.wat").unwrap();
         let engine = wasmi::Engine::new(&wasmi::Config::default());
         let _module = wasmi::Module::new(&engine, wasm_bytecode).unwrap();
         let instructions = engine.instructions();
