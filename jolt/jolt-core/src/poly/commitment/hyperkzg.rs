@@ -11,13 +11,19 @@ use super::{
     commitment_scheme::{CommitmentScheme, StreamingCommitmentScheme},
     kzg::{KZGProverKey, KZGVerifierKey, UnivariateKZG},
 };
-use crate::field::JoltField;
-use crate::poly::multilinear_polynomial::{MultilinearPolynomial, PolynomialEvaluation};
-use crate::utils::transcript::Transcript;
 use crate::{
+    field::JoltField,
     msm::{Icicle, VariableBaseMSM},
-    poly::{commitment::kzg::SRS, dense_mlpoly::DensePolynomial, unipoly::UniPoly},
-    utils::{errors::ProofVerifyError, transcript::AppendToTranscript},
+    poly::{
+        commitment::kzg::SRS,
+        dense_mlpoly::DensePolynomial,
+        multilinear_polynomial::{MultilinearPolynomial, PolynomialEvaluation},
+        unipoly::UniPoly,
+    },
+    utils::{
+        errors::ProofVerifyError,
+        transcript::{AppendToTranscript, Transcript},
+    },
 };
 use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -28,8 +34,7 @@ use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator,
     IntoParallelRefMutIterator, ParallelIterator,
 };
-use std::borrow::Borrow;
-use std::{marker::PhantomData, sync::Arc};
+use std::{borrow::Borrow, marker::PhantomData, sync::Arc};
 
 pub struct HyperKZGSRS<P: Pairing>(Arc<SRS<P>>)
 where

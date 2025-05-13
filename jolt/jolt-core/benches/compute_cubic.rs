@@ -1,13 +1,16 @@
 use ark_bn254::Fr;
 use ark_std::{rand::Rng, test_rng};
 use criterion::Criterion;
-use jolt_core::field::JoltField;
-use jolt_core::poly::dense_interleaved_poly::DenseInterleavedPolynomial;
-use jolt_core::poly::sparse_interleaved_poly::{SparseCoefficient, SparseInterleavedPolynomial};
-use jolt_core::poly::split_eq_poly::SplitEqPolynomial;
-use jolt_core::subprotocols::sumcheck::BatchedCubicSumcheck;
-use jolt_core::utils::math::Math;
-use jolt_core::utils::transcript::KeccakTranscript;
+use jolt_core::{
+    field::JoltField,
+    poly::{
+        dense_interleaved_poly::DenseInterleavedPolynomial,
+        sparse_interleaved_poly::{SparseCoefficient, SparseInterleavedPolynomial},
+        split_eq_poly::SplitEqPolynomial,
+    },
+    subprotocols::sumcheck::BatchedCubicSumcheck,
+    utils::{math::Math, transcript::KeccakTranscript},
+};
 
 fn random_dense_coeffs<F: JoltField>(rng: &mut impl Rng, num_vars: usize) -> Vec<F> {
     std::iter::repeat_with(|| F::random(rng))

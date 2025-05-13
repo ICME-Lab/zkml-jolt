@@ -4,9 +4,9 @@
 use std::marker::PhantomData;
 
 use super::Error;
-use crate::msm::Icicle;
 use crate::{
     field::JoltField,
+    msm::Icicle,
     poly::commitment::bmmtv::{
         afgho::AfghoCommitment, inner_products::MultiexponentiationInnerProduct,
     },
@@ -222,18 +222,23 @@ where
 #[cfg(test)]
 mod tests {
     use super::{
-        super::afgho::{random_generators, AfghoCommitment},
-        super::inner_products::MultiexponentiationInnerProduct,
+        super::{
+            afgho::{random_generators, AfghoCommitment},
+            inner_products::MultiexponentiationInnerProduct,
+        },
         *,
     };
-    use crate::msm::{use_icicle, Icicle, VariableBaseMSM};
-    use crate::utils::transcript::KeccakTranscript;
+    use crate::{
+        msm::{use_icicle, Icicle, VariableBaseMSM},
+        utils::transcript::KeccakTranscript,
+    };
     use ark_bn254::Bn254;
-    use ark_ec::pairing::Pairing;
-    use ark_ec::CurveGroup;
+    use ark_ec::{pairing::Pairing, CurveGroup};
     use ark_ff::UniformRand;
-    use ark_std::rand::{rngs::StdRng, SeedableRng};
-    use ark_std::One;
+    use ark_std::{
+        rand::{rngs::StdRng, SeedableRng},
+        One,
+    };
 
     /// Inner pairing product commitment in G1
     type AfghoBn245 = AfghoCommitment<Bn254>;

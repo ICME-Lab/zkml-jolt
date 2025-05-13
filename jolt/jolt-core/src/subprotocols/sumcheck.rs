@@ -1,18 +1,24 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
 
-use crate::field::JoltField;
-use crate::poly::dense_mlpoly::DensePolynomial;
-use crate::poly::multilinear_polynomial::{
-    BindingOrder, MultilinearPolynomial, PolynomialBinding, PolynomialEvaluation,
+use crate::{
+    field::JoltField,
+    poly::{
+        dense_mlpoly::DensePolynomial,
+        multilinear_polynomial::{
+            BindingOrder, MultilinearPolynomial, PolynomialBinding, PolynomialEvaluation,
+        },
+        spartan_interleaved_poly::SpartanInterleavedPolynomial,
+        split_eq_poly::SplitEqPolynomial,
+        unipoly::{CompressedUniPoly, UniPoly},
+    },
+    utils::{
+        errors::ProofVerifyError,
+        mul_0_optimized,
+        thread::drop_in_background_thread,
+        transcript::{AppendToTranscript, Transcript},
+    },
 };
-use crate::poly::spartan_interleaved_poly::SpartanInterleavedPolynomial;
-use crate::poly::split_eq_poly::SplitEqPolynomial;
-use crate::poly::unipoly::{CompressedUniPoly, UniPoly};
-use crate::utils::errors::ProofVerifyError;
-use crate::utils::mul_0_optimized;
-use crate::utils::thread::drop_in_background_thread;
-use crate::utils::transcript::{AppendToTranscript, Transcript};
 use ark_serialize::*;
 use rayon::prelude::*;
 use std::marker::PhantomData;

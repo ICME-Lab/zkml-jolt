@@ -1,30 +1,21 @@
-use crate::jolt::instruction::and::ANDInstruction;
-use crate::jolt::instruction::beq::BEQInstruction;
-use crate::jolt::instruction::bge::BGEInstruction;
-use crate::jolt::instruction::bgeu::BGEUInstruction;
-use crate::jolt::instruction::bne::BNEInstruction;
-use crate::jolt::instruction::mul::MULInstruction;
-use crate::jolt::instruction::mulhu::MULHUInstruction;
-use crate::jolt::instruction::mulu::MULUInstruction;
-use crate::jolt::instruction::or::ORInstruction;
-use crate::jolt::instruction::sll::SLLInstruction;
-use crate::jolt::instruction::slt::SLTInstruction;
-use crate::jolt::instruction::sltu::SLTUInstruction;
-use crate::jolt::instruction::sra::SRAInstruction;
-use crate::jolt::instruction::srl::SRLInstruction;
-use crate::jolt::instruction::sub::SUBInstruction;
-use crate::jolt::instruction::virtual_advice::ADVICEInstruction;
-use crate::jolt::instruction::virtual_assert_halfword_alignment::AssertHalfwordAlignmentInstruction;
-use crate::jolt::instruction::virtual_assert_lte::ASSERTLTEInstruction;
-use crate::jolt::instruction::virtual_assert_valid_div0::AssertValidDiv0Instruction;
-use crate::jolt::instruction::virtual_assert_valid_signed_remainder::AssertValidSignedRemainderInstruction;
-use crate::jolt::instruction::virtual_assert_valid_unsigned_remainder::AssertValidUnsignedRemainderInstruction;
-use crate::jolt::instruction::virtual_move::MOVEInstruction;
-use crate::jolt::instruction::virtual_pow2::POW2Instruction;
-use crate::jolt::instruction::virtual_right_shift_padding::RightShiftPaddingInstruction;
-use crate::jolt::instruction::xor::XORInstruction;
-use crate::jolt::instruction::{add::ADDInstruction, virtual_movsign::MOVSIGNInstruction};
-use crate::jolt::vm::rv32i_vm::RV32I;
+use crate::jolt::{
+    instruction::{
+        add::ADDInstruction, and::ANDInstruction, beq::BEQInstruction, bge::BGEInstruction,
+        bgeu::BGEUInstruction, bne::BNEInstruction, mul::MULInstruction, mulhu::MULHUInstruction,
+        mulu::MULUInstruction, or::ORInstruction, sll::SLLInstruction, slt::SLTInstruction,
+        sltu::SLTUInstruction, sra::SRAInstruction, srl::SRLInstruction, sub::SUBInstruction,
+        virtual_advice::ADVICEInstruction,
+        virtual_assert_halfword_alignment::AssertHalfwordAlignmentInstruction,
+        virtual_assert_lte::ASSERTLTEInstruction,
+        virtual_assert_valid_div0::AssertValidDiv0Instruction,
+        virtual_assert_valid_signed_remainder::AssertValidSignedRemainderInstruction,
+        virtual_assert_valid_unsigned_remainder::AssertValidUnsignedRemainderInstruction,
+        virtual_move::MOVEInstruction, virtual_movsign::MOVSIGNInstruction,
+        virtual_pow2::POW2Instruction, virtual_right_shift_padding::RightShiftPaddingInstruction,
+        xor::XORInstruction,
+    },
+    vm::rv32i_vm::RV32I,
+};
 use common::rv_trace::{ELFInstruction, RVTraceRow, RV32IM};
 
 impl TryFrom<&ELFInstruction> for RV32I {

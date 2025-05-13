@@ -1,12 +1,13 @@
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use std::borrow::Borrow;
-use std::fmt::Debug;
+use std::{borrow::Borrow, fmt::Debug};
 
-use crate::utils::transcript::Transcript;
 use crate::{
     field::JoltField,
     poly::multilinear_polynomial::MultilinearPolynomial,
-    utils::{errors::ProofVerifyError, transcript::AppendToTranscript},
+    utils::{
+        errors::ProofVerifyError,
+        transcript::{AppendToTranscript, Transcript},
+    },
 };
 
 pub trait CommitmentScheme<ProofTranscript: Transcript>: Clone + Sync + Send + 'static {

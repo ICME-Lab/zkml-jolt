@@ -1,20 +1,20 @@
 use ark_bn254::Bn254;
-use ark_ff::BigInteger;
-use ark_ff::PrimeField;
+use ark_ff::{BigInteger, PrimeField};
 
-use crate::field::JoltField;
-use crate::poly::commitment::hyperkzg::{HyperKZG, HyperKZGProof, HyperKZGVerifierKey};
-use crate::r1cs::inputs::JoltR1CSInputs;
-use crate::r1cs::spartan::UniformSpartanProof;
-use crate::subprotocols::grand_product::BatchedGrandProductLayerProof;
-use crate::subprotocols::grand_product::BatchedGrandProductProof;
-use crate::subprotocols::sumcheck::SumcheckInstanceProof;
-use crate::utils::transcript::Transcript;
+use crate::{
+    field::JoltField,
+    poly::commitment::hyperkzg::{HyperKZG, HyperKZGProof, HyperKZGVerifierKey},
+    r1cs::{inputs::JoltR1CSInputs, spartan::UniformSpartanProof},
+    subprotocols::{
+        grand_product::{BatchedGrandProductLayerProof, BatchedGrandProductProof},
+        sumcheck::SumcheckInstanceProof,
+    },
+    utils::transcript::Transcript,
+};
 use alloy_primitives::U256;
 use alloy_sol_types::sol;
 use ark_bn254::FrConfig;
-use ark_ff::Fp;
-use ark_ff::MontBackend;
+use ark_ff::{Fp, MontBackend};
 
 sol!(struct HyperKZGProofSol {
     uint256[] com; // G1 points represented pairwise

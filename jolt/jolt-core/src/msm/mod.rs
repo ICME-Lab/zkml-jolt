@@ -1,7 +1,6 @@
 use ark_ec::{CurveGroup, ScalarMul};
 use ark_ff::{prelude::*, PrimeField};
-use ark_std::cmp::Ordering;
-use ark_std::vec::Vec;
+use ark_std::{cmp::Ordering, vec::Vec};
 #[cfg(feature = "icicle")]
 use icicle_core::curve::Affine;
 use num_integer::Integer;
@@ -9,10 +8,11 @@ use rayon::prelude::*;
 use std::borrow::Borrow;
 
 pub(crate) mod icicle;
-use crate::field::JoltField;
-use crate::poly::multilinear_polynomial::MultilinearPolynomial;
-use crate::utils::errors::ProofVerifyError;
-use crate::utils::math::Math;
+use crate::{
+    field::JoltField,
+    poly::multilinear_polynomial::MultilinearPolynomial,
+    utils::{errors::ProofVerifyError, math::Math},
+};
 pub use icicle::*;
 
 impl<F: JoltField, G: CurveGroup<ScalarField = F> + Icicle> VariableBaseMSM for G {}

@@ -1,17 +1,19 @@
 use ark_bn254::{Bn254, Fr, G1Affine, G1Projective};
-use ark_std::rand::seq::SliceRandom;
-use ark_std::UniformRand;
+use ark_std::{rand::seq::SliceRandom, UniformRand};
 use criterion::Criterion;
-use jolt_core::field::JoltField;
 #[cfg(not(feature = "icicle"))]
 use jolt_core::msm::VariableBaseMSM;
 #[cfg(feature = "icicle")]
 use jolt_core::msm::{icicle_batch_msm, Icicle};
-use jolt_core::msm::{icicle_init, GpuBaseType};
-use jolt_core::poly::commitment::commitment_scheme::CommitmentScheme;
-use jolt_core::poly::commitment::hyperkzg::HyperKZG;
-use jolt_core::poly::multilinear_polynomial::MultilinearPolynomial;
-use jolt_core::utils::transcript::{KeccakTranscript, Transcript};
+use jolt_core::{
+    field::JoltField,
+    msm::{icicle_init, GpuBaseType},
+    poly::{
+        commitment::{commitment_scheme::CommitmentScheme, hyperkzg::HyperKZG},
+        multilinear_polynomial::MultilinearPolynomial,
+    },
+    utils::transcript::{KeccakTranscript, Transcript},
+};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use rayon::prelude::*;

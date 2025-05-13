@@ -4,10 +4,9 @@
 #[cfg(test)]
 use super::inputs::ConstraintInput;
 use crate::{field::JoltField, poly::multilinear_polynomial::MultilinearPolynomial};
-use std::fmt::Debug;
 #[cfg(test)]
 use std::fmt::Write as _;
-use std::hash::Hash;
+use std::{fmt::Debug, hash::Hash};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Variable {

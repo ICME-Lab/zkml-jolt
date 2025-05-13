@@ -11,13 +11,11 @@ use mulhu::MULHUInstruction;
 use mulu::MULUInstruction;
 use or::ORInstruction;
 use prefixes::PrefixEval;
-use rand::rngs::StdRng;
-use rand::RngCore;
+use rand::{rngs::StdRng, RngCore};
 use serde::Serialize;
 use slt::SLTInstruction;
 use sltu::SLTUInstruction;
-use std::marker::Sync;
-use std::ops::Range;
+use std::{marker::Sync, ops::Range};
 use strum::{EnumCount, IntoEnumIterator};
 use strum_macros::{EnumCount as EnumCountMacro, EnumIter};
 use sub::SUBInstruction;
@@ -35,11 +33,12 @@ use virtual_pow2::POW2Instruction;
 use virtual_right_shift_padding::RightShiftPaddingInstruction;
 use xor::XORInstruction;
 
-use crate::field::JoltField;
-use crate::jolt::subtable::LassoSubtable;
-use crate::subprotocols::sparse_dense_shout::PrefixSuffixDecomposition;
-use crate::utils::instruction_utils::chunk_operand;
-use crate::utils::interleave_bits;
+use crate::{
+    field::JoltField,
+    jolt::subtable::LassoSubtable,
+    subprotocols::sparse_dense_shout::PrefixSuffixDecomposition,
+    utils::{instruction_utils::chunk_operand, interleave_bits},
+};
 use common::rv_trace::ELFInstruction;
 use std::fmt::Debug;
 

@@ -1,17 +1,23 @@
-use crate::field::JoltField;
-use crate::subprotocols::sparse_dense_shout::PrefixSuffixDecomposition;
-use crate::utils::uninterleave_bits;
+use crate::{
+    field::JoltField, subprotocols::sparse_dense_shout::PrefixSuffixDecomposition,
+    utils::uninterleave_bits,
+};
 use ark_std::log2;
-use rand::prelude::StdRng;
-use rand::RngCore;
+use rand::{prelude::StdRng, RngCore};
 use serde::{Deserialize, Serialize};
 
-use super::prefixes::{PrefixEval, Prefixes};
-use super::suffixes::{SuffixEval, Suffixes};
-use super::JoltInstruction;
-use crate::jolt::instruction::SubtableIndices;
-use crate::jolt::subtable::{xor::XorSubtable, LassoSubtable};
-use crate::utils::instruction_utils::{chunk_and_concatenate_operands, concatenate_lookups};
+use super::{
+    prefixes::{PrefixEval, Prefixes},
+    suffixes::{SuffixEval, Suffixes},
+    JoltInstruction,
+};
+use crate::{
+    jolt::{
+        instruction::SubtableIndices,
+        subtable::{xor::XorSubtable, LassoSubtable},
+    },
+    utils::instruction_utils::{chunk_and_concatenate_operands, concatenate_lookups},
+};
 
 #[derive(Copy, Clone, Default, Debug, Serialize, Deserialize, PartialEq)]
 pub struct XORInstruction<const WORD_SIZE: usize>(pub u64, pub u64);

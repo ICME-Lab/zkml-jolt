@@ -3,16 +3,17 @@ use crate::{
     jolt::subtable::{div_by_zero::DivByZeroSubtable, left_is_zero::LeftIsZeroSubtable},
     utils::uninterleave_bits,
 };
-use rand::prelude::StdRng;
-use rand::RngCore;
+use rand::{prelude::StdRng, RngCore};
 use serde::{Deserialize, Serialize};
 
-use super::prefixes::{PrefixEval, Prefixes};
-use super::suffixes::{SuffixEval, Suffixes};
-use super::JoltInstruction;
-use crate::subprotocols::sparse_dense_shout::PrefixSuffixDecomposition;
+use super::{
+    prefixes::{PrefixEval, Prefixes},
+    suffixes::{SuffixEval, Suffixes},
+    JoltInstruction,
+};
 use crate::{
     jolt::{instruction::SubtableIndices, subtable::LassoSubtable},
+    subprotocols::sparse_dense_shout::PrefixSuffixDecomposition,
     utils::instruction_utils::chunk_and_concatenate_operands,
 };
 

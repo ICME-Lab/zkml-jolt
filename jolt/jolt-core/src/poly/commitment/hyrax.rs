@@ -7,14 +7,20 @@
 //! Instead, Hyrax will be used as the PCS in Spartan to prove the verification
 //! of a Jolt proof (i.e. SNARK composition).
 use super::pedersen::{PedersenCommitment, PedersenGenerators};
-use crate::field::JoltField;
-use crate::poly::dense_mlpoly::DensePolynomial;
-use crate::poly::eq_poly::EqPolynomial;
-use crate::poly::multilinear_polynomial::MultilinearPolynomial;
-use crate::utils::errors::ProofVerifyError;
-use crate::utils::math::Math;
-use crate::utils::transcript::{AppendToTranscript, Transcript};
-use crate::utils::{compute_dotproduct, mul_0_1_optimized};
+use crate::{
+    field::JoltField,
+    poly::{
+        dense_mlpoly::DensePolynomial, eq_poly::EqPolynomial,
+        multilinear_polynomial::MultilinearPolynomial,
+    },
+    utils::{
+        compute_dotproduct,
+        errors::ProofVerifyError,
+        math::Math,
+        mul_0_1_optimized,
+        transcript::{AppendToTranscript, Transcript},
+    },
+};
 use ark_ec::CurveGroup;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use num_integer::Roots;

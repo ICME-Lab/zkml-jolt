@@ -1,24 +1,29 @@
 use ark_ff::Zero;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use rand::rngs::StdRng;
-use rand::RngCore;
+use rand::{rngs::StdRng, RngCore};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 #[cfg(test)]
 use std::collections::HashSet;
 use tracer::RV32IM;
 
-use crate::field::JoltField;
-use crate::jolt::instruction::JoltInstructionSet;
-use crate::lasso::memory_checking::{
-    Initializable, NoExogenousOpenings, StructuredPolynomialData, VerifierComputedOpening,
+use crate::{
+    field::JoltField,
+    jolt::instruction::JoltInstructionSet,
+    lasso::memory_checking::{
+        Initializable, NoExogenousOpenings, StructuredPolynomialData, VerifierComputedOpening,
+    },
+    poly::{
+        commitment::commitment_scheme::CommitmentScheme,
+        compact_polynomial::{CompactPolynomial, SmallScalar},
+        multilinear_polynomial::{MultilinearPolynomial, PolynomialEvaluation},
+    },
+    zkE::vm::bytecode::WASMBytecodePreprocessing,
 };
-use crate::poly::commitment::commitment_scheme::CommitmentScheme;
-use crate::poly::compact_polynomial::{CompactPolynomial, SmallScalar};
-use crate::poly::multilinear_polynomial::{MultilinearPolynomial, PolynomialEvaluation};
-use crate::zkE::vm::bytecode::WASMBytecodePreprocessing;
-use common::constants::{BYTES_PER_INSTRUCTION, RAM_START_ADDRESS};
-use common::rv_trace::ELFInstruction;
+use common::{
+    constants::{BYTES_PER_INSTRUCTION, RAM_START_ADDRESS},
+    rv_trace::ELFInstruction,
+};
 
 use rayon::prelude::*;
 

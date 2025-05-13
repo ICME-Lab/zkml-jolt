@@ -1,15 +1,18 @@
 use ark_bn254::{Bn254, Fr};
 use criterion::Criterion;
-use jolt_core::field::JoltField;
-use jolt_core::poly::commitment::commitment_scheme::CommitmentScheme;
-use jolt_core::poly::commitment::hyperkzg::HyperKZG;
-use jolt_core::poly::opening_proof::{ProverOpeningAccumulator, VerifierOpeningAccumulator};
-use jolt_core::subprotocols::grand_product::{
-    BatchedDenseGrandProduct, BatchedGrandProduct, BatchedGrandProductProof,
+use jolt_core::{
+    field::JoltField,
+    poly::{
+        commitment::{commitment_scheme::CommitmentScheme, hyperkzg::HyperKZG},
+        opening_proof::{ProverOpeningAccumulator, VerifierOpeningAccumulator},
+    },
+    subprotocols::{
+        grand_product::{BatchedDenseGrandProduct, BatchedGrandProduct, BatchedGrandProductProof},
+        grand_product_quarks::{QuarkGrandProduct, QuarkGrandProductConfig},
+        QuarkHybridLayerDepth,
+    },
+    utils::transcript::{KeccakTranscript, Transcript},
 };
-use jolt_core::subprotocols::grand_product_quarks::{QuarkGrandProduct, QuarkGrandProductConfig};
-use jolt_core::subprotocols::QuarkHybridLayerDepth;
-use jolt_core::utils::transcript::{KeccakTranscript, Transcript};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 

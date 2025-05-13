@@ -1,9 +1,8 @@
 use crate::msm::Icicle;
-use ark_ec::AffineRepr;
 use ark_ec::{
     pairing::{Pairing, PairingOutput},
     scalar_mul::variable_base::VariableBaseMSM,
-    CurveGroup,
+    AffineRepr, CurveGroup,
 };
 use ark_ff::{Field, One, Zero};
 use tracing::Level;
@@ -13,10 +12,14 @@ use super::{
     mipp_k::{MippK, MippKProof},
     Error,
 };
-use crate::field::JoltField;
-use crate::poly::commitment::kzg::{KZGProverKey, KZGVerifierKey, UnivariateKZG, SRS};
-use crate::poly::unipoly::UniPoly as UnivariatePolynomial;
-use crate::utils::transcript::Transcript;
+use crate::{
+    field::JoltField,
+    poly::{
+        commitment::kzg::{KZGProverKey, KZGVerifierKey, UnivariateKZG, SRS},
+        unipoly::UniPoly as UnivariatePolynomial,
+    },
+    utils::transcript::Transcript,
+};
 use ark_std::rand::Rng;
 use rand_core::CryptoRng;
 

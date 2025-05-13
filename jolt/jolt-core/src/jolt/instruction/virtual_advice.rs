@@ -1,15 +1,18 @@
 use ark_std::log2;
-use rand::prelude::StdRng;
-use rand::RngCore;
+use rand::{prelude::StdRng, RngCore};
 use serde::{Deserialize, Serialize};
 
-use super::prefixes::{PrefixEval, Prefixes};
-use super::suffixes::{SuffixEval, Suffixes};
-use super::{JoltInstruction, SubtableIndices};
-use crate::field::JoltField;
-use crate::jolt::subtable::{identity::IdentitySubtable, LassoSubtable};
-use crate::subprotocols::sparse_dense_shout::PrefixSuffixDecomposition;
-use crate::utils::instruction_utils::{chunk_operand_usize, concatenate_lookups};
+use super::{
+    prefixes::{PrefixEval, Prefixes},
+    suffixes::{SuffixEval, Suffixes},
+    JoltInstruction, SubtableIndices,
+};
+use crate::{
+    field::JoltField,
+    jolt::subtable::{identity::IdentitySubtable, LassoSubtable},
+    subprotocols::sparse_dense_shout::PrefixSuffixDecomposition,
+    utils::instruction_utils::{chunk_operand_usize, concatenate_lookups},
+};
 
 #[derive(Copy, Clone, Default, Debug, Serialize, Deserialize, PartialEq)]
 pub struct ADVICEInstruction<const WORD_SIZE: usize>(pub u64);

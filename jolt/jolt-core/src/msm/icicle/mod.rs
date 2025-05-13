@@ -1,6 +1,8 @@
 use ark_ec::{CurveGroup, ScalarMul};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Once;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Once,
+};
 
 #[cfg(feature = "icicle")]
 pub(crate) mod adapter;

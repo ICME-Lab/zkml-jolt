@@ -1,21 +1,24 @@
-use super::grand_product::{
-    BatchedGrandProduct, BatchedGrandProductLayer, BatchedGrandProductLayerProof,
-    BatchedGrandProductProof,
+use super::{
+    grand_product::{
+        BatchedGrandProduct, BatchedGrandProductLayer, BatchedGrandProductLayerProof,
+        BatchedGrandProductProof,
+    },
+    sumcheck::{BatchedCubicSumcheck, Bindable},
 };
-use super::sumcheck::{BatchedCubicSumcheck, Bindable};
-use crate::field::{JoltField, OptimizedMul};
-use crate::poly::commitment::commitment_scheme::CommitmentScheme;
 #[cfg(test)]
 use crate::poly::dense_mlpoly::DensePolynomial;
-use crate::poly::opening_proof::{ProverOpeningAccumulator, VerifierOpeningAccumulator};
-use crate::poly::sparse_interleaved_poly::SparseInterleavedPolynomial;
-use crate::poly::split_eq_poly::SplitEqPolynomial;
-use crate::poly::unipoly::UniPoly;
-use crate::subprotocols::grand_product_quarks::QuarkGrandProductBase;
-use crate::subprotocols::QuarkHybridLayerDepth;
-use crate::utils::math::Math;
-use crate::utils::thread::drop_in_background_thread;
-use crate::utils::transcript::Transcript;
+use crate::{
+    field::{JoltField, OptimizedMul},
+    poly::{
+        commitment::commitment_scheme::CommitmentScheme,
+        opening_proof::{ProverOpeningAccumulator, VerifierOpeningAccumulator},
+        sparse_interleaved_poly::SparseInterleavedPolynomial,
+        split_eq_poly::SplitEqPolynomial,
+        unipoly::UniPoly,
+    },
+    subprotocols::{grand_product_quarks::QuarkGrandProductBase, QuarkHybridLayerDepth},
+    utils::{math::Math, thread::drop_in_background_thread, transcript::Transcript},
+};
 use rayon::prelude::*;
 
 /// A special bottom layer of a grand product, where boolean flags are used to
@@ -1121,10 +1124,10 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::poly::commitment::zeromorph::ZeromorphSRS;
     use crate::{
         poly::{
-            commitment::zeromorph::Zeromorph, dense_interleaved_poly::DenseInterleavedPolynomial,
+            commitment::zeromorph::{Zeromorph, ZeromorphSRS},
+            dense_interleaved_poly::DenseInterleavedPolynomial,
         },
         utils::transcript::KeccakTranscript,
     };

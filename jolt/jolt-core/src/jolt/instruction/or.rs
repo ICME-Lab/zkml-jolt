@@ -1,16 +1,21 @@
 use ark_std::log2;
-use rand::prelude::StdRng;
-use rand::RngCore;
+use rand::{prelude::StdRng, RngCore};
 use serde::{Deserialize, Serialize};
 
-use super::prefixes::{PrefixEval, Prefixes};
-use super::suffixes::{SuffixEval, Suffixes};
-use super::{JoltInstruction, SubtableIndices};
-use crate::field::JoltField;
-use crate::jolt::subtable::{or::OrSubtable, LassoSubtable};
-use crate::subprotocols::sparse_dense_shout::PrefixSuffixDecomposition;
-use crate::utils::instruction_utils::{chunk_and_concatenate_operands, concatenate_lookups};
-use crate::utils::uninterleave_bits;
+use super::{
+    prefixes::{PrefixEval, Prefixes},
+    suffixes::{SuffixEval, Suffixes},
+    JoltInstruction, SubtableIndices,
+};
+use crate::{
+    field::JoltField,
+    jolt::subtable::{or::OrSubtable, LassoSubtable},
+    subprotocols::sparse_dense_shout::PrefixSuffixDecomposition,
+    utils::{
+        instruction_utils::{chunk_and_concatenate_operands, concatenate_lookups},
+        uninterleave_bits,
+    },
+};
 
 #[derive(Copy, Clone, Default, Debug, Serialize, Deserialize, PartialEq)]
 pub struct ORInstruction<const WORD_SIZE: usize>(pub u64, pub u64);

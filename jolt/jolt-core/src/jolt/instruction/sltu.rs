@@ -2,8 +2,7 @@ use crate::{
     field::JoltField, subprotocols::sparse_dense_shout::PrefixSuffixDecomposition,
     utils::uninterleave_bits,
 };
-use rand::prelude::StdRng;
-use rand::RngCore;
+use rand::{prelude::StdRng, RngCore};
 use serde::{Deserialize, Serialize};
 
 use super::{

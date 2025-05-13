@@ -1,7 +1,6 @@
 use crate::field::JoltField;
 use enum_dispatch::enum_dispatch;
-use std::any::TypeId;
-use std::marker::Sync;
+use std::{any::TypeId, marker::Sync};
 use strum::{EnumCount, IntoEnumIterator};
 
 #[enum_dispatch]

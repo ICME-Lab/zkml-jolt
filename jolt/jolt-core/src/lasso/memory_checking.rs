@@ -1,21 +1,23 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
 
-use crate::jolt::vm::{JoltCommitments, JoltPolynomials, JoltStuff};
-use crate::poly::dense_mlpoly::DensePolynomial;
-use crate::poly::eq_poly::EqPolynomial;
-use crate::poly::multilinear_polynomial::{MultilinearPolynomial, PolynomialEvaluation};
-use crate::poly::opening_proof::{ProverOpeningAccumulator, VerifierOpeningAccumulator};
-use crate::utils::errors::ProofVerifyError;
-use crate::utils::math::Math;
-use crate::utils::thread::drop_in_background_thread;
-use crate::utils::transcript::Transcript;
-use crate::zkE::vm::bytecode::WASMMemoryCheckingProof;
 use crate::{
-    poly::commitment::commitment_scheme::CommitmentScheme,
+    jolt::vm::{JoltCommitments, JoltPolynomials, JoltStuff},
+    poly::{
+        commitment::commitment_scheme::CommitmentScheme,
+        dense_mlpoly::DensePolynomial,
+        eq_poly::EqPolynomial,
+        multilinear_polynomial::{MultilinearPolynomial, PolynomialEvaluation},
+        opening_proof::{ProverOpeningAccumulator, VerifierOpeningAccumulator},
+    },
     subprotocols::grand_product::{
         BatchedDenseGrandProduct, BatchedGrandProduct, BatchedGrandProductProof,
     },
+    utils::{
+        errors::ProofVerifyError, math::Math, thread::drop_in_background_thread,
+        transcript::Transcript,
+    },
+    zkE::vm::bytecode::WASMMemoryCheckingProof,
 };
 
 use crate::field::JoltField;

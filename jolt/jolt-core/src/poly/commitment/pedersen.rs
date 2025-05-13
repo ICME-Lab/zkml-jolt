@@ -2,12 +2,16 @@ use ark_ec::CurveGroup;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
-use sha3::digest::{ExtendableOutput, Update};
-use sha3::Shake256;
+use sha3::{
+    digest::{ExtendableOutput, Update},
+    Shake256,
+};
 use std::io::Read;
 
-use crate::field::JoltField;
-use crate::msm::{Icicle, VariableBaseMSM};
+use crate::{
+    field::JoltField,
+    msm::{Icicle, VariableBaseMSM},
+};
 
 #[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct PedersenGenerators<G: CurveGroup> {

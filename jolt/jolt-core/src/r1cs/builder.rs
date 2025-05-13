@@ -3,11 +3,13 @@ use super::{
     key::{CrossStepR1CS, CrossStepR1CSConstraint, SparseEqualityItem},
     ops::{Term, Variable, LC},
 };
-use crate::poly::multilinear_polynomial::MultilinearPolynomial;
 use crate::{
     field::JoltField,
     jolt::vm::JoltPolynomials,
-    poly::spartan_interleaved_poly::SpartanInterleavedPolynomial,
+    poly::{
+        multilinear_polynomial::MultilinearPolynomial,
+        spartan_interleaved_poly::SpartanInterleavedPolynomial,
+    },
     r1cs::key::{SparseConstraints, UniformR1CS},
 };
 use ark_ff::One;

@@ -4,25 +4,30 @@
     clippy::too_many_arguments
 )]
 
-use crate::impl_r1cs_input_lc_conversions;
-use crate::jolt::instruction::JoltInstructionSet;
-use crate::jolt::vm::rv32i_vm::RV32I;
-use crate::jolt::vm::{JoltCommitments, JoltStuff, JoltTraceStep};
-use crate::lasso::memory_checking::{Initializable, StructuredPolynomialData};
-use crate::poly::commitment::commitment_scheme::CommitmentScheme;
-use crate::poly::multilinear_polynomial::MultilinearPolynomial;
-use crate::poly::opening_proof::VerifierOpeningAccumulator;
-use crate::utils::transcript::Transcript;
+use crate::{
+    impl_r1cs_input_lc_conversions,
+    jolt::{
+        instruction::JoltInstructionSet,
+        vm::{rv32i_vm::RV32I, JoltCommitments, JoltStuff, JoltTraceStep},
+    },
+    lasso::memory_checking::{Initializable, StructuredPolynomialData},
+    poly::{
+        commitment::commitment_scheme::CommitmentScheme,
+        multilinear_polynomial::MultilinearPolynomial, opening_proof::VerifierOpeningAccumulator,
+    },
+    utils::transcript::Transcript,
+};
 
-use super::key::UniformSpartanKey;
-use super::spartan::{SpartanError, UniformSpartanProof};
+use super::{
+    key::UniformSpartanKey,
+    spartan::{SpartanError, UniformSpartanProof},
+};
 
 use crate::field::JoltField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::log2;
 use common::rv_trace::{CircuitFlags, NUM_CIRCUIT_FLAGS};
-use std::fmt::Debug;
-use std::marker::PhantomData;
+use std::{fmt::Debug, marker::PhantomData};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 

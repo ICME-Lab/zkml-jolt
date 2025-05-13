@@ -1,18 +1,16 @@
-use crate::field::JoltField;
-use crate::msm::{use_icicle, GpuBaseType, Icicle, VariableBaseMSM};
-use crate::poly::multilinear_polynomial::MultilinearPolynomial;
-use crate::poly::unipoly::UniPoly;
-use crate::utils::errors::ProofVerifyError;
-use ark_ec::scalar_mul::fixed_base::FixedBase;
-use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
+use crate::{
+    field::JoltField,
+    msm::{use_icicle, GpuBaseType, Icicle, VariableBaseMSM},
+    poly::{multilinear_polynomial::MultilinearPolynomial, unipoly::UniPoly},
+    utils::errors::ProofVerifyError,
+};
+use ark_ec::{pairing::Pairing, scalar_mul::fixed_base::FixedBase, AffineRepr, CurveGroup};
 use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{One, UniformRand, Zero};
 use rand_core::{CryptoRng, RngCore};
 use rayon::prelude::*;
-use std::borrow::Borrow;
-use std::marker::PhantomData;
-use std::sync::Arc;
+use std::{borrow::Borrow, marker::PhantomData, sync::Arc};
 
 #[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
 pub struct SRS<P: Pairing>

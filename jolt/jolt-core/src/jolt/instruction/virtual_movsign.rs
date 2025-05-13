@@ -1,18 +1,19 @@
 use ark_std::log2;
-use rand::prelude::StdRng;
-use rand::RngCore;
+use rand::{prelude::StdRng, RngCore};
 use serde::{Deserialize, Serialize};
 
-use super::prefixes::{PrefixEval, Prefixes};
-use super::suffixes::{SuffixEval, Suffixes};
-use super::JoltInstruction;
-use crate::subprotocols::sparse_dense_shout::PrefixSuffixDecomposition;
+use super::{
+    prefixes::{PrefixEval, Prefixes},
+    suffixes::{SuffixEval, Suffixes},
+    JoltInstruction,
+};
 use crate::{
     field::JoltField,
     jolt::{
         instruction::SubtableIndices,
         subtable::{identity::IdentitySubtable, sign_extend::SignExtendSubtable, LassoSubtable},
     },
+    subprotocols::sparse_dense_shout::PrefixSuffixDecomposition,
     utils::{
         instruction_utils::{chunk_operand_usize, concatenate_lookups},
         interleave_bits,

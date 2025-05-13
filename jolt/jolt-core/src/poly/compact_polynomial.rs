@@ -1,9 +1,11 @@
 use std::ops::Index;
 
 use super::multilinear_polynomial::{BindingOrder, PolynomialBinding};
-use crate::utils::math::Math;
-use crate::utils::thread::unsafe_allocate_zero_vec;
-use crate::{field::JoltField, utils};
+use crate::{
+    field::JoltField,
+    utils,
+    utils::{math::Math, thread::unsafe_allocate_zero_vec},
+};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use num_integer::Integer;
 use rayon::prelude::*;

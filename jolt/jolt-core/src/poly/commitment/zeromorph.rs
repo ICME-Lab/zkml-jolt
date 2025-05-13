@@ -1,12 +1,17 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
 
-use crate::msm::{use_icicle, Icicle, VariableBaseMSM};
-use crate::poly::multilinear_polynomial::{MultilinearPolynomial, PolynomialEvaluation};
-use crate::poly::{dense_mlpoly::DensePolynomial, unipoly::UniPoly};
-use crate::utils::{
-    errors::ProofVerifyError,
-    transcript::{AppendToTranscript, Transcript},
+use crate::{
+    msm::{use_icicle, Icicle, VariableBaseMSM},
+    poly::{
+        dense_mlpoly::DensePolynomial,
+        multilinear_polynomial::{MultilinearPolynomial, PolynomialEvaluation},
+        unipoly::UniPoly,
+    },
+    utils::{
+        errors::ProofVerifyError,
+        transcript::{AppendToTranscript, Transcript},
+    },
 };
 use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
 use ark_ff::batch_inversion;
@@ -15,9 +20,7 @@ use ark_std::{One, Zero};
 use itertools::izip;
 use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 use rand_core::{CryptoRng, RngCore};
-use std::borrow::Borrow;
-use std::sync::Arc;
-use std::{iter, marker::PhantomData};
+use std::{borrow::Borrow, iter, marker::PhantomData, sync::Arc};
 
 use super::{
     commitment_scheme::CommitmentScheme,
@@ -510,8 +513,10 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::utils::math::Math;
-    use crate::utils::transcript::{KeccakTranscript, Transcript};
+    use crate::utils::{
+        math::Math,
+        transcript::{KeccakTranscript, Transcript},
+    };
     use ark_bn254::{Bn254, Fr};
     use ark_ff::{BigInt, Field, Zero};
     use ark_std::{test_rng, UniformRand};

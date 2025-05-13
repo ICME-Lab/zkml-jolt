@@ -1,17 +1,18 @@
-use rand::prelude::StdRng;
-use rand::RngCore;
+use rand::{prelude::StdRng, RngCore};
 use serde::{Deserialize, Serialize};
 
-use super::prefixes::PrefixEval;
-use super::suffixes::{SuffixEval, Suffixes};
-use super::{JoltInstruction, SubtableIndices};
-use crate::field::JoltField;
-use crate::jolt::instruction::prefixes::Prefixes;
-use crate::jolt::subtable::LassoSubtable;
-use crate::poly::eq_poly::EqPolynomial;
-use crate::subprotocols::sparse_dense_shout::PrefixSuffixDecomposition;
-use crate::utils::index_to_field_bitvector;
-use crate::utils::math::Math;
+use super::{
+    prefixes::PrefixEval,
+    suffixes::{SuffixEval, Suffixes},
+    JoltInstruction, SubtableIndices,
+};
+use crate::{
+    field::JoltField,
+    jolt::{instruction::prefixes::Prefixes, subtable::LassoSubtable},
+    poly::eq_poly::EqPolynomial,
+    subprotocols::sparse_dense_shout::PrefixSuffixDecomposition,
+    utils::{index_to_field_bitvector, math::Math},
+};
 
 #[derive(Copy, Clone, Default, Debug, Serialize, Deserialize, PartialEq)]
 pub struct RightShiftPaddingInstruction<const WORD_SIZE: usize>(pub u64);

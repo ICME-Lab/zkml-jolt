@@ -27,14 +27,18 @@ where
 #[cfg(test)]
 mod tests {
     use super::{WASMJoltVM, C};
-    use crate::utils::transcript::KeccakTranscript;
-    use crate::zkE::tests::{
-        add_sub_mul_wasm_program, bitwise_arith_wasm_program, lt_wasm_program,
-        shifts_arith_wasm_program,
+    use crate::{
+        poly::commitment::hyperkzg::HyperKZG,
+        utils::transcript::KeccakTranscript,
+        zkE::{
+            tests::{
+                add_sub_mul_wasm_program, bitwise_arith_wasm_program, lt_wasm_program,
+                shifts_arith_wasm_program,
+            },
+            vm::{JoltProverPreprocessing, JoltWASM},
+            wasm_host::WASMProgram,
+        },
     };
-    use crate::zkE::vm::JoltWASM;
-    use crate::zkE::wasm_host::WASMProgram;
-    use crate::{poly::commitment::hyperkzg::HyperKZG, zkE::vm::JoltProverPreprocessing};
     use ark_bn254::{Bn254, Fr};
 
     fn test_wasm_e2e_with(wasm_program: WASMProgram) {

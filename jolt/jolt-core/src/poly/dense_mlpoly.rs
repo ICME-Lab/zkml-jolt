@@ -1,10 +1,13 @@
 #![allow(clippy::too_many_arguments)]
-use crate::poly::eq_poly::EqPolynomial;
-use crate::utils::thread::unsafe_allocate_zero_vec;
-use crate::utils::{self, compute_dotproduct, compute_dotproduct_low_optimized};
+use crate::{
+    poly::eq_poly::EqPolynomial,
+    utils::{
+        self, compute_dotproduct, compute_dotproduct_low_optimized,
+        thread::unsafe_allocate_zero_vec,
+    },
+};
 
-use crate::field::JoltField;
-use crate::utils::math::Math;
+use crate::{field::JoltField, utils::math::Math};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use core::ops::Index;
 use rand_core::{CryptoRng, RngCore};

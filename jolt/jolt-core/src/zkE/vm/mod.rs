@@ -1,54 +1,68 @@
 #![allow(clippy::type_complexity)]
 #![allow(dead_code)]
 
-use crate::field::JoltField;
-use crate::jolt::instruction::JoltInstructionSet;
-use crate::jolt::vm::bytecode::{BytecodeRow, BytecodeStuff};
-use crate::jolt::vm::instruction_lookups::{
-    InstructionLookupStuff, InstructionLookupsPreprocessing, InstructionLookupsProof,
+use crate::{
+    field::JoltField,
+    jolt::{
+        instruction::JoltInstructionSet,
+        vm::{
+            bytecode::{BytecodeRow, BytecodeStuff},
+            instruction_lookups::{
+                InstructionLookupStuff, InstructionLookupsPreprocessing, InstructionLookupsProof,
+            },
+            read_write_memory::ReadWriteMemoryStuff,
+            timestamp_range_check::TimestampRangeCheckStuff,
+            JoltCommitments, JoltPolynomials, JoltStuff, JoltTraceStep,
+        },
+    },
+    lasso::memory_checking::MemoryCheckingProof,
+    poly::{
+        multilinear_polynomial::MultilinearPolynomial,
+        opening_proof::{
+            ProverOpeningAccumulator, ReducedOpeningProof, VerifierOpeningAccumulator,
+        },
+    },
+    r1cs::{
+        constraints::R1CSConstraints,
+        spartan::{self, UniformSpartanProof},
+    },
 };
-use crate::jolt::vm::read_write_memory::ReadWriteMemoryStuff;
-use crate::jolt::vm::timestamp_range_check::TimestampRangeCheckStuff;
-use crate::jolt::vm::{JoltCommitments, JoltPolynomials, JoltStuff, JoltTraceStep};
-use crate::lasso::memory_checking::MemoryCheckingProof;
-use crate::poly::multilinear_polynomial::MultilinearPolynomial;
-use crate::poly::opening_proof::{
-    ProverOpeningAccumulator, ReducedOpeningProof, VerifierOpeningAccumulator,
-};
-use crate::r1cs::constraints::R1CSConstraints;
-use crate::r1cs::spartan::{self, UniformSpartanProof};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use bytecode::{WASMBytecodePreprocessing, WASMBytecodeProof};
 use common::rv_trace::{MemoryLayout, NUM_CIRCUIT_FLAGS};
 use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
 use std::{
     fs::File,
     io::{Read, Write},
+    marker::PhantomData,
     path::Path,
 };
 use strum::EnumCount;
 // use timestamp_range_check::TimestampRangeCheckStuff;
 
-use crate::jolt::{
-    instruction::{
-        div::DIVInstruction, divu::DIVUInstruction, mulh::MULHInstruction,
-        mulhsu::MULHSUInstruction, rem::REMInstruction, remu::REMUInstruction,
-        VirtualInstructionSequence,
+use crate::{
+    join_conditional, jolt,
+    jolt::{
+        instruction::{
+            div::DIVInstruction, divu::DIVUInstruction, mulh::MULHInstruction,
+            mulhsu::MULHSUInstruction, rem::REMInstruction, remu::REMUInstruction,
+            VirtualInstructionSequence,
+        },
+        subtable::JoltSubtableSet,
+        vm::timestamp_range_check::TimestampValidityProof,
     },
-    subtable::JoltSubtableSet,
-    vm::timestamp_range_check::TimestampValidityProof,
+    lasso::memory_checking::{
+        Initializable, MemoryCheckingProver, MemoryCheckingVerifier, StructuredPolynomialData,
+    },
+    msm::icicle,
+    poly::commitment::commitment_scheme::CommitmentScheme,
+    r1cs::inputs::{ConstraintInput, R1CSPolynomials, R1CSProof, R1CSStuff},
+    utils::{
+        errors::ProofVerifyError,
+        thread::drop_in_background_thread,
+        transcript::{AppendToTranscript, Transcript},
+    },
 };
-use crate::lasso::memory_checking::{
-    Initializable, MemoryCheckingProver, MemoryCheckingVerifier, StructuredPolynomialData,
-};
-use crate::msm::icicle;
-use crate::poly::commitment::commitment_scheme::CommitmentScheme;
-use crate::r1cs::inputs::{ConstraintInput, R1CSPolynomials, R1CSProof, R1CSStuff};
-use crate::utils::errors::ProofVerifyError;
-use crate::utils::thread::drop_in_background_thread;
-use crate::utils::transcript::{AppendToTranscript, Transcript};
-use crate::{join_conditional, jolt};
 use common::{
     constants::MEMORY_OPS_PER_INSTRUCTION,
     rv_trace::{ELFInstruction, JoltDevice, MemoryOp},

@@ -1,37 +1,48 @@
-use crate::poly::compact_polynomial::{CompactPolynomial, SmallScalar};
-use crate::poly::multilinear_polynomial::{
-    BindingOrder, MultilinearPolynomial, PolynomialBinding, PolynomialEvaluation,
+use crate::{
+    poly::{
+        compact_polynomial::{CompactPolynomial, SmallScalar},
+        multilinear_polynomial::{
+            BindingOrder, MultilinearPolynomial, PolynomialBinding, PolynomialEvaluation,
+        },
+        opening_proof::{ProverOpeningAccumulator, VerifierOpeningAccumulator},
+    },
+    subprotocols::{
+        grand_product::BatchedGrandProduct, sparse_grand_product::ToggledBatchedGrandProduct,
+    },
+    utils::thread::unsafe_allocate_zero_vec,
 };
-use crate::poly::opening_proof::{ProverOpeningAccumulator, VerifierOpeningAccumulator};
-use crate::subprotocols::grand_product::BatchedGrandProduct;
-use crate::subprotocols::sparse_grand_product::ToggledBatchedGrandProduct;
-use crate::utils::thread::unsafe_allocate_zero_vec;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use itertools::{interleave, Itertools};
-use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
-use rayon::prelude::*;
+use rayon::{
+    iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator},
+    prelude::*,
+};
 use std::marker::PhantomData;
 use tracing::trace_span;
 
-use crate::field::JoltField;
-use crate::jolt::instruction::{JoltInstructionSet, SubtableIndices};
-use crate::jolt::subtable::JoltSubtableSet;
-use crate::lasso::memory_checking::{
-    Initializable, MultisetHashes, NoExogenousOpenings, StructuredPolynomialData,
-    VerifierComputedOpening,
-};
-use crate::poly::commitment::commitment_scheme::CommitmentScheme;
-use crate::utils::transcript::Transcript;
 use crate::{
-    lasso::memory_checking::{MemoryCheckingProof, MemoryCheckingProver, MemoryCheckingVerifier},
+    field::JoltField,
+    jolt::{
+        instruction::{JoltInstructionSet, SubtableIndices},
+        subtable::JoltSubtableSet,
+    },
+    lasso::memory_checking::{
+        Initializable, MemoryCheckingProof, MemoryCheckingProver, MemoryCheckingVerifier,
+        MultisetHashes, NoExogenousOpenings, StructuredPolynomialData, VerifierComputedOpening,
+    },
     poly::{
+        commitment::commitment_scheme::CommitmentScheme,
         dense_mlpoly::DensePolynomial,
         eq_poly::EqPolynomial,
         identity_poly::IdentityPolynomial,
         unipoly::{CompressedUniPoly, UniPoly},
     },
     subprotocols::sumcheck::SumcheckInstanceProof,
-    utils::{errors::ProofVerifyError, math::Math, transcript::AppendToTranscript},
+    utils::{
+        errors::ProofVerifyError,
+        math::Math,
+        transcript::{AppendToTranscript, Transcript},
+    },
 };
 
 use super::{JoltCommitments, JoltPolynomials, JoltTraceStep};

@@ -1,20 +1,19 @@
-use crate::field::JoltField;
-use crate::msm::{GpuBaseType, VariableBaseMSM};
+use crate::{
+    field::JoltField,
+    msm::{GpuBaseType, VariableBaseMSM},
+};
 use ark_bn254::G1Projective;
-use ark_ec::short_weierstrass::SWCurveConfig;
-use ark_ec::{CurveGroup, ScalarMul};
+use ark_ec::{short_weierstrass::SWCurveConfig, CurveGroup, ScalarMul};
 use ark_ff::{BigInteger, Field, PrimeField};
 use icicle_bn254::curve::CurveCfg as IcicleBn254;
-use icicle_core::curve::{Affine, Curve, Projective};
 use icicle_core::{
+    curve::{Affine, Curve, Projective},
     msm::{msm, MSMConfig, MSM},
     traits::FieldImpl,
 };
-use icicle_runtime::memory::HostOrDeviceSlice;
-use icicle_runtime::stream::IcicleStreamHandle;
 use icicle_runtime::{
-    memory::{DeviceVec, HostSlice},
-    stream::IcicleStream,
+    memory::{DeviceVec, HostOrDeviceSlice, HostSlice},
+    stream::{IcicleStream, IcicleStreamHandle},
 };
 use rayon::prelude::*;
 use std::os::raw::c_void;

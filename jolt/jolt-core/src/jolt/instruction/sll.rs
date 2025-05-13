@@ -1,15 +1,18 @@
 use ark_std::log2;
-use rand::prelude::StdRng;
-use rand::RngCore;
+use rand::{prelude::StdRng, RngCore};
 use serde::{Deserialize, Serialize};
 
 use super::{JoltInstruction, SubtableIndices};
-use crate::field::JoltField;
-use crate::jolt::subtable::{sll::SllSubtable, LassoSubtable};
-use crate::utils::instruction_utils::{
-    assert_valid_parameters, chunk_and_concatenate_for_shift, concatenate_lookups,
+use crate::{
+    field::JoltField,
+    jolt::subtable::{sll::SllSubtable, LassoSubtable},
+    utils::{
+        instruction_utils::{
+            assert_valid_parameters, chunk_and_concatenate_for_shift, concatenate_lookups,
+        },
+        uninterleave_bits,
+    },
 };
-use crate::utils::uninterleave_bits;
 
 #[derive(Copy, Clone, Default, Debug, Serialize, Deserialize, PartialEq)]
 pub struct SLLInstruction<const WORD_SIZE: usize>(pub u64, pub u64);

@@ -1,28 +1,28 @@
 use super::{JoltCommitments, JoltPolynomials, JoltStuff};
-use crate::field::JoltField;
-use crate::lasso::memory_checking::{
-    ExogenousOpenings, Initializable, StructuredPolynomialData, VerifierComputedOpening,
-};
-use crate::poly::commitment::commitment_scheme::CommitmentScheme;
-use crate::poly::compact_polynomial::{CompactPolynomial, SmallScalar};
-use crate::poly::multilinear_polynomial::{MultilinearPolynomial, PolynomialEvaluation};
-use crate::poly::opening_proof::{ProverOpeningAccumulator, VerifierOpeningAccumulator};
-use crate::subprotocols::grand_product::{
-    BatchedDenseGrandProduct, BatchedGrandProduct, BatchedGrandProductLayer,
-    BatchedGrandProductProof,
-};
-use crate::utils::math::Math;
-use crate::utils::thread::drop_in_background_thread;
-use crate::utils::transcript::Transcript;
 use crate::{
+    field::JoltField,
     lasso::memory_checking::{
-        MemoryCheckingProof, MemoryCheckingProver, MemoryCheckingVerifier, MultisetHashes,
-        NoPreprocessing,
+        ExogenousOpenings, Initializable, MemoryCheckingProof, MemoryCheckingProver,
+        MemoryCheckingVerifier, MultisetHashes, NoPreprocessing, StructuredPolynomialData,
+        VerifierComputedOpening,
     },
     poly::{
-        dense_mlpoly::DensePolynomial, eq_poly::EqPolynomial, identity_poly::IdentityPolynomial,
+        commitment::commitment_scheme::CommitmentScheme,
+        compact_polynomial::{CompactPolynomial, SmallScalar},
+        dense_mlpoly::DensePolynomial,
+        eq_poly::EqPolynomial,
+        identity_poly::IdentityPolynomial,
+        multilinear_polynomial::{MultilinearPolynomial, PolynomialEvaluation},
+        opening_proof::{ProverOpeningAccumulator, VerifierOpeningAccumulator},
     },
-    utils::errors::ProofVerifyError,
+    subprotocols::grand_product::{
+        BatchedDenseGrandProduct, BatchedGrandProduct, BatchedGrandProductLayer,
+        BatchedGrandProductProof,
+    },
+    utils::{
+        errors::ProofVerifyError, math::Math, thread::drop_in_background_thread,
+        transcript::Transcript,
+    },
 };
 
 use super::read_write_memory::ReadWriteMemoryPolynomials;

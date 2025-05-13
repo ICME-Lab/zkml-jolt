@@ -2,11 +2,9 @@
 //! the execution of WASM programs and decode their bytecode.
 
 use crate::jolt::vm::{bytecode::BytecodeRow, rv32i_vm::RV32I, JoltTraceStep};
-use rayon::iter::IntoParallelIterator;
-use rayon::iter::ParallelIterator;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::fs;
-use tracer::ELFInstruction;
-use tracer::JoltDevice;
+use tracer::{ELFInstruction, JoltDevice};
 use wasmi_tracer::args::Args;
 
 /// Represents a WASM program via its file path, function name, and inputs.

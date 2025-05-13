@@ -1,7 +1,4 @@
 //! This module provides implementations reguarding the ByteCode secition of the Jolt proof.
-use crate::lasso::memory_checking::ExogenousOpenings;
-use crate::poly::compact_polynomial::SmallScalar;
-use crate::poly::multilinear_polynomial::PolynomialEvaluation;
 use crate::{
     field::JoltField,
     jolt::{
@@ -15,12 +12,14 @@ use crate::{
         },
     },
     lasso::memory_checking::{
-        MemoryCheckingProof, MemoryCheckingProver, MemoryCheckingVerifier, MultisetHashes,
-        NoExogenousOpenings, StructuredPolynomialData,
+        ExogenousOpenings, MemoryCheckingProof, MemoryCheckingProver, MemoryCheckingVerifier,
+        MultisetHashes, NoExogenousOpenings, StructuredPolynomialData,
     },
     poly::{
-        commitment::commitment_scheme::CommitmentScheme, compact_polynomial::CompactPolynomial,
-        identity_poly::IdentityPolynomial, multilinear_polynomial::MultilinearPolynomial,
+        commitment::commitment_scheme::CommitmentScheme,
+        compact_polynomial::{CompactPolynomial, SmallScalar},
+        identity_poly::IdentityPolynomial,
+        multilinear_polynomial::{MultilinearPolynomial, PolynomialEvaluation},
     },
     subprotocols::grand_product::BatchedGrandProductProof,
     utils::transcript::Transcript,
@@ -577,11 +576,12 @@ where
 #[cfg(test)]
 mod tests {
     use super::{preprocess, WASMBytecodeProof};
-    use crate::jolt::vm::bytecode::BytecodeRow;
-    use crate::jolt::vm::JoltTraceStep;
-    use crate::poly::commitment::hyperkzg::HyperKZG;
-    use crate::utils::transcript::KeccakTranscript;
-    use crate::{jolt::vm::rv32i_vm::RV32I, zkE::tests::add_sub_mul_wasm_program};
+    use crate::{
+        jolt::vm::{bytecode::BytecodeRow, rv32i_vm::RV32I, JoltTraceStep},
+        poly::commitment::hyperkzg::HyperKZG,
+        utils::transcript::KeccakTranscript,
+        zkE::tests::add_sub_mul_wasm_program,
+    };
     use ark_bn254::{Bn254, Fr};
     use itertools::Itertools;
 

@@ -3,8 +3,7 @@ use ark_std::log2;
 use std::marker::PhantomData;
 
 use super::LassoSubtable;
-use crate::utils::math::Math;
-use crate::utils::split_bits;
+use crate::utils::{math::Math, split_bits};
 
 #[derive(Default)]
 pub struct SraSignSubtable<F: JoltField, const WORD_SIZE: usize> {

@@ -1,17 +1,19 @@
-use rand::prelude::StdRng;
-use rand::RngCore;
+use rand::{prelude::StdRng, RngCore};
 use serde::{Deserialize, Serialize};
 
-use super::prefixes::{PrefixEval, Prefixes};
-use super::suffixes::{SuffixEval, Suffixes};
-use super::{slt::SLTInstruction, JoltInstruction, SubtableIndices};
-use crate::subprotocols::sparse_dense_shout::PrefixSuffixDecomposition;
+use super::{
+    prefixes::{PrefixEval, Prefixes},
+    slt::SLTInstruction,
+    suffixes::{SuffixEval, Suffixes},
+    JoltInstruction, SubtableIndices,
+};
 use crate::{
     field::JoltField,
     jolt::subtable::{
         eq::EqSubtable, eq_abs::EqAbsSubtable, left_msb::LeftMSBSubtable, lt_abs::LtAbsSubtable,
         ltu::LtuSubtable, right_msb::RightMSBSubtable, LassoSubtable,
     },
+    subprotocols::sparse_dense_shout::PrefixSuffixDecomposition,
     utils::{instruction_utils::chunk_and_concatenate_operands, uninterleave_bits},
 };
 

@@ -1,11 +1,15 @@
 use ark_bn254::{Bn254, Fr};
 use criterion::Criterion;
-use jolt_core::field::JoltField;
-use jolt_core::poly::commitment::commitment_scheme::CommitmentScheme;
-use jolt_core::poly::commitment::hyperkzg::HyperKZG;
-use jolt_core::poly::commitment::zeromorph::Zeromorph;
-use jolt_core::poly::multilinear_polynomial::MultilinearPolynomial;
-use jolt_core::utils::transcript::{KeccakTranscript, Transcript};
+use jolt_core::{
+    field::JoltField,
+    poly::{
+        commitment::{
+            commitment_scheme::CommitmentScheme, hyperkzg::HyperKZG, zeromorph::Zeromorph,
+        },
+        multilinear_polynomial::MultilinearPolynomial,
+    },
+    utils::transcript::{KeccakTranscript, Transcript},
+};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 

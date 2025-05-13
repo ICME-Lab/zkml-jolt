@@ -1,14 +1,18 @@
-use super::grand_product_quarks::QuarkGrandProductProof;
-use super::sumcheck::{BatchedCubicSumcheck, SumcheckInstanceProof};
-use crate::field::JoltField;
-use crate::poly::commitment::commitment_scheme::CommitmentScheme;
-use crate::poly::dense_interleaved_poly::DenseInterleavedPolynomial;
-use crate::poly::dense_mlpoly::DensePolynomial;
-use crate::poly::opening_proof::{ProverOpeningAccumulator, VerifierOpeningAccumulator};
-use crate::poly::split_eq_poly::SplitEqPolynomial;
-use crate::utils::math::Math;
-use crate::utils::thread::drop_in_background_thread;
-use crate::utils::transcript::Transcript;
+use super::{
+    grand_product_quarks::QuarkGrandProductProof,
+    sumcheck::{BatchedCubicSumcheck, SumcheckInstanceProof},
+};
+use crate::{
+    field::JoltField,
+    poly::{
+        commitment::commitment_scheme::CommitmentScheme,
+        dense_interleaved_poly::DenseInterleavedPolynomial,
+        dense_mlpoly::DensePolynomial,
+        opening_proof::{ProverOpeningAccumulator, VerifierOpeningAccumulator},
+        split_eq_poly::SplitEqPolynomial,
+    },
+    utils::{math::Math, thread::drop_in_background_thread, transcript::Transcript},
+};
 use ark_serialize::*;
 use itertools::Itertools;
 use rayon::prelude::*;
@@ -307,10 +311,10 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::transcript::{KeccakTranscript, Transcript};
     use crate::{
         poly::{commitment::zeromorph::Zeromorph, dense_interleaved_poly::bind_left_and_right},
         subprotocols::sumcheck::Bindable,
+        utils::transcript::{KeccakTranscript, Transcript},
     };
     use ark_bn254::{Bn254, Fr};
     use ark_std::test_rng;

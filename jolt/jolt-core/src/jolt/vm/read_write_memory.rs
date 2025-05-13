@@ -1,37 +1,44 @@
-use crate::field::JoltField;
-use crate::jolt::instruction::JoltInstructionSet;
-use crate::lasso::memory_checking::{
-    ExogenousOpenings, Initializable, StructuredPolynomialData, VerifierComputedOpening,
+use crate::{
+    field::JoltField,
+    jolt::instruction::JoltInstructionSet,
+    lasso::memory_checking::{
+        ExogenousOpenings, Initializable, StructuredPolynomialData, VerifierComputedOpening,
+    },
+    poly::{
+        compact_polynomial::{CompactPolynomial, SmallScalar},
+        multilinear_polynomial::{MultilinearPolynomial, PolynomialEvaluation},
+        opening_proof::{ProverOpeningAccumulator, VerifierOpeningAccumulator},
+    },
+    utils::thread::unsafe_allocate_zero_vec,
 };
-use crate::poly::compact_polynomial::{CompactPolynomial, SmallScalar};
-use crate::poly::multilinear_polynomial::{MultilinearPolynomial, PolynomialEvaluation};
-use crate::poly::opening_proof::{ProverOpeningAccumulator, VerifierOpeningAccumulator};
-use crate::utils::thread::unsafe_allocate_zero_vec;
 use rayon::prelude::*;
 #[cfg(test)]
 use std::collections::HashSet;
 use std::marker::PhantomData;
 
-use crate::poly::commitment::commitment_scheme::CommitmentScheme;
-use crate::utils::transcript::Transcript;
 use crate::{
     lasso::memory_checking::{
         MemoryCheckingProof, MemoryCheckingProver, MemoryCheckingVerifier, MultisetHashes,
     },
     poly::{
-        dense_mlpoly::DensePolynomial, eq_poly::EqPolynomial, identity_poly::IdentityPolynomial,
+        commitment::commitment_scheme::CommitmentScheme, dense_mlpoly::DensePolynomial,
+        eq_poly::EqPolynomial, identity_poly::IdentityPolynomial,
     },
     subprotocols::sumcheck::SumcheckInstanceProof,
-    utils::{errors::ProofVerifyError, math::Math},
+    utils::{errors::ProofVerifyError, math::Math, transcript::Transcript},
 };
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use common::constants::{
-    BYTES_PER_INSTRUCTION, MEMORY_OPS_PER_INSTRUCTION, RAM_START_ADDRESS, REGISTER_COUNT,
+use common::{
+    constants::{
+        BYTES_PER_INSTRUCTION, MEMORY_OPS_PER_INSTRUCTION, RAM_START_ADDRESS, REGISTER_COUNT,
+    },
+    rv_trace::{JoltDevice, MemoryLayout, MemoryOp},
 };
-use common::rv_trace::{JoltDevice, MemoryLayout, MemoryOp};
 
-use super::{timestamp_range_check::TimestampValidityProof, JoltCommitments};
-use super::{JoltPolynomials, JoltStuff, JoltTraceStep};
+use super::{
+    timestamp_range_check::TimestampValidityProof, JoltCommitments, JoltPolynomials, JoltStuff,
+    JoltTraceStep,
+};
 
 #[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct ReadWriteMemoryPreprocessing {

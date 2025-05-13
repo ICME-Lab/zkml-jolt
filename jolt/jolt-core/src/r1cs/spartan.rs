@@ -1,22 +1,21 @@
 use std::marker::PhantomData;
 use tracing::{span, Level};
 
-use crate::field::JoltField;
-use crate::jolt::vm::JoltCommitments;
-use crate::jolt::vm::JoltPolynomials;
-use crate::poly::commitment::commitment_scheme::CommitmentScheme;
-use crate::poly::multilinear_polynomial::MultilinearPolynomial;
-use crate::poly::multilinear_polynomial::PolynomialEvaluation;
-use crate::poly::opening_proof::ProverOpeningAccumulator;
-use crate::poly::opening_proof::VerifierOpeningAccumulator;
-use crate::poly::split_eq_poly::SplitEqPolynomial;
-use crate::r1cs::key::UniformSpartanKey;
-use crate::utils::math::Math;
-use crate::utils::thread::drop_in_background_thread;
+use crate::{
+    field::JoltField,
+    jolt::vm::{JoltCommitments, JoltPolynomials},
+    poly::{
+        commitment::commitment_scheme::CommitmentScheme,
+        multilinear_polynomial::{MultilinearPolynomial, PolynomialEvaluation},
+        opening_proof::{ProverOpeningAccumulator, VerifierOpeningAccumulator},
+        split_eq_poly::SplitEqPolynomial,
+    },
+    r1cs::key::UniformSpartanKey,
+    utils::{math::Math, thread::drop_in_background_thread},
+};
 
 use crate::utils::transcript::Transcript;
-use ark_serialize::CanonicalDeserialize;
-use ark_serialize::CanonicalSerialize;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 use thiserror::Error;
 
@@ -28,8 +27,7 @@ use crate::{
     subprotocols::sumcheck::SumcheckInstanceProof,
 };
 
-use super::builder::CombinedUniformBuilder;
-use super::inputs::ConstraintInput;
+use super::{builder::CombinedUniformBuilder, inputs::ConstraintInput};
 
 use rayon::prelude::*;
 

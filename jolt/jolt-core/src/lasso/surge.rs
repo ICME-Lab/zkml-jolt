@@ -661,11 +661,11 @@ where
 #[cfg(test)]
 mod tests {
     use super::SurgePreprocessing;
-    use crate::utils::transcript::KeccakTranscript;
     use crate::{
         jolt::instruction::xor::XORInstruction,
         lasso::surge::SurgeProof,
         poly::commitment::{commitment_scheme::CommitmentScheme, hyperkzg::HyperKZG},
+        utils::transcript::KeccakTranscript,
     };
     use ark_bn254::{Bn254, Fr};
     use ark_std::test_rng;

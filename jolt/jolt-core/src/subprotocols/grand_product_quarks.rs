@@ -1,17 +1,23 @@
-use super::grand_product::{
-    BatchedGrandProduct, BatchedGrandProductLayer, BatchedGrandProductProof,
+use super::{
+    grand_product::{BatchedGrandProduct, BatchedGrandProductLayer, BatchedGrandProductProof},
+    sumcheck::SumcheckInstanceProof,
 };
-use super::sumcheck::SumcheckInstanceProof;
-use crate::field::JoltField;
-use crate::poly::commitment::commitment_scheme::CommitmentScheme;
-use crate::poly::dense_interleaved_poly::DenseInterleavedPolynomial;
-use crate::poly::dense_mlpoly::DensePolynomial;
-use crate::poly::eq_poly::EqPolynomial;
-use crate::poly::multilinear_polynomial::{MultilinearPolynomial, PolynomialEvaluation};
-use crate::poly::opening_proof::{ProverOpeningAccumulator, VerifierOpeningAccumulator};
-use crate::subprotocols::QuarkHybridLayerDepth;
-use crate::utils::math::Math;
-use crate::utils::transcript::{AppendToTranscript, Transcript};
+use crate::{
+    field::JoltField,
+    poly::{
+        commitment::commitment_scheme::CommitmentScheme,
+        dense_interleaved_poly::DenseInterleavedPolynomial,
+        dense_mlpoly::DensePolynomial,
+        eq_poly::EqPolynomial,
+        multilinear_polynomial::{MultilinearPolynomial, PolynomialEvaluation},
+        opening_proof::{ProverOpeningAccumulator, VerifierOpeningAccumulator},
+    },
+    subprotocols::QuarkHybridLayerDepth,
+    utils::{
+        math::Math,
+        transcript::{AppendToTranscript, Transcript},
+    },
+};
 use ark_serialize::*;
 use ark_std::{One, Zero};
 use itertools::Itertools;
@@ -659,8 +665,10 @@ fn line_reduce_verify<F: JoltField, ProofTranscript: Transcript>(
 #[cfg(test)]
 mod quark_grand_product_tests {
     use super::*;
-    use crate::poly::commitment::zeromorph::*;
-    use crate::utils::transcript::{KeccakTranscript, Transcript};
+    use crate::{
+        poly::commitment::zeromorph::*,
+        utils::transcript::{KeccakTranscript, Transcript},
+    };
     use ark_bn254::{Bn254, Fr};
     use rand_core::SeedableRng;
 

@@ -1,16 +1,21 @@
-use crate::field::JoltField;
-use crate::jolt::instruction::virtual_assert_halfword_alignment::AssertHalfwordAlignmentInstruction;
-use crate::jolt::instruction::virtual_assert_valid_div0::AssertValidDiv0Instruction;
-use crate::jolt::instruction::virtual_assert_valid_unsigned_remainder::AssertValidUnsignedRemainderInstruction;
-use crate::jolt::instruction::virtual_move::MOVEInstruction;
-use crate::jolt::instruction::virtual_pow2::POW2Instruction;
-use crate::jolt::instruction::virtual_right_shift_padding::RightShiftPaddingInstruction;
-use crate::jolt::subtable::div_by_zero::DivByZeroSubtable;
-use crate::jolt::subtable::low_bit::LowBitSubtable;
-use crate::jolt::subtable::right_is_zero::RightIsZeroSubtable;
-use crate::poly::commitment::hyperkzg::HyperKZG;
-use crate::r1cs::constraints::JoltRV32IMConstraints;
-use crate::r1cs::inputs::JoltR1CSInputs;
+use crate::{
+    field::JoltField,
+    jolt::{
+        instruction::{
+            virtual_assert_halfword_alignment::AssertHalfwordAlignmentInstruction,
+            virtual_assert_valid_div0::AssertValidDiv0Instruction,
+            virtual_assert_valid_unsigned_remainder::AssertValidUnsignedRemainderInstruction,
+            virtual_move::MOVEInstruction, virtual_pow2::POW2Instruction,
+            virtual_right_shift_padding::RightShiftPaddingInstruction,
+        },
+        subtable::{
+            div_by_zero::DivByZeroSubtable, low_bit::LowBitSubtable,
+            right_is_zero::RightIsZeroSubtable,
+        },
+    },
+    poly::commitment::hyperkzg::HyperKZG,
+    r1cs::{constraints::JoltRV32IMConstraints, inputs::JoltR1CSInputs},
+};
 use ark_bn254::{Bn254, Fr};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use enum_dispatch::enum_dispatch;
@@ -21,24 +26,29 @@ use strum::{EnumCount, IntoEnumIterator};
 use strum_macros::{EnumCount as EnumCountMacro, EnumIter};
 
 use super::{Jolt, JoltCommitments, JoltProof};
-use crate::jolt::instruction::{
-    add::ADDInstruction, and::ANDInstruction, beq::BEQInstruction, bge::BGEInstruction,
-    bgeu::BGEUInstruction, bne::BNEInstruction, mul::MULInstruction, mulhu::MULHUInstruction,
-    mulu::MULUInstruction, or::ORInstruction, sll::SLLInstruction, slt::SLTInstruction,
-    sltu::SLTUInstruction, sra::SRAInstruction, srl::SRLInstruction, sub::SUBInstruction,
-    virtual_advice::ADVICEInstruction, virtual_assert_lte::ASSERTLTEInstruction,
-    virtual_assert_valid_signed_remainder::AssertValidSignedRemainderInstruction,
-    virtual_movsign::MOVSIGNInstruction, xor::XORInstruction, JoltInstruction, JoltInstructionSet,
-    SubtableIndices,
+use crate::{
+    jolt::{
+        instruction::{
+            add::ADDInstruction, and::ANDInstruction, beq::BEQInstruction, bge::BGEInstruction,
+            bgeu::BGEUInstruction, bne::BNEInstruction, mul::MULInstruction,
+            mulhu::MULHUInstruction, mulu::MULUInstruction, or::ORInstruction, sll::SLLInstruction,
+            slt::SLTInstruction, sltu::SLTUInstruction, sra::SRAInstruction, srl::SRLInstruction,
+            sub::SUBInstruction, virtual_advice::ADVICEInstruction,
+            virtual_assert_lte::ASSERTLTEInstruction,
+            virtual_assert_valid_signed_remainder::AssertValidSignedRemainderInstruction,
+            virtual_movsign::MOVSIGNInstruction, xor::XORInstruction, JoltInstruction,
+            JoltInstructionSet, SubtableIndices,
+        },
+        subtable::{
+            and::AndSubtable, eq::EqSubtable, eq_abs::EqAbsSubtable, identity::IdentitySubtable,
+            left_is_zero::LeftIsZeroSubtable, left_msb::LeftMSBSubtable, lt_abs::LtAbsSubtable,
+            ltu::LtuSubtable, or::OrSubtable, right_msb::RightMSBSubtable,
+            sign_extend::SignExtendSubtable, sll::SllSubtable, sra_sign::SraSignSubtable,
+            srl::SrlSubtable, xor::XorSubtable, JoltSubtableSet, LassoSubtable, SubtableId,
+        },
+    },
+    poly::commitment::commitment_scheme::CommitmentScheme,
 };
-use crate::jolt::subtable::{
-    and::AndSubtable, eq::EqSubtable, eq_abs::EqAbsSubtable, identity::IdentitySubtable,
-    left_is_zero::LeftIsZeroSubtable, left_msb::LeftMSBSubtable, lt_abs::LtAbsSubtable,
-    ltu::LtuSubtable, or::OrSubtable, right_msb::RightMSBSubtable, sign_extend::SignExtendSubtable,
-    sll::SllSubtable, sra_sign::SraSignSubtable, srl::SrlSubtable, xor::XorSubtable,
-    JoltSubtableSet, LassoSubtable, SubtableId,
-};
-use crate::poly::commitment::commitment_scheme::CommitmentScheme;
 
 /// Generates an enum out of a list of JoltInstruction types. All JoltInstruction methods
 /// are callable on the enum type via enum_dispatch.
@@ -187,9 +197,7 @@ pub type RV32IJoltProof<F, PCS, ProofTranscript> =
 
 use crate::utils::transcript::{KeccakTranscript, Transcript};
 use eyre::Result;
-use std::fs::File;
-use std::io::Cursor;
-use std::path::PathBuf;
+use std::{fs::File, io::Cursor, path::PathBuf};
 
 pub trait Serializable: CanonicalSerialize + CanonicalDeserialize + Sized {
     /// Gets the byte size of the serialized data
@@ -244,15 +252,19 @@ mod tests {
 
     use std::collections::HashSet;
 
-    use crate::field::JoltField;
-    use crate::host;
-    use crate::jolt::instruction::JoltInstruction;
-    use crate::jolt::vm::rv32i_vm::{Jolt, RV32IJoltVM, C, M};
-    use crate::poly::commitment::commitment_scheme::CommitmentScheme;
-    use crate::poly::commitment::hyperkzg::HyperKZG;
-    use crate::poly::commitment::mock::MockCommitScheme;
-    use crate::poly::commitment::zeromorph::Zeromorph;
-    use crate::utils::transcript::{KeccakTranscript, Transcript};
+    use crate::{
+        field::JoltField,
+        host,
+        jolt::{
+            instruction::JoltInstruction,
+            vm::rv32i_vm::{Jolt, RV32IJoltVM, C, M},
+        },
+        poly::commitment::{
+            commitment_scheme::CommitmentScheme, hyperkzg::HyperKZG, mock::MockCommitScheme,
+            zeromorph::Zeromorph,
+        },
+        utils::transcript::{KeccakTranscript, Transcript},
+    };
     use std::sync::{LazyLock, Mutex};
     use strum::{EnumCount, IntoEnumIterator};
 
