@@ -2,17 +2,17 @@
 
 extern crate fnv;
 
-use std::convert::TryInto;
-use std::rc::Rc;
-use std::str::FromStr;
+use std::{convert::TryInto, rc::Rc, str::FromStr};
 
 use crate::trace::Tracer;
 use common::rv_trace::*;
 
 use self::fnv::FnvHashMap;
 
-use super::mmu::{AddressingMode, Mmu};
-use super::terminal::Terminal;
+use super::{
+    mmu::{AddressingMode, Mmu},
+    terminal::Terminal,
+};
 
 const CSR_CAPACITY: usize = 4096;
 
@@ -3929,8 +3929,7 @@ impl DecodeCacheEntry {
 #[cfg(test)]
 mod test_cpu {
     use super::*;
-    use crate::emulator::mmu::DRAM_BASE;
-    use crate::emulator::terminal::DummyTerminal;
+    use crate::emulator::{mmu::DRAM_BASE, terminal::DummyTerminal};
 
     fn create_cpu() -> Cpu {
         Cpu::new(Box::new(DummyTerminal::new()))
@@ -4094,6 +4093,7 @@ mod test_cpu {
         // .decode() returns error for invalid word data.
         match cpu.decode(0x0) {
             Ok(_inst) => panic!("Unexpectedly succeeded in decoding"),
+            #[allow(clippy::assertions_on_constants)]
             Err(()) => assert!(true),
         };
         // @TODO: Should I test all instructions?
@@ -4266,7 +4266,6 @@ mod test_cpu {
 }
 
 #[cfg(test)]
-
 mod test_decode_cache {
     use super::*;
 

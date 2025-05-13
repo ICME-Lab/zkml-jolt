@@ -1,0 +1,6 @@
+{
+  "rust-analyzer.linkedProjects": [
+    "jolt/Cargo.toml",
+    "wasmi/Cargo.toml"
+  ]
+}
