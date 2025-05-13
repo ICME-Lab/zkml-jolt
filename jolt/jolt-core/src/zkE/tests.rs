@@ -1,42 +1,40 @@
 use super::wasm_host::WASMProgram;
 
-pub fn add_sub_mul_wasm_program() -> WASMProgram {
+// default entry point and inputs for all of our WASM tests
+const DEFAULT_FUNC: &str = "main";
+const DEFAULT_FILE_DIR: &str = "../wasms/";
+
+const DEFAULT_WASM_INPUTS: [&str; 4] = [
+    "1500", // amount staked
+    "3",    // duration boost (months)
+    "2",    // volume boost
+    "500",  // penalty
+];
+
+fn default_wasm_inputs() -> Vec<String> {
+    DEFAULT_WASM_INPUTS.iter().map(|s| s.to_string()).collect()
+}
+
+fn make_wasm_program(file_name: &str) -> WASMProgram {
     WASMProgram {
-        func: "main".to_string(),
-        inputs: wasm_test_inputs(),
-        file_path: "../wasms/add_sub_mul_32.wat".to_string(),
+        func: DEFAULT_FUNC.to_string(),
+        inputs: default_wasm_inputs(),
+        file_path: format!("{DEFAULT_FILE_DIR}{file_name}"),
     }
+}
+
+pub fn add_sub_mul_wasm_program() -> WASMProgram {
+    make_wasm_program("add_sub_mul_32.wat")
 }
 
 pub fn bitwise_arith_wasm_program() -> WASMProgram {
-    WASMProgram {
-        func: "main".to_string(),
-        inputs: wasm_test_inputs(),
-        file_path: "../wasms/bitwise_arith.wat".to_string(),
-    }
+    make_wasm_program("bitwise_arith.wat")
 }
 
 pub fn shifts_arith_wasm_program() -> WASMProgram {
-    WASMProgram {
-        func: "main".to_string(),
-        inputs: wasm_test_inputs(),
-        file_path: "../wasms/shifts_arith.wat".to_string(),
-    }
+    make_wasm_program("shifts_arith.wat")
 }
 
 pub fn lt_wasm_program() -> WASMProgram {
-    WASMProgram {
-        func: "main".to_string(),
-        inputs: wasm_test_inputs(),
-        file_path: "../wasms/lt.wat".to_string(),
-    }
-}
-
-// WASM inputs
-fn wasm_test_inputs() -> Vec<String> {
-    let stake = "1500".to_string(); // Amount of LP tokens or liquidity staked by the user.
-    let duration_boost = "3".to_string(); // Boost multiplier based on how long the stake was held (e.g., 3 = 3 months).
-    let volume_boost = "2".to_string(); // Additional multiplier based on trading volume in the pool during the staking period.
-    let penalty = "500".to_string(); // Penalty applied for early withdrawal or performance issues (e.g., protocol downgrade).
-    vec![stake, duration_boost, volume_boost, penalty]
+    make_wasm_program("lt.wat")
 }
