@@ -123,35 +123,43 @@ pub mod test_lib {
     use std::fs;
 
     use crate::{
+        args::Args,
         tests::{
             add_sub_mul_32_wasm_program,
             bitwise_arith_wasm_program,
+            lt_wasm_program,
             shifts_arith_wasm_program,
         },
         trace,
     };
 
+    fn test_wasm(wasm_program: impl Fn() -> Args) {
+        let _execution_trace = trace(wasm_program()).unwrap();
+    }
+
     #[test]
     fn test_add_sub_mul_32() {
-        let execution_trace = trace(add_sub_mul_32_wasm_program()).unwrap();
-        println!("Execution Trace: {execution_trace:#?}");
+        test_wasm(add_sub_mul_32_wasm_program)
     }
 
     #[test]
     fn test_bitwise_arith() {
-        let execution_trace = trace(bitwise_arith_wasm_program()).unwrap();
-        println!("Execution Trace: {execution_trace:#?}");
+        test_wasm(bitwise_arith_wasm_program)
     }
 
     #[test]
     fn test_shifts_arith() {
-        let execution_trace = trace(shifts_arith_wasm_program()).unwrap();
-        println!("Execution Trace: {execution_trace:#?}");
+        test_wasm(shifts_arith_wasm_program)
+    }
+
+    #[test]
+    fn test_lt() {
+        test_wasm(lt_wasm_program)
     }
 
     #[test]
     fn print_code_map() {
-        let wasm_bytecode = fs::read("./wasms/bitwise_arith.wat").unwrap();
+        let wasm_bytecode = fs::read("./wasms/lt.wat").unwrap();
         let engine = wasmi::Engine::new(&wasmi::Config::default());
         let _module = wasmi::Module::new(&engine, wasm_bytecode).unwrap();
         let instructions = engine.instructions();

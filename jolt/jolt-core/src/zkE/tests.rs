@@ -24,6 +24,14 @@ pub fn shifts_arith_wasm_program() -> WASMProgram {
     }
 }
 
+pub fn lt_wasm_program() -> WASMProgram {
+    WASMProgram {
+        func: "main".to_string(),
+        inputs: wasm_test_inputs(),
+        file_path: "../wasms/lt.wat".to_string(),
+    }
+}
+
 // WASM inputs
 fn wasm_test_inputs() -> Vec<String> {
     let stake = "1500".to_string(); // Amount of LP tokens or liquidity staked by the user.

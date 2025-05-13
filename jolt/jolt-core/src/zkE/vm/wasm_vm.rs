@@ -29,7 +29,8 @@ mod tests {
     use super::{WASMJoltVM, C};
     use crate::utils::transcript::KeccakTranscript;
     use crate::zkE::tests::{
-        add_sub_mul_wasm_program, bitwise_arith_wasm_program, shifts_arith_wasm_program,
+        add_sub_mul_wasm_program, bitwise_arith_wasm_program, lt_wasm_program,
+        shifts_arith_wasm_program,
     };
     use crate::zkE::vm::JoltWASM;
     use crate::zkE::wasm_host::WASMProgram;
@@ -54,19 +55,21 @@ mod tests {
 
     #[test]
     fn test_add_sub_mul() {
-        let wasm_program = add_sub_mul_wasm_program();
-        test_wasm_e2e_with(wasm_program);
+        test_wasm_e2e_with(add_sub_mul_wasm_program());
     }
 
     #[test]
     fn test_bitwise_arith() {
-        let wasm_program = bitwise_arith_wasm_program();
-        test_wasm_e2e_with(wasm_program);
+        test_wasm_e2e_with(bitwise_arith_wasm_program());
     }
 
     #[test]
     fn test_shifts_arith() {
-        let wasm_program = shifts_arith_wasm_program();
-        test_wasm_e2e_with(wasm_program);
+        test_wasm_e2e_with(shifts_arith_wasm_program());
+    }
+
+    #[test]
+    fn test_lt() {
+        test_wasm_e2e_with(lt_wasm_program());
     }
 }
