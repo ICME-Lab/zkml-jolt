@@ -1,17 +1,16 @@
 [package]
 name = "wasmi"
 version.workspace = true
-# rust-version.workspace = true
+rust-version.workspace = true
 documentation = "https://docs.rs/wasmi/"
 description = "WebAssembly interpreter"
-# authors.workspace = true
-# repository.workspace = true
-# edition.workspace = true
-edition = "2021"
-# readme.workspace = true
-# license.workspace = true
-# keywords.workspace = true
-# categories.workspace = true
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+readme.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
 exclude = ["benches/wat", "benches/wasm", "tests/spec/testsuite", "**.wast"]
 
 [dependencies]
@@ -66,9 +65,6 @@ simd = ["wasmi_core/simd", "wasmi_ir/simd", "wasmparser/simd"]
 # - Disable if your focus is on execution speed.
 extra-checks = []
 
-[[bench]]
-name = "benches"
-harness = false
 
 [package.metadata.docs.rs]
 features = ["std", "wat", "simd"]

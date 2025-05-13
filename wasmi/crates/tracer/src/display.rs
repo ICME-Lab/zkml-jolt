@@ -42,9 +42,9 @@ impl fmt::Display for DisplayValue<'_> {
             Val::F32(value) => write!(f, "{value}"),
             Val::F64(value) => write!(f, "{value}"),
             Val::V128(value) => write!(f, "0x{:032X}", value.as_u128()),
-            Val::FuncRef(value) => panic!("cannot display funcref values but found {value:?}"),
+            Val::FuncRef(value) => panic!("cannot display funcref values but found {:?}", value),
             Val::ExternRef(value) => {
-                panic!("cannot display externref values but found {value:?}")
+                panic!("cannot display externref values but found {:?}", value)
             }
         }
     }

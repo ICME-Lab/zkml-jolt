@@ -91,7 +91,7 @@ pub fn print_remaining_fuel(args: &Args, ctx: &Context) {
         let remaining = ctx
             .store()
             .get_fuel()
-            .unwrap_or_else(|error| panic!("could not get the remaining fuel: {error}"));
+            .unwrap_or_else(|error| panic!("could not get the remaining fuel: {}", error));
         let consumed = given_fuel.saturating_sub(remaining);
         println!("fuel consumed: {consumed}, fuel remaining: {remaining}");
     }

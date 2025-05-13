@@ -67,7 +67,7 @@ impl<T> Store<T> {
             typed: TypedStoreInner::new(data),
             id: typeid::of::<T>(),
             restore_pruned: PrunedStoreVTable::new::<T>(),
-            tracer: Rc::new(Tracer::new()),
+            tracer: Rc::new(Tracer::default()),
         }
     }
 }

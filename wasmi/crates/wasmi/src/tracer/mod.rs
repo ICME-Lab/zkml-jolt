@@ -12,16 +12,9 @@ pub struct Tracer {
 }
 
 impl Tracer {
-    pub fn new() -> Self {
-        Self {
-            rows: RefCell::new(Vec::new()),
-            open: RefCell::new(false),
-        }
-    }
-
     pub fn start_instruction(&self, inst: ELFInstruction) {
         let mut inst = inst;
-        inst.address = inst.address as u32 as u64;
+        inst.address = u64::from(inst.address as u32);
         *self.open.try_borrow_mut().unwrap() = true;
         self.rows.try_borrow_mut().unwrap().push(RVTraceRow {
             instruction: inst,
@@ -69,7 +62,7 @@ impl Tracer {
         }
     }
 
-    pub fn push_memory(&self, memory_state: MemoryState) {
+    pub fn push_memory(&self, _memory_state: MemoryState) {
         // if !*self.open.try_borrow().unwrap() {
         //     return;
         // }
@@ -96,5 +89,14 @@ impl Tracer {
     pub fn visit_return(&self) {
         self.pop_instruction();
         self.end_instruction();
+    }
+}
+
+impl Default for Tracer {
+    fn default() -> Self {
+        Self {
+            rows: RefCell::new(Vec::new()),
+            open: RefCell::new(false),
+        }
     }
 }

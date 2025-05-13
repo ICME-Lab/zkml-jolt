@@ -44,8 +44,11 @@ impl Context {
         })?;
         let mut store = wasmi::Store::new(&engine, wasi_ctx);
         if let Some(fuel) = fuel {
-            store.set_fuel(fuel).unwrap_or_else(|error| {
-                panic!("error: fuel metering is enabled but encountered: {error}")
+            store.set_fuel(fuel).unwrap_or_else(|_error| {
+                panic!(
+                    "error: fuel metering is enabled but encountered: {}",
+                    _error
+                )
             });
         }
         let mut linker = <wasmi::Linker<WasiCtx>>::new(&engine);

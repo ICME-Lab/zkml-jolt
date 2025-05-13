@@ -1,4 +1,4 @@
-use std::{println, rc::Rc};
+use std::rc::Rc;
 
 pub use self::call::dispatch_host_func;
 use super::{cache::CachedInstance, InstructionPtr, Stack};
@@ -15,7 +15,7 @@ use crate::{
     memory::DataSegment,
     store::{PrunedStore, StoreInner},
     table::ElementSegment,
-    tracer::{self, Tracer},
+    tracer::Tracer,
     Error,
     Func,
     FuncRef,

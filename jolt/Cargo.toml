@@ -22,7 +22,7 @@ members = [
 ]
 
 [workspace.package]
-name = "jolt"
+# name = "jolt"
 version = "0.1.0"
 authors = [
     # author of original Spartan paper and code base
