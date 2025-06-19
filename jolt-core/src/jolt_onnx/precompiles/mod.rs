@@ -7,6 +7,7 @@
 pub mod conv;
 pub mod matmult;
 pub mod sumcheck_engine;
+pub mod softmax;
 
 use crate::jolt_onnx::precompiles::conv::ConvPrecompile;
 use matmult::MatMultPrecompile;
