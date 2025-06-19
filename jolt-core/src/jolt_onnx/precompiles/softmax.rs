@@ -76,7 +76,7 @@ impl SoftmaxPrecompile {
 
         for i in 0..n {
             let res = (output_f32[i] / normalized_sum) as f32;
-            let res_requant = (res / (OUTPUT_SCALE as f32)).round();
+            let res_requant = (res / OUTPUT_SCALE).round();
             output[i] = res_requant as i32; 
 
         }
@@ -138,7 +138,7 @@ where
 
     /// Given the challenge vectors compute s(ri)
     fn input_claim(input: &SoftmaxPrecompile, ri: &[F]) -> F {
-        input.s_poly().evaluate(&ri)
+        input.s_poly().evaluate(ri)
     }
 
     /// Compute the boolean evaluations for the polynomial s(r).
