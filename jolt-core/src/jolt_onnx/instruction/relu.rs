@@ -90,7 +90,6 @@ mod test {
     use ark_std::rand::RngCore;
     use ark_std::test_rng;
 
-
     #[test]
     fn relu_instruction_64_e2e() {
         let mut rng = test_rng();

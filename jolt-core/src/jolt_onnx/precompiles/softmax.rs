@@ -45,7 +45,6 @@ impl SoftmaxPrecompile {
         *self.z.iter().max().unwrap()
     }
 
-
     /// Returns the evaluations polynomial `s` of the Softmax operation
     /// s(i) = exp(z[i] - max) / Σ_{j=0}^{n-1} exp(z[j] - max)
     ///
@@ -68,7 +67,7 @@ impl SoftmaxPrecompile {
         let mut normalized_sum = 0f32;
         for i in 0..n {
             // Shift the input by the max value.
-            let z_shifted = (self.z[i] as i64 - max as i64) as f32; 
+            let z_shifted = (self.z[i] as i64 - max as i64) as f32;
             let e_z_i = z_shifted.exp();
             output_f32[i] = e_z_i;
             normalized_sum += e_z_i;
@@ -77,8 +76,7 @@ impl SoftmaxPrecompile {
         for i in 0..n {
             let res = (output_f32[i] / normalized_sum) as f32;
             let res_requant = (res / OUTPUT_SCALE).round();
-            output[i] = res_requant as i32; 
-
+            output[i] = res_requant as i32;
         }
 
         output
@@ -116,8 +114,14 @@ where
     {
         let n = input.z.len();
         let ri: Vec<F> = transcript.challenge_scalar_powers(n.log_2());
-        let s_r = Self::s_mle(&input.execute_softmax().iter().map(|&x| F::from_i64(x as i64)).collect_vec(), &ri);
-
+        let s_r = Self::s_mle(
+            &input
+                .execute_softmax()
+                .iter()
+                .map(|&x| F::from_i64(x as i64))
+                .collect_vec(),
+            &ri,
+        );
 
         let input_claim = Self::input_claim(input, &ri);
         transcript.append_scalar(&input_claim);
@@ -337,7 +341,9 @@ mod tests {
         let mut sumcheck_instances = Vec::with_capacity(trace_length);
         for _ in 0..trace_length {
             let n = (rng.next_u32() as usize % 200 + 50).next_power_of_two();
-            let z = (0..n).map(|_| rng.gen_range(-128..=127) as i8).collect_vec();
+            let z = (0..n)
+                .map(|_| rng.gen_range(-128..=127) as i8)
+                .collect_vec();
             let precompile = SoftmaxPrecompile::new(z);
             pp.push(SoftmaxPrecompileDims { n });
             let prover_state = SoftmaxProverState::<Fr>::initialize(&precompile, &mut ptranscript);

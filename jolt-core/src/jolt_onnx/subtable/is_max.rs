@@ -21,7 +21,7 @@ impl<F: JoltField> IsMaxSubtable<F> {
 impl<F: JoltField> LassoSubtable<F> for IsMaxSubtable<F> {
     fn materialize(&self, M: usize) -> Vec<u32> {
         let mut entries = vec![0; M];
-        entries[M-1] = 1;
+        entries[M - 1] = 1;
         entries
     }
 
