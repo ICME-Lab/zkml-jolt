@@ -3,3 +3,5 @@
 pub mod max;
 pub mod relu;
 pub mod sigmoid;
+pub mod pow_2;
+pub mod softmax;

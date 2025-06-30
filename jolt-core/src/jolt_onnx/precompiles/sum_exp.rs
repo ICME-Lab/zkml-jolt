@@ -19,85 +19,54 @@ use crate::{
 };
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use itertools::Itertools;
+use num_traits::Pow;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
+use ark_ff::Field; 
 
+pub const SCALE: u64 = 256;
 /// Input scale for softmax. Input values are between -128 and 127. Quantized input values are between 0 and 255.
 pub const INPUT_SCALE: f32 = 1.0 / 256.0;
 /// Output scale for softmax. Output values are between 0 and 1. Quantized output values are between 0 and 255.
 pub const OUTPUT_SCALE: f32 = 1.0 / 256.0;
 
-/// A type defining the softmax precompile in the execution trace.
-/// The type is used to intialize the [`SoftmaxProverState`]
+/// A type defining the sum_exp precompile in the execution trace.
+/// The type is used to intialize the [`SumExpProverState`]
 #[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct SoftmaxPrecompile {
-    z: Vec<i8>,
+pub struct SumExpPrecompile {
+    z: Vec<u8>,
 }
 
-impl SoftmaxPrecompile {
-    /// Create a new instance of [`SoftmaxPrecompile`].
-    pub fn new(z: Vec<i8>) -> Self {
+impl SumExpPrecompile {
+    /// Create a new instance of [`SumExpPrecompile`].
+    pub fn new(z: Vec<u8>) -> Self {
         Self { z }
     }
 
     /// Returns the maximum value in the input vector.
-    pub fn max(&self) -> i8 {
+    pub fn max(&self) -> u8 {
         *self.z.iter().max().unwrap()
     }
 
     /// Returns the sum of the exponentials of the input vector.
-    pub fn normaliser(&self) -> f32 {
-        let max = self.max();
-        let mut normalized_sum = 0f32;
-        for i in 0..self.z.len() {
-            let z_shifted = (self.z[i] as i64 - max as i64) as f32;
-            let e_z_i = z_shifted.exp();
-            normalized_sum += e_z_i;
-        }
-        normalized_sum / OUTPUT_SCALE // This is bigger than 256
+    pub fn execute_sum_exp(&self) -> u64 {
+        self.execute_exp().iter().sum()
     }
 
     /// Execute the softmax operation.
-    pub fn execute_exp(&self) -> Vec<f32> {
+    pub fn execute_exp(&self) -> Vec<u64> {
         let n = self.z.len();
         let max = self.max();
-        let mut output = vec![0f32; n];
+        let mut output = vec![0u64; n];
 
         for i in 0..n {
-            let z_shifted = (self.z[i] as i64 - max as i64) as f32;
-            let e_z_i = z_shifted.exp();
-            output[i] = e_z_i / OUTPUT_SCALE;
+            // let z_shifted = self.z[i] as i32 - max as i32;
+            let z_shifted = self.z[i];
+            let e_z_i = 3.0f32.pow(z_shifted as f32) as u64;
+            output[i] = e_z_i;
         }
 
         output
-    }
-
-    /// Execute the softmax operation.
-    pub fn execute_softmax(&self) -> Vec<f32> {
-        let n = self.z.len();
-        let mut output = vec![0f32; n];
-
-        let normalized_sum = self.normaliser();
-        let exp = self.execute_exp();
-
-        for i in 0..n {
-            let res = exp[i] / normalized_sum;
-            output[i] = res / OUTPUT_SCALE;
-        }
-
-        output
-    }
-
-    /// Returns the evaluations polynomial `s` of the Softmax operation
-    /// s(i) = exp(z[i] - max) / Σ_{j=0}^{n-1} exp(z[j] - max)
-    ///
-    /// Used to compute the input claim s(r).
-    fn s_poly<F>(&self) -> DensePolynomial<F>
-    where
-        F: JoltField,
-    {
-        let s_eval = self.execute_softmax();
-        DensePolynomial::new(s_eval.iter().map(|&x| F::from_i64(x as i64)).collect_vec())
     }
 
     fn exp_poly<F>(&self) -> DensePolynomial<F>
@@ -108,56 +77,44 @@ impl SoftmaxPrecompile {
         DensePolynomial::new(
             exp_eval
                 .iter()
-                .map(|&x| F::from_i64(x as i64))
+                .map(|&x| F::from_u64(x as u64))
                 .collect_vec(),
         )
     }
 
-    fn g_poly<F>(&self) -> DensePolynomial<F>
+    fn z_poly<F>(&self) -> DensePolynomial<F>
     where
         F: JoltField,
     {
-        let exp_eval = self.execute_exp();
-        let s_eval = self.execute_softmax();
-        let normaliser = self.normaliser();
-        let mut g_eval = vec![F::zero(); self.z.len()];
-        for i in 0..self.z.len() {
-            g_eval[i] = F::from_i64((s_eval[i] * normaliser - exp_eval[i] * 256f32) as i64);
-        }
-        DensePolynomial::new(g_eval)
+        DensePolynomial::new(self.z.iter().map(|&x| F::from_u64(x as u64)).collect_vec())
     }
 }
 
-/// Container type to manage the prover state in the [`BatchableSumcheckInstance`] for the softmax precompile.
+/// Container type to manage the prover state in the [`BatchableSumcheckInstance`] for the sum_exp precompile.
 #[derive(Clone, CanonicalSerialize, CanonicalDeserialize, Debug, Serialize, Deserialize)]
-pub struct SoftmaxProverState<F>
+pub struct SumExpProverState<F>
 where
     F: JoltField,
 {
+    z: DensePolynomial<F>,
     /// exp(x_i) after the exponential pre-compile
     exp: DensePolynomial<F>,
-    /// claimed probabilities y_i
-    y: DensePolynomial<F>,
-    /// normaliser  Σ_i exp(x_i)
-    normaliser: F,
-    /// g(i) = (y_i·normaliser – exp_i * 256)
-    g: DensePolynomial<F>,
     /// number of remaining folding rounds
     num_rounds: usize,
-    /// initial public claim  Σ_i (y_i·normaliser – exp_i * 256)  (always 0)
+    /// initial public claim  Σ_i exp(x_i) 
     input_claim: F,
 }
 
-impl<F> SoftmaxProverState<F>
+impl<F> SumExpProverState<F>
 where
     F: JoltField,
 {
     #[tracing::instrument(skip_all)]
-    /// Create a new instance of [`SoftmaxProverState`].
+    /// Create a new instance of [`SumExpProverState`].
     ///
     /// We apply sum-check to the log(n) variate polynomial Σₖ z(k) * eq(k, r)
     pub fn initialize<ProofTranscript>(
-        input: &SoftmaxPrecompile,
+        input: &SumExpPrecompile,
         transcript: &mut ProofTranscript,
     ) -> Self
     where
@@ -166,53 +123,41 @@ where
         let n = input.z.len();
         let ri: Vec<F> = transcript.challenge_scalar_powers(n.log_2());
 
-        // let softmax_claim = Self::softmax_claim(input, &ri);
-        // println!("softmax_claim: {}", softmax_claim);
-        // let exp_claim = Self::exp_claim(input, &ri);
-        // println!("exp_claim: {}", exp_claim);
-        let normaliser = F::from_i64(input.normaliser() as i64);
-        // println!("normaliser: {}", normaliser);
-        // let input_claim = softmax_claim * normaliser - exp_claim * F::from_i64(256);
-        let input_claim = Self::g_claim(input, &ri);
+        let exp = input.exp_poly();
+        let input_claim = exp.evaluate(&ri);
+
         println!("input_claim: {}", input_claim);
         transcript.append_scalar(&input_claim);
 
         let num_rounds = n.log_2();
 
         Self {
-            exp: input.exp_poly(),
-            y: input.s_poly(),
-            normaliser,
-            g: input.g_poly(),
-            input_claim,
+            z: input.z_poly(),
+            exp,
+            input_claim: input_claim,
             num_rounds,
         }
     }
 
-    /// Given the challenge vectors compute s(ri)
-    fn softmax_claim(input: &SoftmaxPrecompile, ri: &[F]) -> F {
-        input.s_poly().evaluate(ri)
+    fn z_claim(input: &SumExpPrecompile, ri: &[F]) -> F {
+        input.z_poly().evaluate(ri)
     }
 
-    fn exp_claim(input: &SoftmaxPrecompile, ri: &[F]) -> F {
+    fn exp_claim(input: &SumExpPrecompile, ri: &[F]) -> F {
         input.exp_poly().evaluate(ri)
-    }
-
-    fn g_claim(input: &SoftmaxPrecompile, ri: &[F]) -> F {
-        input.g_poly().evaluate(ri)
     }
 }
 
 /// Dimensions for the softmax inputs.
 #[derive(Clone, Serialize, Deserialize, Debug, Copy)]
-pub struct SoftmaxPrecompileDims {
+pub struct SumExpPrecompileDims {
     /// Length of the input vector
     pub n: usize,
 }
 
 /// Container type to manage the verifier state in the [`BatchableSumcheckInstance`] for the softmax precompile.
 #[derive(Clone, CanonicalSerialize, CanonicalDeserialize, Debug, Serialize, Deserialize)]
-pub struct SoftmaxVerifierState<F>
+pub struct SumExpVerifierState<F>
 where
     F: JoltField,
 {
@@ -220,14 +165,14 @@ where
     input_claim: F,
 }
 
-impl<F> SoftmaxVerifierState<F>
+impl<F> SumExpVerifierState<F>
 where
     F: JoltField,
 {
     #[tracing::instrument(skip_all)]
-    /// Create a new instance of [`SoftmaxVerifierState`].
+    /// Create a new instance of [`SumExpVerifierState`].
     pub fn initialize<ProofTranscript>(
-        dims: SoftmaxPrecompileDims,
+        dims: SumExpPrecompileDims,
         input_claim: F,
         transcript: &mut ProofTranscript,
     ) -> Self
@@ -248,40 +193,38 @@ where
 /// Where:
 ///   - `r_i` ∈ F^{log(n)}
 #[derive(Clone, CanonicalSerialize, CanonicalDeserialize, Debug, Serialize, Deserialize)]
-pub struct SoftmaxClaims<F>
+pub struct SumExpClaims<F>
 where
     F: JoltField,
 {
     exp: F,
-    y: F,
-    g: F,
-    normaliser: F,
+    z: F,
 }
 
 /// Batchable sum-check instance for softmax precompile.
 /// Used to construct the [`PrecompileProof`] by passing in these instances into [`BatchedSumcheck`].
 #[derive(Clone, CanonicalSerialize, CanonicalDeserialize, Debug, Serialize, Deserialize)]
-pub struct SoftmaxSumcheck<F>
+pub struct SumExpSumcheck<F>
 where
     F: JoltField,
 {
     /// Handles state for prover portion of the sum-check protocol.
-    pub prover_state: Option<SoftmaxProverState<F>>,
+    pub prover_state: Option<SumExpProverState<F>>,
     /// Handles state for verifier portion of the sum-check protocol.
-    pub verifier_state: Option<SoftmaxVerifierState<F>>,
+    pub verifier_state: Option<SumExpVerifierState<F>>,
     /// Holds the final claims for the softmax sum-check precompile.
-    pub claims: Option<SoftmaxClaims<F>>,
+    pub claims: Option<SumExpClaims<F>>,
 }
 
-impl<F> SoftmaxSumcheck<F>
+impl<F> SumExpSumcheck<F>
 where
     F: JoltField,
 {
     /// Create a new instance of [`SoftmaxSumcheck`]
     pub fn new(
-        prover_state: Option<SoftmaxProverState<F>>,
-        verifier_state: Option<SoftmaxVerifierState<F>>,
-        claims: Option<SoftmaxClaims<F>>,
+        prover_state: Option<SumExpProverState<F>>,
+        verifier_state: Option<SumExpVerifierState<F>>,
+        claims: Option<SumExpClaims<F>>,
     ) -> Self {
         Self {
             prover_state,
@@ -291,7 +234,7 @@ where
     }
 }
 
-impl<F, ProofTranscript> BatchableSumcheckInstance<F, ProofTranscript> for SoftmaxSumcheck<F>
+impl<F, ProofTranscript> BatchableSumcheckInstance<F, ProofTranscript> for SumExpSumcheck<F>
 where
     F: JoltField,
     ProofTranscript: Transcript,
@@ -323,15 +266,19 @@ where
 
     #[tracing::instrument(skip_all)]
     fn compute_prover_message(&self, _: usize) -> Vec<F> {
-        let SoftmaxProverState {
-            g, normaliser, ..
+        let SumExpProverState {
+            exp, z, ..
         } = self.prover_state.as_ref().unwrap();
-        let len = g.len() / 2; 
-        // g_j(0)  = Σ_i  ( y_low * Z  -  exp_low )
+        let len = exp.len() / 2; 
         let g0 = (0..len)
             .into_iter()
             .map(|i| {
-                let g_i = g[i];
+                let mut g_i = F::one();
+                println!("z[i]: {}", z[i]);
+                for _ in 0..(z[i].to_u64().unwrap()) {
+                    g_i = g_i * F::from_u64(3);
+                }
+                // F::from_u64(3).pow([z[i].to_u64().unwrap()]);
                 println!("i, g_i: {}, {}", i, g_i);
                 g_i
             })
@@ -342,26 +289,24 @@ where
 
     #[tracing::instrument(skip_all)]
     fn bind(&mut self, r_j: F, _: usize) {
-        let SoftmaxProverState { g, .. } = self.prover_state.as_mut().unwrap();
-        g.bind_parallel(r_j, BindingOrder::HighToLow);
+        let SumExpProverState { z, .. } = self.prover_state.as_mut().unwrap();
+        z.bind_parallel(r_j, BindingOrder::HighToLow);
     }
 
     fn cache_openings(&mut self) {
-        let SoftmaxProverState {
-            exp, y, g, normaliser, ..
+        let SumExpProverState {
+            exp, z, ..
         } = self.prover_state.as_ref().unwrap();
-        self.claims = Some(SoftmaxClaims {
+        self.claims = Some(SumExpClaims {
             exp: exp[0],
-            y: y[0],
-            g: g[0],
-            normaliser: *normaliser,
+            z: z[0],
         });
     }
 
-    /// final check: y_0 · Z  ?=  exp_0
+    /// final check: exp_0 = Σ_i exp(x_i)
     fn expected_output_claim(&self, _: &[F]) -> F {
-        let SoftmaxClaims { g, .. } = self.claims.as_ref().unwrap();
-        *g
+        let SumExpClaims { exp, z, .. } = self.claims.as_ref().unwrap();
+        *exp
     }
 }
 
@@ -369,9 +314,9 @@ where
 mod tests {
     use crate::{
         jolt_onnx::precompiles::{
-            softmax::{
-                SoftmaxPrecompile, SoftmaxPrecompileDims, SoftmaxProverState, SoftmaxSumcheck,
-                SoftmaxVerifierState,
+            sum_exp::{
+                SumExpPrecompile, SumExpPrecompileDims, SumExpProverState, SumExpSumcheck,
+                SumExpVerifierState,
             },
             sumcheck_engine::{BatchableSumcheckInstance, BatchedSumcheck},
         },
@@ -386,18 +331,18 @@ mod tests {
     fn test_random_execution_trace() {
         let mut rng = test_rng();
         let trace_length = 10;
-        let mut pp: Vec<SoftmaxPrecompileDims> = Vec::with_capacity(trace_length);
+        let mut pp: Vec<SumExpPrecompileDims> = Vec::with_capacity(trace_length);
         let mut ptranscript = KeccakTranscript::new(b"test");
         let mut sumcheck_instances = Vec::with_capacity(trace_length);
         for _ in 0..trace_length {
             let n = (rng.next_u32() as usize % 200 + 50).next_power_of_two();
             let z = (0..n)
-                .map(|_| rng.gen_range(-128..=127) as i8)
+                .map(|_| rng.gen_range(0..=255) as u8)
                 .collect_vec();
-            let precompile = SoftmaxPrecompile::new(z);
-            pp.push(SoftmaxPrecompileDims { n });
-            let prover_state = SoftmaxProverState::<Fr>::initialize(&precompile, &mut ptranscript);
-            let sumcheck_instance = SoftmaxSumcheck::new(Some(prover_state), None, None);
+            let precompile = SumExpPrecompile::new(z);
+            pp.push(SumExpPrecompileDims { n });
+            let prover_state = SumExpProverState::<Fr>::initialize(&precompile, &mut ptranscript);
+            let sumcheck_instance = SumExpSumcheck::new(Some(prover_state), None, None);
             sumcheck_instances.push(sumcheck_instance);
         }
         let init_claims = sumcheck_instances
@@ -422,8 +367,8 @@ mod tests {
             .zip_eq(final_claims.iter())
         {
             let verifier_state =
-                SoftmaxVerifierState::<Fr>::initialize(*dims, *init_claim, &mut vtranscript);
-            vsumcheck_instances.push(SoftmaxSumcheck::new(
+                SumExpVerifierState::<Fr>::initialize(*dims, *init_claim, &mut vtranscript);
+            vsumcheck_instances.push(SumExpSumcheck::new(
                 None,
                 Some(verifier_state),
                 Some(final_claim.clone()),

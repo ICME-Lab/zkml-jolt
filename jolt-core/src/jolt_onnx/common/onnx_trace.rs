@@ -118,6 +118,16 @@ pub enum Operator {
     MaxWindow,
     /// Max operator
     Max,
+    /// Sigmoid
+    Sigmoid,
+    /// Softmax
+    Softmax,
+    /// Pow2
+    Pow2,
+
+    /// Other
+    Mul,
+    Div
 }
 
 /// Used to decorate the matmul operator with its attributes.
