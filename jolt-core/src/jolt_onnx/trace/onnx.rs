@@ -1,7 +1,7 @@
 //! This module provides an implementation to get the lookup trace from the execution trace.
 
 use crate::jolt_onnx::{
-    common::onnx_trace::{ONNXTraceRow, Operator},
+    common::onnx_trace::{ONNXInstruction, ONNXTraceRow, Operator},
     instruction::relu::ReLUInstruction,
     precompiles::{matmult::MatMultPrecompile, PrecompileOperators},
     vm::{onnx_vm::ONNXInstructionSet, JoltONNXTraceStep},
@@ -74,12 +74,14 @@ impl ONNXTraceRow {
     }
 }
 
-/// Trivial [`TryFrom`] trait implementation for [`ELFInstruction`] to [`ONNX`] to make [`JoltInstructionSet`] trait happy
-impl TryFrom<&ELFInstruction> for ONNXInstructionSet {
+/// Trivial [`TryFrom`] trait implementation for [`ONNXInstruction`] to [`ONNXInstructionSet`] to make [`JoltInstructionSet`] trait happy
+impl TryFrom<&ONNXTraceRow> for ONNXInstructionSet {
     type Error = &'static str;
 
     #[rustfmt::skip] // keep matches pretty
-    fn try_from(_: &ELFInstruction) -> Result<Self, Self::Error> {
-        Err("No corresponding ONNX instruction")
+    fn try_from(row: &ONNXTraceRow) -> Result<Self, Self::Error> {
+        match row.instruction.opcode {
+            _ => Err("No corresponding ONNX instruction"),
+        }
     }
 }
