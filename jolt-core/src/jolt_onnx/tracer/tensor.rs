@@ -171,3 +171,25 @@ impl From<Tensor> for QuantizedTensor {
         Self { shape, data, scale }
     }
 }
+
+impl From<u64> for QuantizedTensor {
+    fn from(value: u64) -> Self {
+        let shape = vec![1];
+        let (data, scale) = quantize(&[value as f32]); // TODO: Not sure if we want this cast
+        Self { shape, data, scale }
+    }
+}
+
+impl From<i8> for QuantizedTensor {
+    fn from(value: i8) -> Self {
+        let shape = vec![1];
+        Self { shape, data: vec![value], scale: 1.0 }
+    }
+}
+
+impl From<u8> for QuantizedTensor {
+    fn from(value: u8) -> Self {
+        let shape = vec![1];
+        Self { shape, data: vec![value as i8], scale: 1.0 }
+    }
+}

@@ -21,9 +21,9 @@ pub struct ONNXTraceRow {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct LayerState {
     /// The input values to the layer, which are the quantized tensors
-    pub input_vals: Option<Vec<QuantizedTensor>>,
+    pub input_vals: Vec<QuantizedTensor>,
     /// The output values from the layer, which are the quantized tensors
-    pub output_vals: Option<Vec<QuantizedTensor>>,
+    pub output_vals: Vec<QuantizedTensor>,
 }
 
 /// Represents a single layer (node) in the ONNX model
@@ -34,9 +34,10 @@ pub struct ONNXInstruction {
     /// Optional attributes for the operator, such as alpha and beta for MatMul
     pub attributes: Option<HashMap<String, Vec<u64>>>,
     /// The inputs to the operator, which are the names of the tensors
-    pub inputs: Vec<String>,
+    pub input_refs: Vec<String>,
     /// The outputs of the operator, which are the names of the tensors
-    pub outputs: Vec<String>,
+    pub output_refs: Vec<String>,
+    // TODO: Virtual sequence remaining
 }
 
 impl ONNXInstruction {
@@ -45,8 +46,8 @@ impl ONNXInstruction {
         Self {
             opcode,
             attributes: None,
-            inputs: Vec::new(),
-            outputs: Vec::new(),
+            input_refs: Vec::new(),
+            output_refs: Vec::new(),
         }
     }
 
@@ -118,6 +119,10 @@ pub enum Operator {
     MaxWindow,
     /// Max operator
     Max,
+    /// Division operator
+    Div,
+    /// Virtual advice operator
+    VirtualAdvice,
 }
 
 /// Used to decorate the matmul operator with its attributes.
