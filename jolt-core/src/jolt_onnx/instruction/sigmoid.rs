@@ -3,23 +3,47 @@
 use crate::field::JoltField;
 use crate::jolt::instruction::{JoltInstruction, SubtableIndices};
 use crate::jolt::subtable::LassoSubtable;
+use crate::jolt_onnx::instruction::JoltONNXInstruction;
 use crate::jolt_onnx::subtable::is_pos::IsPosSubtable;
 use crate::jolt_onnx::subtable::is_zero::IsZeroSubtable;
 use crate::jolt_onnx::subtable::sigmoid::{
     SigmoidSubtable, INPUT_SCALE, INPUT_ZERO_POINT, OUTPUT_SCALE, OUTPUT_ZERO_POINT,
     QUANTIZED_SIGMOID_TABLE,
 };
+use crate::jolt_onnx::tracer::tensor::{quantize, QuantizedTensor};
 use crate::poly::eq_poly::EqPolynomial;
 use crate::utils::instruction_utils::chunk_operand_usize;
 use itertools::Itertools;
 use rand::prelude::StdRng;
 use serde::{Deserialize, Serialize};
 
+pub struct SigmoidInstruction(pub QuantizedTensor);
+
+impl JoltONNXInstruction for SigmoidInstruction {
+    // Q: How to deal with quantization?
+    fn combine_instruction_results(&self, results: &[u64]) -> QuantizedTensor {
+        let quantized_results = quantize(results);
+        let quantized_tensor = QuantizedTensor::new(self.0.shape, quantized_results.0, self.0.scale);
+        quantized_tensor
+    }
+
+    fn inner_instructions(&self) -> Vec<SigmoidInnerInstruction> {
+        let mut inner_instructions = Vec::new();
+        let data = self.0.data;
+        // TODO: Maybe dequantize data?
+        for i in 0..data.len() {
+            inner_instructions.push(SigmoidInnerInstruction(data[i] as u64));
+        }
+        inner_instructions
+    }
+}
+
+
 /// Sigmoid instruction
 #[derive(Copy, Clone, Default, Debug, Serialize, Deserialize, PartialEq)]
-pub struct SigmoidInstruction(pub u64);
+pub struct SigmoidInnerInstruction(pub u64);
 
-impl JoltInstruction for SigmoidInstruction {
+impl JoltInstruction for SigmoidInnerInstruction {
     fn operands(&self) -> (u64, u64) {
         (self.0, 0)
     }
@@ -111,7 +135,7 @@ impl JoltInstruction for SigmoidInstruction {
 
 #[cfg(test)]
 mod test {
-    use super::SigmoidInstruction;
+    use super::SigmoidInnerInstruction;
     use crate::jolt::instruction::test::{
         instruction_mle_full_hypercube_test, materialize_entry_test,
     };
@@ -122,12 +146,12 @@ mod test {
 
     #[test]
     fn sigmoid_mle_full_hypercube() {
-        instruction_mle_full_hypercube_test::<Fr, SigmoidInstruction>();
+        instruction_mle_full_hypercube_test::<Fr, SigmoidInnerInstruction>();
     }
 
     #[test]
     fn sigmoid_materialize_entry() {
-        materialize_entry_test::<Fr, SigmoidInstruction>();
+        materialize_entry_test::<Fr, SigmoidInnerInstruction>();
     }
 
     #[test]
@@ -137,28 +161,28 @@ mod test {
         const M: usize = 1 << 8;
 
         for i in 0..256 {
-            let instruction = SigmoidInstruction(i as u64);
+            let instruction = SigmoidInnerInstruction(i as u64);
             jolt_instruction_test!(instruction);
         }
 
         for _ in 0..256 {
             let x = rng.next_u32();
-            let instruction = SigmoidInstruction(x as u64);
+            let instruction = SigmoidInnerInstruction(x as u64);
             jolt_instruction_test!(instruction);
         }
 
         let u32_max: u64 = u32::MAX as u64;
         let instructions = vec![
-            SigmoidInstruction(0),
-            SigmoidInstruction(1),
-            SigmoidInstruction(8374),
-            SigmoidInstruction((-100_i32) as u64),
-            SigmoidInstruction((-1_i32) as u64),
-            SigmoidInstruction(u32_max),
-            SigmoidInstruction(u32_max + 100),
-            SigmoidInstruction(u32_max + (1 << 8)),
-            SigmoidInstruction(1 << 8),
-            SigmoidInstruction(1 << 30),
+            SigmoidInnerInstruction(0),
+            SigmoidInnerInstruction(1),
+            SigmoidInnerInstruction(8374),
+            SigmoidInnerInstruction((-100_i32) as u64),
+            SigmoidInnerInstruction((-1_i32) as u64),
+            SigmoidInnerInstruction(u32_max),
+            SigmoidInnerInstruction(u32_max + 100),
+            SigmoidInnerInstruction(u32_max + (1 << 8)),
+            SigmoidInnerInstruction(1 << 8),
+            SigmoidInnerInstruction(1 << 30),
         ];
         for instruction in instructions {
             jolt_instruction_test!(instruction);
