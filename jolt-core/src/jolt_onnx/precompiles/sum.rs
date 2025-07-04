@@ -58,7 +58,7 @@ where
     z_poly: DensePolynomial<F>,
     /// number of remaining folding rounds
     num_rounds: usize,
-    /// z_poly(r)
+    /// Σ_i z_i
     input_claim: F,
 }
 
@@ -68,8 +68,6 @@ where
 {
     #[tracing::instrument(skip_all)]
     /// Create a new instance of [`SumProverState`].
-    ///
-    /// We apply sum-check to the log(n) variate polynomial Σₖ z(k) * eq(k, r)
     pub fn initialize<ProofTranscript>(
         input: &SumPrecompile,
         transcript: &mut ProofTranscript,
@@ -79,7 +77,6 @@ where
     {
         let n = input.z.data.len();
         let num_rounds = n.log_2();
-        let _r: Vec<F> = transcript.challenge_scalar_powers(num_rounds);
 
         let z_poly = input.z_poly();
         let input_claim = F::from_i64(input.z.data.iter().fold(0, |acc, &x| acc + x as i64));
@@ -125,7 +122,6 @@ where
         ProofTranscript: Transcript,
     {
         let num_rounds = dims.n.log_2();
-        let _ri: Vec<F> = transcript.challenge_scalar_powers(dims.n.log_2());
         transcript.append_scalar(&input_claim);
         Self {
             num_rounds,
