@@ -17,20 +17,33 @@ use itertools::Itertools;
 use rand::prelude::StdRng;
 use serde::{Deserialize, Serialize};
 
+/// Sigmoid instruction
 pub struct SigmoidInstruction(pub QuantizedTensor);
 
-impl JoltONNXInstruction for SigmoidInstruction {
-    // Q: How to deal with quantization?
-    fn combine_instruction_results(&self, results: &[u64]) -> QuantizedTensor {
-        let quantized_results = quantize(results);
-        let quantized_tensor = QuantizedTensor::new(self.0.shape, quantized_results.0, quantized_results.1);
+impl SigmoidInstruction {
+    /// Create a sigmoid instruction from a quantized tensor.
+    pub fn new(tensor: QuantizedTensor) -> Self {
+        Self(tensor)
+    }
+
+    /// Create a sigmoid instruction from a vector of u32 values.
+    pub fn from_data(data: &[u32]) -> Self {
+        let quantized_data = quantize(&data.iter().map(|&x| x as f32).collect_vec());
+        let quantized_tensor = QuantizedTensor::new(vec![data.len()], quantized_data.0, quantized_data.1);
+        Self(quantized_tensor)
+    }
+}
+
+impl JoltONNXInstruction<SigmoidInnerInstruction> for SigmoidInstruction {
+    fn combine_instruction_results(&self, results: &[u32]) -> QuantizedTensor {
+        let quantized_results = quantize(&results.iter().map(|&x| x as f32).collect_vec());
+        let quantized_tensor = QuantizedTensor::new(self.0.shape.clone(), quantized_results.0, quantized_results.1);
         quantized_tensor
     }
 
     fn inner_instructions(&self) -> Vec<SigmoidInnerInstruction> {
         let mut inner_instructions = Vec::new();
-        let data = self.0.data;
-        // TODO: Maybe dequantize data?
+        let data = &self.0.data;
         for i in 0..data.len() {
             inner_instructions.push(SigmoidInnerInstruction(data[i] as u64));
         }
@@ -38,8 +51,7 @@ impl JoltONNXInstruction for SigmoidInstruction {
     }
 }
 
-
-/// Sigmoid instruction
+/// Sigmoid inner instruction
 #[derive(Copy, Clone, Default, Debug, Serialize, Deserialize, PartialEq)]
 pub struct SigmoidInnerInstruction(pub u64);
 
@@ -139,6 +151,9 @@ mod test {
     use crate::jolt::instruction::test::{
         instruction_mle_full_hypercube_test, materialize_entry_test,
     };
+    use crate::jolt_onnx::instruction::sigmoid::SigmoidInstruction;
+    use crate::jolt_onnx::instruction::JoltONNXInstruction;
+    use crate::jolt_onnx::tracer::tensor::QuantizedTensor;
     use crate::{jolt::instruction::JoltInstruction, jolt_instruction_test};
     use ark_bn254::Fr;
     use ark_std::rand::RngCore;
@@ -155,7 +170,7 @@ mod test {
     }
 
     #[test]
-    fn sigmoid_instruction_64_e2e() {
+    fn sigmoid_inner_instruction_64_e2e() {
         let mut rng = test_rng();
         const C: usize = 8;
         const M: usize = 1 << 8;
@@ -186,6 +201,19 @@ mod test {
         ];
         for instruction in instructions {
             jolt_instruction_test!(instruction);
+        }
+    }
+
+    #[test]
+    fn sigmoid_instruction_64_e2e() {
+        let rng = test_rng();
+        const C: usize = 8;
+        const M: usize = 1 << 8;
+        let random_tensor = QuantizedTensor::random(rng, 10, 1);
+        let sigmoid_instruction = SigmoidInstruction::new(random_tensor);
+        let inner_instructions = sigmoid_instruction.inner_instructions();
+        for inner_instruction in inner_instructions {
+            jolt_instruction_test!(inner_instruction);
         }
     }
 }
