@@ -23,7 +23,7 @@ impl JoltONNXInstruction for SigmoidInstruction {
     // Q: How to deal with quantization?
     fn combine_instruction_results(&self, results: &[u64]) -> QuantizedTensor {
         let quantized_results = quantize(results);
-        let quantized_tensor = QuantizedTensor::new(self.0.shape, quantized_results.0, self.0.scale);
+        let quantized_tensor = QuantizedTensor::new(self.0.shape, quantized_results.0, quantized_results.1);
         quantized_tensor
     }
 
