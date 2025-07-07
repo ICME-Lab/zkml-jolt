@@ -3,9 +3,9 @@ use rand::prelude::StdRng;
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 
-use super::prefixes::{PrefixEval, Prefixes};
-use super::suffixes::{SuffixEval, Suffixes};
-use super::{JoltInstruction, SubtableIndices};
+use crate::jolt::instruction::prefixes::{PrefixEval, Prefixes};
+use crate::jolt::instruction::suffixes::{SuffixEval, Suffixes};
+use crate::jolt::instruction::{JoltInstruction, SubtableIndices};
 use crate::field::JoltField;
 use crate::jolt::subtable::{identity::IdentitySubtable, LassoSubtable};
 use crate::subprotocols::sparse_dense_shout::PrefixSuffixDecomposition;

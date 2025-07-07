@@ -5,7 +5,7 @@
 use serde::{Deserialize, Serialize};
 use tract_onnx::prelude::*;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 /// Represents a quantized [`tract_onnx`] tensor for this codebase. Used in our quantized execution trace.
 pub struct QuantizedTensor {
     /// The shape of the tensor, represented as a vector of dimensions.

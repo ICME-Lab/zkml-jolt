@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use tract_onnx::pb::NodeProto;
 
-use crate::jolt_onnx::tracer::tensor::QuantizedTensor;
+use crate::jolt_onnx::{instruction::sigmoid::SigmoidInstruction, tracer::tensor::QuantizedTensor};
 
 /// Represents a row in the execution trace
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -14,6 +14,8 @@ pub struct ONNXTraceRow {
     pub instruction: ONNXInstruction,
     /// The state of the layer during execution, including input and output values
     pub layer_state: LayerState,
+    /// The advice value for the instruction
+    pub advice_value: Vec<QuantizedTensor>,
 }
 
 /// Stores the input and output values of a layer
@@ -32,7 +34,7 @@ pub struct ONNXInstruction {
     /// The operator that this instruction represents
     pub opcode: Operator,
     /// Optional attributes for the operator, such as alpha and beta for MatMul
-    pub attributes: Option<HashMap<String, Vec<u64>>>,
+    pub attributes: Option<HashMap<String, Vec<u64>>>, // TODO: Maybe remove Option
     /// The inputs to the operator, which are the names of the tensors
     pub input_refs: Vec<String>,
     /// The outputs of the operator, which are the names of the tensors
@@ -54,8 +56,8 @@ impl ONNXInstruction {
     /// Decorate the instruction with inputs and outputs from the ONNX node
     /// Additionally, it handles specific operators like MatMul to extract attributes such as alpha and beta.
     pub fn decorate(&mut self, node_proto: &NodeProto) {
-        self.inputs = node_proto.input.clone();
-        self.outputs = node_proto.output.clone();
+        self.input_refs = node_proto.input.clone();
+        self.output_refs = node_proto.output.clone();
         match self.opcode {
             Operator::MatMul => {
                 // Get the alpha and beta values from the node attributes
@@ -113,16 +115,30 @@ pub enum Operator {
     Relu,
     /// Convolution operator
     Conv,
+    /// Division operator
+    Div,
     /// Max pooling operator
     MaxPool,
     /// Max window operator
     MaxWindow,
     /// Max operator
     Max,
-    /// Division operator
-    Div,
+    /// Sigmoid operator
+    Sigmoid,
     /// Virtual advice operator
     VirtualAdvice,
+    /// Virtual move operator
+    VirtualMove,
+    /// Virtual assert equal operator
+    VirtualAssertEq,
+    /// Virtual assert valid div0 operator
+    VirtualAssertValidDiv0,
+    /// Virtual assert valid signed remainder Operator
+    VirtualAssertValidSignedRemainder,
+    /// Add operator
+    Add,
+    /// Mul operator
+    Mul,
 }
 
 /// Used to decorate the matmul operator with its attributes.
@@ -163,3 +179,15 @@ impl JoltONNXDevice {
         }
     }
 }
+
+// impl TryFrom<&ONNXTraceRow> for ONNXInstruction {
+//     type Error = &'static str;
+
+//     #[rustfmt::skip] 
+//     fn try_from(row: &ONNXTraceRow) -> Result<Self, Self::Error> {
+//         match row.instruction.opcode {
+//             Operator::Sigmoid => Ok(SigmoidInstruction(row.layer_state.input_vals[0].data[0]).into()),
+//             _ => Err("No corresponding ONNX instruction"),
+//         }
+//     }
+// }

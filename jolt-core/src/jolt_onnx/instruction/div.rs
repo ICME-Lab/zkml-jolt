@@ -2,10 +2,8 @@ use common::constants::virtual_register_index;
 use tracer::{ELFInstruction, RVTraceRow, RegisterState, RV32IM};
 
 use crate::{jolt::instruction::{
-    add::ADDInstruction, beq::BEQInstruction, mul::MULInstruction,
-    virtual_advice::ADVICEInstruction, virtual_assert_valid_div0::AssertValidDiv0Instruction,
-    virtual_assert_valid_signed_remainder::AssertValidSignedRemainderInstruction, JoltInstruction,
-}, jolt_onnx::{common::onnx_trace::{LayerState, ONNXInstruction, ONNXTraceRow, Operator}, instruction::VirtualInstructionSequence}};
+    add::ADDInstruction, beq::BEQInstruction, mul::MULInstruction, JoltInstruction,
+}, jolt_onnx::{common::onnx_trace::{LayerState, ONNXInstruction, ONNXTraceRow, Operator}, instruction::{virtual_advice::ADVICEInstruction, virtual_assert_valid_div0::AssertValidDiv0Instruction, virtual_assert_valid_signed_remainder::AssertValidSignedRemainderInstruction, VirtualInstructionSequence}, tracer::tensor::QuantizedTensor}};
 /// Perform signed division and return the result
 pub struct DIVInstruction<const WORD_SIZE: usize>;
 
@@ -15,8 +13,8 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
     fn virtual_trace(trace_row: ONNXTraceRow) -> Vec<ONNXTraceRow> {
         assert_eq!(trace_row.instruction.opcode, Operator::Div);
         // DIV source tensor references
-        let r_x = trace_row.instruction.input_refs[0];
-        let r_y = trace_row.instruction.input_refs[1];
+        let r_x = trace_row.instruction.input_refs[0].clone();
+        let r_y = trace_row.instruction.input_refs[1].clone();
         // Virtual references used in sequence
         // TODO: Not sure if this is the best way to do this.
         let v_0 = "v_0".to_string();
@@ -25,8 +23,8 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
         let v_qy = "v_qy".to_string();
         // DIV operands
         // TODO: Do we want to have entry-wise division?
-        let x = trace_row.layer_state.input_vals.as_ref()[0].data[0];
-        let y = trace_row.layer_state.input_vals.as_ref()[1].data[1];
+        let x = trace_row.layer_state.input_vals[0].data[0];
+        let y = trace_row.layer_state.input_vals[0].data[1];
 
         let mut virtual_trace = vec![];
 
@@ -41,7 +39,7 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
                         remainder += y as i32;
                         quotient -= 1;
                     }
-                    (quotient as u32 as u64, remainder as u32 as u64)
+                    (quotient as u32 as u64, remainder as i8)
                 }
             }
             64 => {
@@ -54,7 +52,7 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
                         remainder += y as i64;
                         quotient -= 1;
                     }
-                    (quotient as u64, remainder as u64)
+                    (quotient as u64, remainder as i8)
                 }
             }
             _ => panic!("Unsupported WORD_SIZE: {WORD_SIZE}"),
@@ -66,75 +64,78 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
                 opcode: Operator::VirtualAdvice,
                 attributes: None,
                 input_refs: vec![],
-                output_refs: vec![v_q],
+                output_refs: vec![v_q.clone()],
             },
             layer_state: LayerState {
                 input_vals: vec![],
-                output_vals: vec![q],
+                output_vals: vec![QuantizedTensor::new(vec![1], vec![q as i8], 1.0)],
             },
-            // advice_value: Some(quotient),
+            advice_value: vec![QuantizedTensor::new(vec![1], vec![quotient as i8], 1.0)],
         });
 
-        let r = ADVICEInstruction::<WORD_SIZE>(remainder).lookup_entry();
+        let r = ADVICEInstruction::<WORD_SIZE>(remainder as u64).lookup_entry();
         virtual_trace.push(ONNXTraceRow {
             instruction: ONNXInstruction {
                 opcode: Operator::VirtualAdvice,
                 attributes: None,
                 input_refs: vec![],
-                output_refs: vec![v_r],
+                output_refs: vec![v_r.clone()],
             },
             layer_state: LayerState {
                 input_vals: vec![],
-                output_vals: vec![r],
+                output_vals: vec![QuantizedTensor::new(vec![1], vec![r as i8], 1.0)],
             },
-            // advice_value: Some(remainder),
+            advice_value: vec![QuantizedTensor::new(vec![1], vec![remainder as i8], 1.0)],
         });
 
-        let is_valid: u64 = AssertValidSignedRemainderInstruction::<WORD_SIZE>(r, y).lookup_entry();
+        let is_valid: u64 = AssertValidSignedRemainderInstruction::<WORD_SIZE>(r as u64, y as u64).lookup_entry();
         assert_eq!(is_valid, 1);
         virtual_trace.push(ONNXTraceRow {
             instruction: ONNXInstruction {
                 opcode: Operator::VirtualAssertValidSignedRemainder,
                 attributes: None,
-                input_refs: vec![v_r, r_y],
+                input_refs: vec![v_r.clone(), r_y.clone()],
                 output_refs: vec![],
                 // virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
             },
             layer_state: LayerState {
-                input_vals: vec![r, y],
+                input_vals: vec![QuantizedTensor::new(vec![1], vec![r as i8], 1.0), QuantizedTensor::new(vec![1], vec![y as i8], 1.0)],
                 output_vals: vec![],
             },
+            advice_value: vec![],
         });
 
-        let is_valid: u64 = AssertValidDiv0Instruction::<WORD_SIZE>(y, q).lookup_entry();
+        let is_valid: u64 = AssertValidDiv0Instruction::<WORD_SIZE>(y as u64, q).lookup_entry();
         assert_eq!(is_valid, 1);
         virtual_trace.push(ONNXTraceRow {
             instruction: ONNXInstruction {
                 opcode: Operator::VirtualAssertValidDiv0,
                 attributes: None,
-                input_refs: vec![r_y, v_q],
+                input_refs: vec![r_y.clone(), v_q.clone()],
                 output_refs: vec![],
                 // virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
             },
             layer_state: LayerState {
-                input_vals: vec![y, q],
+                input_vals: vec![QuantizedTensor::new(vec![1], vec![y as i8], 1.0), QuantizedTensor::new(vec![1], vec![q as i8], 1.0)],
                 output_vals: vec![],
             },
+            advice_value: vec![],
         });
 
-        let q_y = MULInstruction::<WORD_SIZE>(q, y).lookup_entry();
+        let q_y = MULInstruction::<WORD_SIZE>(q, y as u64).lookup_entry();
         virtual_trace.push(ONNXTraceRow {
             instruction: ONNXInstruction {
                 opcode: Operator::Mul,
                 attributes: None,
-                input_refs: vec![v_q, r_y],
-                output_refs: vec![v_qy],
+                input_refs: vec![v_q.clone(), r_y.clone()],
+                output_refs: vec![v_qy.clone()],
                 // virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
             },
             layer_state: LayerState {
-                input_vals: vec![q, y],
-                output_vals: vec![q_y],
+                input_vals: vec![QuantizedTensor::new(vec![1], vec![q as i8], 1.0), QuantizedTensor::new(vec![1], vec![y as i8], 1.0)],
+                output_vals: vec![QuantizedTensor::new(vec![1], vec![q_y as i8], 1.0)],
             },
+            advice_value: vec![],
         });
 
         let add_0 = ADDInstruction::<WORD_SIZE>(q_y, r).lookup_entry();
@@ -142,49 +143,52 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
             instruction: ONNXInstruction {
                 opcode: Operator::Add,
                 attributes: None,
-                input_refs: vec![v_qy, v_r],
-                output_refs: vec![v_0],
+                input_refs: vec![v_qy.clone(), v_r.clone()],
+                output_refs: vec![v_0.clone()],
                 // virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
             },
             layer_state: LayerState {
-                input_vals: vec![q_y, r],
-                output_vals: vec![add_0],
+                input_vals: vec![QuantizedTensor::new(vec![1], vec![q_y as i8], 1.0), QuantizedTensor::new(vec![1], vec![r as i8], 1.0)],
+                output_vals: vec![QuantizedTensor::new(vec![1], vec![add_0 as i8], 1.0)],
             },
+            advice_value: vec![],
         });
 
-        let _assert_eq = BEQInstruction::<WORD_SIZE>(add_0, x).lookup_entry();
+        let _assert_eq = BEQInstruction::<WORD_SIZE>(add_0, x as u64).lookup_entry();
         virtual_trace.push(ONNXTraceRow {
             instruction: ONNXInstruction {
                 opcode: Operator::VirtualAssertEq,
                 attributes: None,
-                input_refs: vec![v_0, r_x],
+                input_refs: vec![v_0.clone(), r_x.clone()],
                 output_refs: vec![],
                 // virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
             },
             layer_state: LayerState {
-                input_vals: vec![add_0, x],
+                input_vals: vec![QuantizedTensor::new(vec![1], vec![add_0 as i8], 1.0), QuantizedTensor::new(vec![1], vec![x as i8], 1.0)],
                 output_vals: vec![],
             },
+            advice_value: vec![],
         });
 
         virtual_trace.push(ONNXTraceRow {
             instruction: ONNXInstruction {
                 opcode: Operator::VirtualMove,
                 attributes: None,
-                input_refs: vec![v_q],
-                output_refs: vec![trace_row.instruction.output_refs[0]],
+                input_refs: vec![v_q.clone()],
+                output_refs: vec![trace_row.instruction.output_refs[0].clone()],
                 // virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
             },
             layer_state: LayerState {
-                input_vals: vec![q],
-                output_vals: vec![q],
+                input_vals: vec![QuantizedTensor::new(vec![1], vec![q as i8], 1.0)],
+                output_vals: vec![QuantizedTensor::new(vec![1], vec![q as i8], 1.0)],
             },
+            advice_value: vec![],
         });
 
         virtual_trace
     }
 
-    fn sequence_output(x: u64, y: u64) -> u64 {
+    fn sequence_output(x: i8, y: i8) -> i8 {
         let x = x as i32;
         let y = y as i32;
         if y == 0 {
@@ -195,7 +199,7 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
         if (remainder < 0 && y > 0) || (remainder > 0 && y < 0) {
             quotient -= 1;
         }
-        quotient as u32 as u64
+        quotient as i8
     }
 }
 
