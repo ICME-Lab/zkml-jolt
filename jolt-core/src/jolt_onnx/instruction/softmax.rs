@@ -11,6 +11,7 @@ use crate::jolt::instruction::{
 use crate::jolt_onnx::common::onnx_trace::{LayerState, ONNXInstruction, ONNXTraceRow, Operator};
 use crate::jolt_onnx::instruction::max::MaxInstruction;
 use crate::jolt_onnx::instruction::pow_2::Pow2Instruction;
+use crate::jolt_onnx::tracer::tensor::QuantizedTensor;
 
 fn virtual_trace<const WORD_SIZE: usize>(trace_row: ONNXTraceRow) -> Vec<ONNXTraceRow> {
     assert_eq!(trace_row.instruction.opcode, Operator::Softmax);
@@ -25,8 +26,8 @@ fn virtual_trace<const WORD_SIZE: usize>(trace_row: ONNXTraceRow) -> Vec<ONNXTra
         virtual_trace.push(ONNXTraceRow {
             instruction: ONNXInstruction::new(Operator::Max),
             layer_state: LayerState {
-                input_vals: None,
-                output_vals: None,
+                input_vals: vec![QuantizedTensor::new(vec![1], vec![acc, *a as i8], 1.0)],
+                output_vals: vec![QuantizedTensor::new(vec![1], vec![max], 1.0)],
             },
         });
         max
@@ -40,8 +41,8 @@ fn virtual_trace<const WORD_SIZE: usize>(trace_row: ONNXTraceRow) -> Vec<ONNXTra
             virtual_trace.push(ONNXTraceRow {
                 instruction: ONNXInstruction::new(Operator::Mul),
                 layer_state: LayerState {
-                    input_vals: None,
-                    output_vals: None,
+                    input_vals: vec![QuantizedTensor::new(vec![1], vec![*z as i8, 63 as i8], 1.0)],
+                    output_vals: vec![QuantizedTensor::new(vec![1], vec![a], 1.0)],
                 },
             });
             let b = DIVInstruction::<WORD_SIZE>(a, max_val).lookup_entry();
