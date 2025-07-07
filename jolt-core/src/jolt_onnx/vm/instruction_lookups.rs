@@ -1,5 +1,7 @@
 //! Implements the Jolt paradigm of Just One Lookup Table (JOLT) for ONNX instruction lookups.
 
+use crate::jolt_onnx::instruction::JoltONNXInstructionSet;
+use crate::jolt_onnx::tracer::tensor::QuantizedTensor;
 use crate::poly::compact_polynomial::{CompactPolynomial, SmallScalar};
 use crate::poly::multilinear_polynomial::{
     BindingOrder, MultilinearPolynomial, PolynomialBinding, PolynomialEvaluation,
@@ -167,7 +169,7 @@ impl<const C: usize, const M: usize, F, PCS, InstructionSet, Subtables, ProofTra
 where
     F: JoltField,
     PCS: CommitmentScheme<ProofTranscript, Field = F>,
-    InstructionSet: JoltInstructionSet,
+    InstructionSet: JoltONNXInstructionSet,
     Subtables: JoltSubtableSet<F>,
     ProofTranscript: Transcript,
 {
@@ -386,7 +388,7 @@ impl<F, PCS, InstructionSet, Subtables, const C: usize, const M: usize, ProofTra
 where
     F: JoltField,
     PCS: CommitmentScheme<ProofTranscript, Field = F>,
-    InstructionSet: JoltInstructionSet,
+    InstructionSet: JoltONNXInstructionSet,
     Subtables: JoltSubtableSet<F>,
     ProofTranscript: Transcript,
 {
@@ -581,7 +583,7 @@ pub struct InstructionLookupsProof<
     F: JoltField,
     PCS: CommitmentScheme<ProofTranscript, Field = F>,
     Subtables: JoltSubtableSet<F>,
-    InstructionSet: JoltInstructionSet,
+    InstructionSet: JoltONNXInstructionSet,
     ProofTranscript: Transcript,
 {
     _instructions: PhantomData<InstructionSet>,
@@ -623,7 +625,7 @@ impl<const C: usize, F: JoltField> InstructionLookupsPreprocessing<C, F> {
     #[tracing::instrument(skip_all, name = "InstructionLookups::preprocess")]
     pub fn preprocess<const M: usize, InstructionSet, Subtables>() -> Self
     where
-        InstructionSet: JoltInstructionSet,
+        InstructionSet: JoltONNXInstructionSet,
         Subtables: JoltSubtableSet<F>,
     {
         let materialized_subtables = Self::materialize_subtables::<M, Subtables>();
@@ -696,7 +698,7 @@ impl<F, PCS, InstructionSet, Subtables, const C: usize, const M: usize, ProofTra
 where
     F: JoltField,
     PCS: CommitmentScheme<ProofTranscript, Field = F>,
-    InstructionSet: JoltInstructionSet,
+    InstructionSet: JoltONNXInstructionSet,
     Subtables: JoltSubtableSet<F>,
     ProofTranscript: Transcript,
 {
@@ -1278,7 +1280,7 @@ where
 mod tests {
     use ark_bn254::Fr;
 
-    use crate::jolt::vm::rv32i_vm::{RV32ISubtables, RV32I};
+    use crate::{jolt::vm::rv32i_vm::{RV32ISubtables, RV32I}, jolt_onnx::vm::onnx_vm::{ONNXInstructionSet, ONNXSubtables}};
 
     use super::*;
 
@@ -1287,7 +1289,7 @@ mod tests {
         const C: usize = 4;
         const M: usize = 1 << 16;
         let preprocessing =
-            InstructionLookupsPreprocessing::<C, Fr>::preprocess::<M, RV32I, RV32ISubtables<Fr>>();
+            InstructionLookupsPreprocessing::<C, Fr>::preprocess::<M, ONNXInstructionSet, ONNXSubtables<Fr>>();
         InstructionLookupOpenings::<Fr>::test_ordering_consistency(&preprocessing);
     }
 }

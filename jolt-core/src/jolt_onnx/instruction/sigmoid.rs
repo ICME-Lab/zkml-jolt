@@ -17,41 +17,52 @@ use itertools::Itertools;
 use rand::prelude::StdRng;
 use serde::{Deserialize, Serialize};
 
-/// Sigmoid instruction
-pub struct SigmoidInstruction(pub QuantizedTensor);
+// /// Sigmoid instruction
+// pub struct SigmoidInstruction(pub QuantizedTensor);
 
-impl SigmoidInstruction {
-    /// Create a sigmoid instruction from a quantized tensor.
-    pub fn new(tensor: QuantizedTensor) -> Self {
-        Self(tensor)
-    }
+// impl SigmoidInstruction {
+//     /// Create a sigmoid instruction from a quantized tensor.
+//     pub fn new(tensor: QuantizedTensor) -> Self {
+//         Self(tensor)
+//     }
 
-    /// Create a sigmoid instruction from a vector of u32 values.
-    pub fn from_data(data: &[u32]) -> Self {
-        let quantized_data = quantize(&data.iter().map(|&x| x as f32).collect_vec());
-        let quantized_tensor = QuantizedTensor::new(vec![data.len()], quantized_data.0, quantized_data.1);
-        Self(quantized_tensor)
-    }
-}
+//     /// Create a sigmoid instruction from a vector of u32 values.
+//     pub fn from_data(data: &[u32]) -> Self {
+//         let quantized_data = quantize(&data.iter().map(|&x| x as f32).collect_vec());
+//         let quantized_tensor = QuantizedTensor::new(vec![data.len()], quantized_data.0, quantized_data.1);
+//         Self(quantized_tensor)
+//     }
+// }
 
-impl JoltONNXInstruction for SigmoidInstruction {
-    fn lookup(&self) -> QuantizedTensor {
-        let mut results = Vec::new();
-        let data = &self.0.data;
-        for i in 0..data.len() {
-            results.push(SigmoidInnerInstruction(data[i] as u64).lookup_entry());
-        }
-        let quantized_results = quantize(&results.iter().map(|&x| x as f32).collect_vec());
-        let quantized_tensor = QuantizedTensor::new(self.0.shape.clone(), quantized_results.0, quantized_results.1);
-        quantized_tensor
-    }
-}
+// impl JoltONNXInstruction for SigmoidInstruction {
+//     fn lookup(&self) -> QuantizedTensor {
+//         let mut results = Vec::new();
+//         let data = &self.0.data;
+//         for i in 0..data.len() {
+//             results.push(SigmoidInstruction(data[i] as u64).lookup_entry());
+//         }
+//         let quantized_results = quantize(&results.iter().map(|&x| x as f32).collect_vec());
+//         let quantized_tensor = QuantizedTensor::new(self.0.shape.clone(), quantized_results.0, quantized_results.1);
+//         quantized_tensor
+//     }
+// }
 
 /// Sigmoid inner instruction
 #[derive(Copy, Clone, Default, Debug, Serialize, Deserialize, PartialEq)]
-pub struct SigmoidInnerInstruction(pub u64);
+pub struct SigmoidInstruction(pub u64);
 
-impl JoltInstruction for SigmoidInnerInstruction {
+impl JoltONNXInstruction for SigmoidInstruction {
+    fn from_tensor(tensor: QuantizedTensor) -> Self {
+        Self(tensor.data[0] as u64)
+    }
+
+    fn to_tensor(&self) -> QuantizedTensor {
+        QuantizedTensor::from(self.0)
+    }
+}
+
+
+impl JoltInstruction for SigmoidInstruction {
     fn operands(&self) -> (u64, u64) {
         (self.0, 0)
     }
@@ -143,7 +154,6 @@ impl JoltInstruction for SigmoidInnerInstruction {
 
 #[cfg(test)]
 mod test {
-    use super::SigmoidInnerInstruction;
     use crate::jolt::instruction::test::{
         instruction_mle_full_hypercube_test, materialize_entry_test,
     };
@@ -157,12 +167,12 @@ mod test {
 
     #[test]
     fn sigmoid_mle_full_hypercube() {
-        instruction_mle_full_hypercube_test::<Fr, SigmoidInnerInstruction>();
+        instruction_mle_full_hypercube_test::<Fr, SigmoidInstruction>();
     }
 
     #[test]
     fn sigmoid_materialize_entry() {
-        materialize_entry_test::<Fr, SigmoidInnerInstruction>();
+        materialize_entry_test::<Fr, SigmoidInstruction>();
     }
 
     #[test]
@@ -172,44 +182,32 @@ mod test {
         const M: usize = 1 << 8;
 
         for i in 0..256 {
-            let instruction = SigmoidInnerInstruction(i as u64);
+            let instruction = SigmoidInstruction(i as u64);
             jolt_instruction_test!(instruction);
         }
 
         for _ in 0..256 {
             let x = rng.next_u32();
-            let instruction = SigmoidInnerInstruction(x as u64);
+            let instruction = SigmoidInstruction(x as u64);
             jolt_instruction_test!(instruction);
         }
 
         let u32_max: u64 = u32::MAX as u64;
         let instructions = vec![
-            SigmoidInnerInstruction(0),
-            SigmoidInnerInstruction(1),
-            SigmoidInnerInstruction(8374),
-            SigmoidInnerInstruction((-100_i32) as u64),
-            SigmoidInnerInstruction((-1_i32) as u64),
-            SigmoidInnerInstruction(u32_max),
-            SigmoidInnerInstruction(u32_max + 100),
-            SigmoidInnerInstruction(u32_max + (1 << 8)),
-            SigmoidInnerInstruction(1 << 8),
-            SigmoidInnerInstruction(1 << 30),
+            SigmoidInstruction(0),
+            SigmoidInstruction(1),
+            SigmoidInstruction(8374),
+            SigmoidInstruction((-100_i32) as u64),
+            SigmoidInstruction((-1_i32) as u64),
+            SigmoidInstruction(u32_max),
+            SigmoidInstruction(u32_max + 100),
+            SigmoidInstruction(u32_max + (1 << 8)),
+            SigmoidInstruction(1 << 8),
+            SigmoidInstruction(1 << 30),
         ];
         for instruction in instructions {
             jolt_instruction_test!(instruction);
         }
     }
 
-    #[test]
-    fn sigmoid_instruction_64_e2e() {
-        let rng = test_rng();
-        const C: usize = 8;
-        const M: usize = 1 << 8;
-        let random_tensor = QuantizedTensor::random(rng, 10, 1);
-        let sigmoid_instruction = SigmoidInstruction::new(random_tensor);
-        let inner_instructions = sigmoid_instruction.inner_instructions();
-        for inner_instruction in inner_instructions {
-            jolt_instruction_test!(inner_instruction);
-        }
-    }
 }

@@ -1,5 +1,7 @@
 //! This module provides the custom jolt instructions for the ONNX runtime.
 
+use strum::{EnumCount, IntoEnumIterator};
+
 use crate::jolt_onnx::common::onnx_trace::{LayerState, ONNXInstruction, ONNXTraceRow};
 use crate::{field::JoltField, jolt::instruction::JoltInstruction, jolt_onnx::tracer::tensor::QuantizedTensor};
 
@@ -33,9 +35,22 @@ pub trait VirtualInstructionSequence {
 
 
 /// Trait for ONNX instructions.
-pub trait JoltONNXInstruction {
-    fn lookup(&self) -> QuantizedTensor;
+pub trait JoltONNXInstruction: JoltInstruction {
+    // fn lookup(&self) -> QuantizedTensor;
+    fn from_tensor(tensor: QuantizedTensor) -> Self;
+    fn to_tensor(&self) -> QuantizedTensor;
 }
+
+pub trait JoltONNXInstructionSet:
+    JoltInstruction + IntoEnumIterator + EnumCount + for<'a> TryFrom<&'a ONNXInstruction> + Send + Sync
+{
+    fn enum_index(instruction: &Self) -> usize {
+        // Discriminant: https://doc.rust-lang.org/reference/items/enumerations.html#pointer-casting
+        let byte = unsafe { *(instruction as *const Self as *const u8) };
+        byte as usize
+    }
+}
+
 
 // impl TryFrom<&ONNXTraceRow> for JoltONNXInstruction {
 //     type Error = &'static str;

@@ -68,9 +68,9 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
             },
             layer_state: LayerState {
                 input_vals: vec![],
-                output_vals: vec![QuantizedTensor::new(vec![1], vec![q as i8], 1.0)],
+                output_vals: vec![QuantizedTensor::from(q as i8)],
             },
-            advice_value: vec![QuantizedTensor::new(vec![1], vec![quotient as i8], 1.0)],
+            advice_value: vec![QuantizedTensor::from(quotient as i8)],
         });
 
         let r = ADVICEInstruction::<WORD_SIZE>(remainder as u64).lookup_entry();
@@ -83,9 +83,9 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
             },
             layer_state: LayerState {
                 input_vals: vec![],
-                output_vals: vec![QuantizedTensor::new(vec![1], vec![r as i8], 1.0)],
+                output_vals: vec![QuantizedTensor::from(r as i8)],
             },
-            advice_value: vec![QuantizedTensor::new(vec![1], vec![remainder as i8], 1.0)],
+            advice_value: vec![QuantizedTensor::from(remainder as i8)],
         });
 
         let is_valid: u64 = AssertValidSignedRemainderInstruction::<WORD_SIZE>(r as u64, y as u64).lookup_entry();
@@ -99,7 +99,7 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
                 // virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
             },
             layer_state: LayerState {
-                input_vals: vec![QuantizedTensor::new(vec![1], vec![r as i8], 1.0), QuantizedTensor::new(vec![1], vec![y as i8], 1.0)],
+                input_vals: vec![QuantizedTensor::from(r as i8), QuantizedTensor::from(y as i8)],
                 output_vals: vec![],
             },
             advice_value: vec![],
@@ -116,7 +116,7 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
                 // virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
             },
             layer_state: LayerState {
-                input_vals: vec![QuantizedTensor::new(vec![1], vec![y as i8], 1.0), QuantizedTensor::new(vec![1], vec![q as i8], 1.0)],
+                input_vals: vec![QuantizedTensor::from(y as i8), QuantizedTensor::from(q as i8)],
                 output_vals: vec![],
             },
             advice_value: vec![],
@@ -132,8 +132,8 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
                 // virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
             },
             layer_state: LayerState {
-                input_vals: vec![QuantizedTensor::new(vec![1], vec![q as i8], 1.0), QuantizedTensor::new(vec![1], vec![y as i8], 1.0)],
-                output_vals: vec![QuantizedTensor::new(vec![1], vec![q_y as i8], 1.0)],
+                input_vals: vec![QuantizedTensor::from(q as i8), QuantizedTensor::from(y as i8)],
+                output_vals: vec![QuantizedTensor::from(q_y as i8)],
             },
             advice_value: vec![],
         });
@@ -148,8 +148,8 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
                 // virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
             },
             layer_state: LayerState {
-                input_vals: vec![QuantizedTensor::new(vec![1], vec![q_y as i8], 1.0), QuantizedTensor::new(vec![1], vec![r as i8], 1.0)],
-                output_vals: vec![QuantizedTensor::new(vec![1], vec![add_0 as i8], 1.0)],
+                input_vals: vec![QuantizedTensor::from(q_y as i8), QuantizedTensor::from(r as i8)],
+                output_vals: vec![QuantizedTensor::from(add_0 as i8)],
             },
             advice_value: vec![],
         });
@@ -164,7 +164,7 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
                 // virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
             },
             layer_state: LayerState {
-                input_vals: vec![QuantizedTensor::new(vec![1], vec![add_0 as i8], 1.0), QuantizedTensor::new(vec![1], vec![x as i8], 1.0)],
+                input_vals: vec![QuantizedTensor::from(add_0 as i8), QuantizedTensor::from(x as i8)],
                 output_vals: vec![],
             },
             advice_value: vec![],
@@ -179,8 +179,8 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
                 // virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
             },
             layer_state: LayerState {
-                input_vals: vec![QuantizedTensor::new(vec![1], vec![q as i8], 1.0)],
-                output_vals: vec![QuantizedTensor::new(vec![1], vec![q as i8], 1.0)],
+                input_vals: vec![QuantizedTensor::from(q as i8)],
+                output_vals: vec![QuantizedTensor::from(q as i8)],
             },
             advice_value: vec![],
         });

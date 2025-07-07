@@ -4,10 +4,12 @@ use super::JoltProof;
 use crate::field::JoltField;
 use crate::jolt::instruction::add::ADDInstruction;
 use crate::jolt::instruction::{JoltInstruction, JoltInstructionSet, SubtableIndices};
+use crate::jolt_onnx::common::onnx_trace::ONNXInstruction;
+use crate::jolt_onnx::instruction::JoltONNXInstructionSet;
 use crate::jolt::subtable::{
     identity::IdentitySubtable, JoltSubtableSet, LassoSubtable, SubtableId,
 };
-use crate::jolt_onnx::{instruction::relu::ReLUInstruction, subtable::is_pos::IsPosSubtable};
+use crate::jolt_onnx::{instruction::{relu::ReLUInstruction, sigmoid::SigmoidInstruction, div::DIVInstruction}, subtable::is_pos::IsPosSubtable};
 use enum_dispatch::enum_dispatch;
 use rand::{prelude::StdRng, RngCore};
 use serde::{Deserialize, Serialize};
@@ -28,7 +30,7 @@ macro_rules! instruction_set {
         pub enum $enum_name {
             $($alias($struct)),+
         }
-        impl JoltInstructionSet for $enum_name {}
+        impl JoltONNXInstructionSet for $enum_name {}
         impl $enum_name {
             /// Create a random instruction from the enum.
             pub fn random_instruction(rng: &mut StdRng) -> Self {
@@ -91,7 +93,8 @@ const WORD_SIZE: usize = 32;
 instruction_set!(
   ONNXInstructionSet,
   ReLU: ReLUInstruction,
-  ADD: ADDInstruction<WORD_SIZE>
+  ADD: ADDInstruction<WORD_SIZE>,
+  Sigmoid: SigmoidInstruction
 );
 
 subtable_enum!(
@@ -103,6 +106,19 @@ subtable_enum!(
 /// The ONNX Jolt VM type, which is a Jolt VM for ONNX models.
 pub type ONNXJoltVM<F, PCS, ProofTranscript> =
     JoltProof<C_ONNX, M_ONNX, F, PCS, ONNXInstructionSet, ONNXSubtables<F>, ProofTranscript>;
+
+
+
+impl TryFrom<&ONNXInstruction> for ONNXInstructionSet {
+    type Error = &'static str;
+    
+    #[rustfmt::skip] 
+    fn try_from(instruction: &ONNXInstruction) -> Result<Self, Self::Error> {
+        match instruction.opcode {
+            _ => Err("No corresponding ONNX instruction")
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {

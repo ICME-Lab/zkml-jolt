@@ -72,8 +72,8 @@ pub fn jolt_onnx_virtual_sequence_test<I: VirtualInstructionSequence>(opcode: Op
                     "{row:?}"
                 );
 
-            let instruction = JoltONNXInstruction::try_from(&row).unwrap(); 
-            let output = instruction.lookup();
+            // let instruction = JoltONNXInstruction::try_from(&row).unwrap(); 
+            let output = unimplemented!(); // instruction.lookup();
             let rd = row.instruction.output_refs[0].clone();
                 registers.insert(rd, output);
                 assert_eq!(
