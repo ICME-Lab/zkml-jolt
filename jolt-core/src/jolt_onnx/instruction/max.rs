@@ -142,13 +142,7 @@ mod test {
     use rand_chacha::rand_core::RngCore;
 
     use crate::{
-        jolt::instruction::{
-            test::{
-                instruction_mle_full_hypercube_test, instruction_mle_random_test,
-                materialize_entry_test, prefix_suffix_test,
-            },
-            JoltInstruction,
-        },
+        jolt::instruction::{test::prefix_suffix_test, JoltInstruction},
         jolt_instruction_test,
     };
 

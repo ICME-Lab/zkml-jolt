@@ -6,11 +6,10 @@
 
 pub mod conv;
 pub mod matmult;
-pub mod softmax;
-pub mod sumcheck_engine;
 pub mod sum;
+pub mod sumcheck_engine;
 
-use crate::jolt_onnx::precompiles::{conv::ConvPrecompile, softmax::SoftmaxPrecompile, sum::SumPrecompile};
+use crate::jolt_onnx::precompiles::{conv::ConvPrecompile, sum::SumPrecompile};
 use matmult::MatMultPrecompile;
 use serde::{Deserialize, Serialize};
 
@@ -22,8 +21,6 @@ pub enum PrecompileOperators {
     MatMult(MatMultPrecompile),
     /// Conv operator precompile.
     Conv(ConvPrecompile),
-    /// Softmax operator precompile.
-    Softmax(SoftmaxPrecompile),
-    /// Sum operator precompile.
+    /// Sum precompile.
     Sum(SumPrecompile),
 }
