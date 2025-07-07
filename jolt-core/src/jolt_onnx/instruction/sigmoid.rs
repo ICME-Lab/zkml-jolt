@@ -34,20 +34,16 @@ impl SigmoidInstruction {
     }
 }
 
-impl JoltONNXInstruction<SigmoidInnerInstruction> for SigmoidInstruction {
-    fn combine_instruction_results(&self, results: &[u32]) -> QuantizedTensor {
+impl JoltONNXInstruction for SigmoidInstruction {
+    fn lookup(&self) -> QuantizedTensor {
+        let mut results = Vec::new();
+        let data = &self.0.data;
+        for i in 0..data.len() {
+            results.push(SigmoidInnerInstruction(data[i] as u64).lookup_entry());
+        }
         let quantized_results = quantize(&results.iter().map(|&x| x as f32).collect_vec());
         let quantized_tensor = QuantizedTensor::new(self.0.shape.clone(), quantized_results.0, quantized_results.1);
         quantized_tensor
-    }
-
-    fn inner_instructions(&self) -> Vec<SigmoidInnerInstruction> {
-        let mut inner_instructions = Vec::new();
-        let data = &self.0.data;
-        for i in 0..data.len() {
-            inner_instructions.push(SigmoidInnerInstruction(data[i] as u64));
-        }
-        inner_instructions
     }
 }
 

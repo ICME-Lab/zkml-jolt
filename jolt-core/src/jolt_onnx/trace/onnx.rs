@@ -71,12 +71,3 @@ impl ONNXTraceRow {
     }
 }
 
-/// Trivial [`TryFrom`] trait implementation for [`ELFInstruction`] to [`ONNX`] to make [`JoltInstructionSet`] trait happy
-impl TryFrom<&ELFInstruction> for ONNXInstructionSet {
-    type Error = &'static str;
-
-    #[rustfmt::skip] // keep matches pretty
-    fn try_from(_: &ELFInstruction) -> Result<Self, Self::Error> {
-        Err("No corresponding ONNX instruction")
-    }
-}

@@ -33,19 +33,18 @@ pub trait VirtualInstructionSequence {
 
 
 /// Trait for ONNX instructions.
-pub trait JoltONNXInstruction<InnerInstruction: JoltInstruction> {
-    /// Combine the results of the inner instructions into a quantized tensor.
-    fn combine_instruction_results(&self, results: &[u32]) -> QuantizedTensor;
-
-    /// Retrieve the inner instructions.
-    fn inner_instructions(&self) -> Vec<InnerInstruction>;
-
-    fn lookup(&self) -> QuantizedTensor {
-        let mut inner_instructions = self.inner_instructions();
-        let mut results = vec![];
-        for inner_instruction in inner_instructions {
-            results.push(inner_instruction.lookup_entry() as u32);
-        }
-        self.combine_instruction_results(&results)
-    }
+pub trait JoltONNXInstruction {
+    fn lookup(&self) -> QuantizedTensor;
 }
+
+// impl TryFrom<&ONNXTraceRow> for JoltONNXInstruction {
+//     type Error = &'static str;
+
+//     #[rustfmt::skip] 
+//     fn try_from(row: &ONNXTraceRow) -> Result<Self, Self::Error> {
+//         match row.instruction.opcode {
+//             Operator::Sigmoid => Ok(SigmoidInstruction(row.layer_state.input_vals[0].data[0]).into()),
+//             _ => Err("No corresponding ONNX instruction"),
+//         }
+//     }
+// }

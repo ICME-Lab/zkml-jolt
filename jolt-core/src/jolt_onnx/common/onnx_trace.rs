@@ -180,14 +180,3 @@ impl JoltONNXDevice {
     }
 }
 
-// impl TryFrom<&ONNXTraceRow> for ONNXInstruction {
-//     type Error = &'static str;
-
-//     #[rustfmt::skip] 
-//     fn try_from(row: &ONNXTraceRow) -> Result<Self, Self::Error> {
-//         match row.instruction.opcode {
-//             Operator::Sigmoid => Ok(SigmoidInstruction(row.layer_state.input_vals[0].data[0]).into()),
-//             _ => Err("No corresponding ONNX instruction"),
-//         }
-//     }
-// }

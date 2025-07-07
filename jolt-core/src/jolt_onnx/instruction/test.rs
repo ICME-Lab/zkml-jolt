@@ -4,7 +4,7 @@ use ark_std::test_rng;
 use common::constants::REGISTER_COUNT;
 use rand_core::RngCore;
 
-use crate::jolt_onnx::{common::onnx_trace::{LayerState, ONNXInstruction, ONNXTraceRow, Operator}, instruction::VirtualInstructionSequence, tracer::tensor::QuantizedTensor};
+use crate::jolt_onnx::{common::onnx_trace::{LayerState, ONNXInstruction, ONNXTraceRow, Operator}, instruction::{JoltONNXInstruction, VirtualInstructionSequence}, tracer::tensor::QuantizedTensor};
 
 
 /// Tests the consistency and correctness of a virtual instruction sequence.
@@ -17,6 +17,7 @@ use crate::jolt_onnx::{common::onnx_trace::{LayerState, ONNXInstruction, ONNXTra
 /// 6. Ensures that the result of the instruction sequence is correctly written to the `rd` reference.
 /// 7. Checks that no unintended modifications have been made to other references.
 pub fn jolt_onnx_virtual_sequence_test<I: VirtualInstructionSequence>(opcode: Operator) {
+    // TODO: We need to map Operator with operands
     let mut rng = test_rng();
 
     for _ in 0..1000 {
@@ -71,8 +72,8 @@ pub fn jolt_onnx_virtual_sequence_test<I: VirtualInstructionSequence>(opcode: Op
                     "{row:?}"
                 );
 
-            // let lookup = ONNXInstruction::try_from(&row).unwrap(); 
-            let output = unimplemented!(); // lookup.lookup_entry();
+            let instruction = JoltONNXInstruction::try_from(&row).unwrap(); 
+            let output = instruction.lookup();
             let rd = row.instruction.output_refs[0].clone();
                 registers.insert(rd, output);
                 assert_eq!(
