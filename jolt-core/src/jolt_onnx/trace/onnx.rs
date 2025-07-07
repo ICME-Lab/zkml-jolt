@@ -59,10 +59,9 @@ impl ONNXTraceRow {
             Operator::MatMul => {
                 // --- # Note ---
                 // We pad the tensor dimensions to the next power of two
-                let inputs = self
+                let inputs = &self
                     .layer_state
-                    .input_vals
-                    .as_slice();
+                    .input_vals;
                 let a = inputs[0].pad();
                 let b = inputs[1].pad();
                 Some(PrecompileOperators::MatMult(MatMultPrecompile::new(a, b)))
