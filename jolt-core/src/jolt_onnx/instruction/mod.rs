@@ -34,13 +34,6 @@ pub trait VirtualInstructionSequence {
 }
 
 
-/// Trait for ONNX instructions.
-pub trait JoltONNXInstruction: JoltInstruction {
-    // fn lookup(&self) -> QuantizedTensor;
-    fn from_tensor(tensor: QuantizedTensor) -> Self;
-    fn to_tensor(&self) -> QuantizedTensor;
-}
-
 pub trait JoltONNXInstructionSet:
     JoltInstruction + IntoEnumIterator + EnumCount + for<'a> TryFrom<&'a ONNXInstruction> + Send + Sync
 {
@@ -52,14 +45,3 @@ pub trait JoltONNXInstructionSet:
 }
 
 
-// impl TryFrom<&ONNXTraceRow> for JoltONNXInstruction {
-//     type Error = &'static str;
-
-//     #[rustfmt::skip] 
-//     fn try_from(row: &ONNXTraceRow) -> Result<Self, Self::Error> {
-//         match row.instruction.opcode {
-//             Operator::Sigmoid => Ok(SigmoidInstruction(row.layer_state.input_vals[0].data[0]).into()),
-//             _ => Err("No corresponding ONNX instruction"),
-//         }
-//     }
-// }

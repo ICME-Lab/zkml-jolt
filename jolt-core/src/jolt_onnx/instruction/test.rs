@@ -4,7 +4,7 @@ use ark_std::test_rng;
 use common::constants::REGISTER_COUNT;
 use rand_core::RngCore;
 
-use crate::jolt_onnx::{common::onnx_trace::{LayerState, ONNXInstruction, ONNXTraceRow, Operator}, instruction::{JoltONNXInstruction, VirtualInstructionSequence}, tracer::tensor::QuantizedTensor};
+use crate::jolt_onnx::{common::onnx_trace::{LayerState, ONNXInstruction, ONNXTraceRow, Operator}, instruction::{VirtualInstructionSequence}, tracer::tensor::QuantizedTensor};
 
 
 /// Tests the consistency and correctness of a virtual instruction sequence.

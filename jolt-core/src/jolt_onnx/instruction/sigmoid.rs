@@ -3,7 +3,6 @@
 use crate::field::JoltField;
 use crate::jolt::instruction::{JoltInstruction, SubtableIndices};
 use crate::jolt::subtable::LassoSubtable;
-use crate::jolt_onnx::instruction::JoltONNXInstruction;
 use crate::jolt_onnx::subtable::is_pos::IsPosSubtable;
 use crate::jolt_onnx::subtable::is_zero::IsZeroSubtable;
 use crate::jolt_onnx::subtable::sigmoid::{
@@ -17,50 +16,10 @@ use itertools::Itertools;
 use rand::prelude::StdRng;
 use serde::{Deserialize, Serialize};
 
-// /// Sigmoid instruction
-// pub struct SigmoidInstruction(pub QuantizedTensor);
-
-// impl SigmoidInstruction {
-//     /// Create a sigmoid instruction from a quantized tensor.
-//     pub fn new(tensor: QuantizedTensor) -> Self {
-//         Self(tensor)
-//     }
-
-//     /// Create a sigmoid instruction from a vector of u32 values.
-//     pub fn from_data(data: &[u32]) -> Self {
-//         let quantized_data = quantize(&data.iter().map(|&x| x as f32).collect_vec());
-//         let quantized_tensor = QuantizedTensor::new(vec![data.len()], quantized_data.0, quantized_data.1);
-//         Self(quantized_tensor)
-//     }
-// }
-
-// impl JoltONNXInstruction for SigmoidInstruction {
-//     fn lookup(&self) -> QuantizedTensor {
-//         let mut results = Vec::new();
-//         let data = &self.0.data;
-//         for i in 0..data.len() {
-//             results.push(SigmoidInstruction(data[i] as u64).lookup_entry());
-//         }
-//         let quantized_results = quantize(&results.iter().map(|&x| x as f32).collect_vec());
-//         let quantized_tensor = QuantizedTensor::new(self.0.shape.clone(), quantized_results.0, quantized_results.1);
-//         quantized_tensor
-//     }
-// }
 
 /// Sigmoid inner instruction
 #[derive(Copy, Clone, Default, Debug, Serialize, Deserialize, PartialEq)]
 pub struct SigmoidInstruction(pub u64);
-
-impl JoltONNXInstruction for SigmoidInstruction {
-    fn from_tensor(tensor: QuantizedTensor) -> Self {
-        Self(tensor.data[0] as u64)
-    }
-
-    fn to_tensor(&self) -> QuantizedTensor {
-        QuantizedTensor::from(self.0)
-    }
-}
-
 
 impl JoltInstruction for SigmoidInstruction {
     fn operands(&self) -> (u64, u64) {
@@ -158,7 +117,6 @@ mod test {
         instruction_mle_full_hypercube_test, materialize_entry_test,
     };
     use crate::jolt_onnx::instruction::sigmoid::SigmoidInstruction;
-    use crate::jolt_onnx::instruction::JoltONNXInstruction;
     use crate::jolt_onnx::tracer::tensor::QuantizedTensor;
     use crate::{jolt::instruction::JoltInstruction, jolt_instruction_test};
     use ark_bn254::Fr;
