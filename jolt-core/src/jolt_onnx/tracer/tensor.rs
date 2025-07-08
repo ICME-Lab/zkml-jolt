@@ -190,8 +190,8 @@ impl From<Tensor> for QuantizedTensor {
 impl From<u64> for QuantizedTensor {
     fn from(value: u64) -> Self {
         let shape = vec![1];
-        let (data, scale) = quantize(&[value as f32]); // TODO: Not sure if we want this cast
-        Self { shape, data, scale }
+        // let (data, scale) = quantize(&[value as f32]); // TODO: Not sure if we want this cast
+        Self { shape, data: vec![value as i8], scale: 1.0 }
     }
 }
 
@@ -237,7 +237,7 @@ mod test {
             diff < epsilon
         })
     }
-    
+
     #[test]
     fn test_dequantize() {
         let data = vec![32, 64, 95, 127];

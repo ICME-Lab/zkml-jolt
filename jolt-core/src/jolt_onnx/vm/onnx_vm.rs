@@ -3,9 +3,12 @@
 use super::JoltProof;
 use crate::field::JoltField;
 use crate::jolt::instruction::add::ADDInstruction;
+use crate::jolt::instruction::beq::BEQInstruction;
+use crate::jolt::instruction::mul::MULInstruction;
 use crate::jolt::instruction::virtual_advice::ADVICEInstruction;
 use crate::jolt::instruction::virtual_assert_valid_div0::AssertValidDiv0Instruction;
 use crate::jolt::instruction::virtual_assert_valid_signed_remainder::AssertValidSignedRemainderInstruction;
+use crate::jolt::instruction::virtual_move::MOVEInstruction;
 use crate::jolt::instruction::{JoltInstruction, JoltInstructionSet, SubtableIndices};
 use crate::jolt_onnx::common::onnx_trace::{ONNXInstruction, ONNXTraceRow, Operator};
 use crate::jolt_onnx::instruction::JoltONNXInstructionSet;
@@ -95,10 +98,13 @@ instruction_set!(
   ONNXInstructionSet,
   ReLU: ReLUInstruction,
   ADD: ADDInstruction<WORD_SIZE>,
+  MUL: MULInstruction<WORD_SIZE>,
   Sigmoid: SigmoidInstruction,
   VirtualAdvice: ADVICEInstruction<WORD_SIZE>,
   VirtualAssertValidDiv0: AssertValidDiv0Instruction<WORD_SIZE>,
-  VirtualAssertValidSignedRemainder: AssertValidSignedRemainderInstruction<WORD_SIZE>
+  VirtualAssertValidSignedRemainder: AssertValidSignedRemainderInstruction<WORD_SIZE>,
+  VirtualAssertEq: BEQInstruction<WORD_SIZE>,
+  VirtualMove: MOVEInstruction<WORD_SIZE>
 );
 
 subtable_enum!(
@@ -132,10 +138,13 @@ impl TryFrom<&ONNXTraceRow> for ONNXInstructionSet {
         match row.instruction.opcode {
             Operator::Relu => Ok(ReLUInstruction(row.layer_state.input_vals[0].data[0] as u64).into()),
             Operator::Add => Ok(ADDInstruction::<WORD_SIZE>(row.layer_state.input_vals[0].data[0] as u64, row.layer_state.input_vals[1].data[0] as u64).into()),
+            Operator::Mul => Ok(MULInstruction::<WORD_SIZE>(row.layer_state.input_vals[0].data[0] as u64, row.layer_state.input_vals[1].data[0] as u64).into()),
             Operator::Sigmoid => Ok(SigmoidInstruction(row.layer_state.input_vals[0].data[0] as u64).into()),
             Operator::VirtualAdvice => Ok(ADVICEInstruction::<WORD_SIZE>(row.advice_value[0].data[0] as u64).into()),
             Operator::VirtualAssertValidDiv0 => Ok(AssertValidDiv0Instruction::<WORD_SIZE>(row.layer_state.input_vals[0].data[0] as u64, row.layer_state.input_vals[1].data[0] as u64).into()),
             Operator::VirtualAssertValidSignedRemainder => Ok(AssertValidSignedRemainderInstruction::<WORD_SIZE>(row.layer_state.input_vals[0].data[0] as u64, row.layer_state.input_vals[1].data[0] as u64).into()),
+            Operator::VirtualAssertEq => Ok(BEQInstruction::<WORD_SIZE>(row.layer_state.input_vals[0].data[0] as u64, row.layer_state.input_vals[1].data[0] as u64).into()),
+            Operator::VirtualMove => Ok(MOVEInstruction::<WORD_SIZE>(row.layer_state.input_vals[0].data[0] as u64).into()),
             _ => Err("No corresponding ONNX instruction")
         }
     }

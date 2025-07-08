@@ -33,7 +33,6 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
         let v_r = "v_r".to_string();
         let v_qy = "v_qy".to_string();
         // DIV operands
-        // TODO: Do we want to have entry-wise division?
         let x = trace_row.layer_state.input_vals[0].data[0];
         let y = trace_row.layer_state.input_vals[1].data[0];
 
@@ -219,7 +218,7 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
         let x = x as i32;
         let y = y as i32;
         if y == 0 {
-            return (1 << WORD_SIZE) - 1;
+            return -1;
         }
         let mut quotient = x / y;
         let remainder = x % y;

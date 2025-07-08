@@ -70,9 +70,7 @@ pub fn jolt_onnx_virtual_sequence_test<I: VirtualInstructionSequence>(opcode: Op
         assert_eq!(virtual_sequence.len(), I::SEQUENCE_LENGTH);
 
         for row in virtual_sequence {
-            println!("row: {:?}", row);
             for (i, val) in row.layer_state.input_vals.iter().enumerate() {
-                println!("input_val[{i}]: {:?}", val);
                 assert_eq!(
                     registers.get(&row.instruction.input_refs[i]).unwrap(),
                     val,
@@ -83,13 +81,15 @@ pub fn jolt_onnx_virtual_sequence_test<I: VirtualInstructionSequence>(opcode: Op
             let instruction = ONNXInstructionSet::try_from(&row).unwrap();
             let output = QuantizedTensor::from(instruction.lookup_entry());
             // TODO: Maybe only have one output val
-            let rd = row.instruction.output_refs[0].clone();
-            registers.insert(rd.clone(), output);
-            assert_eq!(
-                registers.get(&rd).unwrap(),
-                &row.layer_state.output_vals[0],
-                "{row:?}"
-            );
+            for (i, val) in row.layer_state.output_vals.iter().enumerate() {
+                let rd = row.instruction.output_refs[i].clone();
+                registers.insert(rd.clone(), output.clone());
+                assert_eq!(
+                    registers.get(&rd).unwrap(),
+                    val,
+                    "{row:?}"
+                );
+            }
         }
 
         for (key, val) in registers.iter() {
