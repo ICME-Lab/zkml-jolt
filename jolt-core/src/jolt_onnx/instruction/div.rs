@@ -1,9 +1,20 @@
 use common::constants::virtual_register_index;
 use tracer::{ELFInstruction, RVTraceRow, RegisterState, RV32IM};
 
-use crate::{jolt::instruction::{
-    add::ADDInstruction, beq::BEQInstruction, mul::MULInstruction, JoltInstruction,
-}, jolt_onnx::{common::onnx_trace::{LayerState, ONNXInstruction, ONNXTraceRow, Operator}, instruction::{virtual_advice::ADVICEInstruction, virtual_assert_valid_div0::AssertValidDiv0Instruction, virtual_assert_valid_signed_remainder::AssertValidSignedRemainderInstruction, VirtualInstructionSequence}, tracer::tensor::QuantizedTensor}};
+use crate::{
+    jolt::instruction::{
+        add::ADDInstruction, beq::BEQInstruction, mul::MULInstruction,
+        virtual_advice::ADVICEInstruction, virtual_assert_valid_div0::AssertValidDiv0Instruction,
+        virtual_assert_valid_signed_remainder::AssertValidSignedRemainderInstruction,
+        JoltInstruction,
+    },
+    jolt_onnx::{
+        common::onnx_trace::{LayerState, ONNXInstruction, ONNXTraceRow, Operator},
+        instruction::VirtualInstructionSequence,
+        tracer::tensor::QuantizedTensor,
+    },
+};
+
 /// Perform signed division and return the result
 pub struct DIVInstruction<const WORD_SIZE: usize>;
 
@@ -88,7 +99,8 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
             advice_value: vec![QuantizedTensor::from(remainder as i8)],
         });
 
-        let is_valid: u64 = AssertValidSignedRemainderInstruction::<WORD_SIZE>(r as u64, y as u64).lookup_entry();
+        let is_valid: u64 =
+            AssertValidSignedRemainderInstruction::<WORD_SIZE>(r as u64, y as u64).lookup_entry();
         assert_eq!(is_valid, 1);
         virtual_trace.push(ONNXTraceRow {
             instruction: ONNXInstruction {
@@ -99,7 +111,10 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
                 // virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
             },
             layer_state: LayerState {
-                input_vals: vec![QuantizedTensor::from(r as i8), QuantizedTensor::from(y as i8)],
+                input_vals: vec![
+                    QuantizedTensor::from(r as i8),
+                    QuantizedTensor::from(y as i8),
+                ],
                 output_vals: vec![],
             },
             advice_value: vec![],
@@ -116,7 +131,10 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
                 // virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
             },
             layer_state: LayerState {
-                input_vals: vec![QuantizedTensor::from(y as i8), QuantizedTensor::from(q as i8)],
+                input_vals: vec![
+                    QuantizedTensor::from(y as i8),
+                    QuantizedTensor::from(q as i8),
+                ],
                 output_vals: vec![],
             },
             advice_value: vec![],
@@ -132,7 +150,10 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
                 // virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
             },
             layer_state: LayerState {
-                input_vals: vec![QuantizedTensor::from(q as i8), QuantizedTensor::from(y as i8)],
+                input_vals: vec![
+                    QuantizedTensor::from(q as i8),
+                    QuantizedTensor::from(y as i8),
+                ],
                 output_vals: vec![QuantizedTensor::from(q_y as i8)],
             },
             advice_value: vec![],
@@ -148,7 +169,10 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
                 // virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
             },
             layer_state: LayerState {
-                input_vals: vec![QuantizedTensor::from(q_y as i8), QuantizedTensor::from(r as i8)],
+                input_vals: vec![
+                    QuantizedTensor::from(q_y as i8),
+                    QuantizedTensor::from(r as i8),
+                ],
                 output_vals: vec![QuantizedTensor::from(add_0 as i8)],
             },
             advice_value: vec![],
@@ -164,7 +188,10 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
                 // virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
             },
             layer_state: LayerState {
-                input_vals: vec![QuantizedTensor::from(add_0 as i8), QuantizedTensor::from(x as i8)],
+                input_vals: vec![
+                    QuantizedTensor::from(add_0 as i8),
+                    QuantizedTensor::from(x as i8),
+                ],
                 output_vals: vec![],
             },
             advice_value: vec![],

@@ -4,7 +4,7 @@ use super::JoltProof;
 use crate::field::JoltField;
 use crate::jolt::instruction::add::ADDInstruction;
 use crate::jolt::instruction::{JoltInstruction, JoltInstructionSet, SubtableIndices};
-use crate::jolt_onnx::common::onnx_trace::{ONNXInstruction, ONNXTraceRow};
+use crate::jolt_onnx::common::onnx_trace::{ONNXInstruction, ONNXTraceRow, Operator};
 use crate::jolt_onnx::instruction::JoltONNXInstructionSet;
 use crate::jolt::subtable::{
     identity::IdentitySubtable, JoltSubtableSet, LassoSubtable, SubtableId,
@@ -16,8 +16,6 @@ use serde::{Deserialize, Serialize};
 use std::any::TypeId;
 use strum::{EnumCount, IntoEnumIterator};
 use strum_macros::{EnumCount as EnumCountMacro, EnumIter};
-
-// TODO: Remove these duplicated macros. Original definitions are in jolt-core/src/jolt/vm/rv32i_vm.rs
 
 /// Generates an enum out of a list of JoltInstruction types. All JoltInstruction methods
 /// are callable on the enum type via enum_dispatch.
@@ -123,9 +121,13 @@ impl TryFrom<&ONNXInstruction> for ONNXInstructionSet {
 impl TryFrom<&ONNXTraceRow> for ONNXInstructionSet {
     type Error = &'static str;
 
-    #[rustfmt::skip] // keep matches pretty
+    #[rustfmt::skip] 
     fn try_from(row: &ONNXTraceRow) -> Result<Self, Self::Error> {
         match row.instruction.opcode {
+            Operator::Relu => Ok(ReLUInstruction(row.layer_state.input_vals[0].data[0] as u64).into()),
+            Operator::Add => Ok(ADDInstruction::<WORD_SIZE>(row.layer_state.input_vals[0].data[0] as u64, row.layer_state.input_vals[1].data[0] as u64).into()),
+            Operator::Sigmoid => Ok(SigmoidInstruction(row.layer_state.input_vals[0].data[0] as u64).into()),
+            // Operator::Div => Ok(DIVInstruction::<WORD_SIZE>.into()),
             _ => Err("No corresponding ONNX instruction")
         }
     }

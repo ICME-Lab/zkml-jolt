@@ -9,9 +9,6 @@ pub mod max;
 pub mod relu;
 pub mod sigmoid;
 pub mod div;
-pub mod virtual_advice;
-pub mod virtual_assert_valid_div0;
-pub mod virtual_assert_valid_signed_remainder;
 pub mod test;
 pub trait VirtualInstructionSequence {
     const SEQUENCE_LENGTH: usize;
