@@ -1,6 +1,4 @@
-use common::constants::virtual_register_index;
-use tracer::{ELFInstruction, RVTraceRow, RegisterState, RV32IM};
-
+//! Virtual instruction sequence for the DIV instruction.
 use crate::{
     jolt::instruction::{
         add::ADDInstruction, beq::BEQInstruction, mul::MULInstruction,

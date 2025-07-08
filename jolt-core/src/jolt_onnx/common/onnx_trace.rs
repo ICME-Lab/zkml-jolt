@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use tract_onnx::pb::NodeProto;
 
-use crate::jolt_onnx::{instruction::sigmoid::SigmoidInstruction, tracer::tensor::QuantizedTensor};
+use crate::jolt_onnx::tracer::tensor::QuantizedTensor;
 
 /// Represents a row in the execution trace
 #[derive(Clone, Debug, Serialize, Deserialize)]

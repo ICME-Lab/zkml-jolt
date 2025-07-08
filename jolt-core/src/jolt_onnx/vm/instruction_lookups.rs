@@ -1,7 +1,6 @@
 //! Implements the Jolt paradigm of Just One Lookup Table (JOLT) for ONNX instruction lookups.
 
 use crate::jolt_onnx::instruction::JoltONNXInstructionSet;
-use crate::jolt_onnx::tracer::tensor::QuantizedTensor;
 use crate::poly::compact_polynomial::{CompactPolynomial, SmallScalar};
 use crate::poly::multilinear_polynomial::{
     BindingOrder, MultilinearPolynomial, PolynomialBinding, PolynomialEvaluation,
@@ -18,7 +17,7 @@ use std::marker::PhantomData;
 use tracing::trace_span;
 
 use crate::field::JoltField;
-use crate::jolt::instruction::{JoltInstructionSet, SubtableIndices};
+use crate::jolt::instruction::SubtableIndices;
 use crate::jolt::subtable::JoltSubtableSet;
 use crate::jolt_onnx::memory_checking::{
     Initializable, MultisetHashes, NoExogenousOpenings, StructuredPolynomialData,

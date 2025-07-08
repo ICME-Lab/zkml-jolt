@@ -9,13 +9,13 @@ use crate::jolt::instruction::virtual_advice::ADVICEInstruction;
 use crate::jolt::instruction::virtual_assert_valid_div0::AssertValidDiv0Instruction;
 use crate::jolt::instruction::virtual_assert_valid_signed_remainder::AssertValidSignedRemainderInstruction;
 use crate::jolt::instruction::virtual_move::MOVEInstruction;
-use crate::jolt::instruction::{JoltInstruction, JoltInstructionSet, SubtableIndices};
+use crate::jolt::instruction::{JoltInstruction, SubtableIndices};
 use crate::jolt_onnx::common::onnx_trace::{ONNXInstruction, ONNXTraceRow, Operator};
 use crate::jolt_onnx::instruction::JoltONNXInstructionSet;
 use crate::jolt::subtable::{
     identity::IdentitySubtable, JoltSubtableSet, LassoSubtable, SubtableId,
 };
-use crate::jolt_onnx::{instruction::{relu::ReLUInstruction, sigmoid::SigmoidInstruction, div::DIVInstruction}, subtable::is_pos::IsPosSubtable};
+use crate::jolt_onnx::{instruction::{relu::ReLUInstruction, sigmoid::SigmoidInstruction}, subtable::is_pos::IsPosSubtable};
 use enum_dispatch::enum_dispatch;
 use rand::{prelude::StdRng, RngCore};
 use serde::{Deserialize, Serialize};

@@ -6,7 +6,6 @@
 use super::JoltONNXTraceStep;
 use crate::{
     field::JoltField,
-    jolt::instruction::JoltInstructionSet,
     jolt_onnx::{
         common::onnx_trace::Operator, instruction::JoltONNXInstructionSet, precompiles::{
             matmult::{MatMultClaims, MatMultProverState, MatMultSumcheck, MatMultVerifierState},

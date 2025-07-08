@@ -9,7 +9,6 @@ use crate::jolt_onnx::subtable::sigmoid::{
     SigmoidSubtable, INPUT_SCALE, INPUT_ZERO_POINT, OUTPUT_SCALE, OUTPUT_ZERO_POINT,
     QUANTIZED_SIGMOID_TABLE,
 };
-use crate::jolt_onnx::tracer::tensor::{quantize, QuantizedTensor};
 use crate::poly::eq_poly::EqPolynomial;
 use crate::utils::instruction_utils::chunk_operand_usize;
 use itertools::Itertools;

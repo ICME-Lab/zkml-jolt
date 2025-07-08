@@ -2,7 +2,6 @@
 #![allow(clippy::field_reassign_with_default)] // TODO: Remove this when all zkVM portions are fully fleshed out
 
 use crate::field::JoltField;
-use crate::jolt::instruction::JoltInstructionSet;
 use crate::jolt::subtable::JoltSubtableSet;
 use crate::jolt::vm::bytecode::{BytecodeRow, BytecodeStuff};
 use crate::jolt::vm::read_write_memory::ReadWriteMemoryStuff;

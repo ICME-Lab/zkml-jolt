@@ -6,7 +6,6 @@ use crate::jolt_onnx::{
     precompiles::{matmult::MatMultPrecompile, PrecompileOperators},
     vm::{onnx_vm::ONNXInstructionSet, JoltONNXTraceStep},
 };
-use tracer::ELFInstruction;
 
 impl ONNXTraceRow {
     /// Convert [`ONNXTraceRow`] to a vector of [`JoltONNXTraceStep<ONNXInstructionSet>`]

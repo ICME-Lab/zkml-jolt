@@ -1,7 +1,7 @@
+//! This module provides the test functions for the virtual instruction sequence.
 use std::collections::HashMap;
 
 use ark_std::test_rng;
-use common::constants::REGISTER_COUNT;
 use rand_core::RngCore;
 
 use crate::{
