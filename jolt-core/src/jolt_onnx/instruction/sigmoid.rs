@@ -116,7 +116,6 @@ mod test {
         instruction_mle_full_hypercube_test, materialize_entry_test,
     };
     use crate::jolt_onnx::instruction::sigmoid::SigmoidInstruction;
-    use crate::jolt_onnx::tracer::tensor::QuantizedTensor;
     use crate::{jolt::instruction::JoltInstruction, jolt_instruction_test};
     use ark_bn254::Fr;
     use ark_std::rand::RngCore;
@@ -133,7 +132,7 @@ mod test {
     }
 
     #[test]
-    fn sigmoid_inner_instruction_64_e2e() {
+    fn sigmoid_instruction_64_e2e() {
         let mut rng = test_rng();
         const C: usize = 8;
         const M: usize = 1 << 8;
