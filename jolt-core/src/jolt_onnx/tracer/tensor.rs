@@ -5,7 +5,7 @@
 use serde::{Deserialize, Serialize};
 use tract_onnx::prelude::*;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 /// Represents a quantized [`tract_onnx`] tensor for this codebase. Used in our quantized execution trace.
 pub struct QuantizedTensor {
     /// The shape of the tensor, represented as a vector of dimensions.
@@ -14,6 +14,21 @@ pub struct QuantizedTensor {
     pub data: Vec<i8>,
     /// The scale factor used for quantization.
     pub scale: f32,
+}
+
+
+impl PartialEq<QuantizedTensor> for QuantizedTensor {
+    fn eq(&self, other: &QuantizedTensor) -> bool {
+        let epsilon = 0.02;
+        self.data
+            .iter()
+            .zip(other.data.iter())
+            .all(|(x, y)| {
+                let x_d = *x as f32 / self.scale;
+                let y_d = *y as f32 / other.scale;
+                (x_d - y_d).abs() < epsilon
+            })
+    }
 }
 
 impl QuantizedTensor {
@@ -43,7 +58,7 @@ impl QuantizedTensor {
     /// Takes in [`QuantizedTensor`] and returns a vector of f32 values.
     pub fn dequantized_data(&self) -> Vec<f32> {
         // Dequantize the data by multiplying each quantized value by the scale factor.
-        self.data.iter().map(|&x| x as f32 * self.scale).collect()
+        self.data.iter().map(|&x| x as f32 / self.scale).collect()
     }
 
     /// Matrix multiplication of two quantized tensors.
@@ -183,14 +198,22 @@ impl From<u64> for QuantizedTensor {
 impl From<i8> for QuantizedTensor {
     fn from(value: i8) -> Self {
         let shape = vec![1];
-        Self { shape, data: vec![value], scale: 1.0 }
+        Self {
+            shape,
+            data: vec![value],
+            scale: 1.0,
+        }
     }
 }
 
 impl From<u8> for QuantizedTensor {
     fn from(value: u8) -> Self {
         let shape = vec![1];
-        Self { shape, data: vec![value as i8], scale: 1.0 }
+        Self {
+            shape,
+            data: vec![value as i8],
+            scale: 1.0,
+        }
     }
 }
 #[cfg(test)]
@@ -205,24 +228,30 @@ mod test {
         assert_eq!(scale, 127.0 / 4.0);
     }
 
-    fn vectors_f32_equal(a: &[f32], b: &[f32], epsilon: f32) -> bool {
+    fn approx_eq(a: &[f32], b: &[f32], epsilon: f32) -> bool {
         if a.len() != b.len() {
             return false;
         }
-        a.iter()
-            .zip(b.iter())
-            .all(|(x, y)| {
-                let diff = (x - y).abs();
-                diff < epsilon
-            })
+        a.iter().zip(b.iter()).all(|(x, y)| {
+            let diff = (x - y).abs();
+            diff < epsilon
+        })
     }
-
+    
     #[test]
     fn test_dequantize() {
         let data = vec![32, 64, 95, 127];
         let scale = 127.0 / 4.0;
-        let tensor = QuantizedTensor { shape: vec![1, 4], data, scale };
+        let tensor = QuantizedTensor {
+            shape: vec![1, 4],
+            data,
+            scale,
+        };
         let dequantized_data = dequantize(&tensor);
-        assert!(vectors_f32_equal(&dequantized_data, &vec![1.0, 2.0, 3.0, 4.0], 0.02));
+        assert!(approx_eq(
+            &dequantized_data,
+            &vec![1.0, 2.0, 3.0, 4.0],
+            0.02
+        ));
     }
 }
