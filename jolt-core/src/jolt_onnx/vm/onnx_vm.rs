@@ -4,7 +4,7 @@ use super::JoltProof;
 use crate::field::JoltField;
 use crate::jolt::instruction::add::ADDInstruction;
 use crate::jolt::instruction::{JoltInstruction, JoltInstructionSet, SubtableIndices};
-use crate::jolt_onnx::common::onnx_trace::ONNXInstruction;
+use crate::jolt_onnx::common::onnx_trace::{ONNXInstruction, ONNXTraceRow};
 use crate::jolt_onnx::instruction::JoltONNXInstructionSet;
 use crate::jolt::subtable::{
     identity::IdentitySubtable, JoltSubtableSet, LassoSubtable, SubtableId,
@@ -115,6 +115,17 @@ impl TryFrom<&ONNXInstruction> for ONNXInstructionSet {
     #[rustfmt::skip] 
     fn try_from(instruction: &ONNXInstruction) -> Result<Self, Self::Error> {
         match instruction.opcode {
+            _ => Err("No corresponding ONNX instruction")
+        }
+    }
+}
+
+impl TryFrom<&ONNXTraceRow> for ONNXInstructionSet {
+    type Error = &'static str;
+
+    #[rustfmt::skip] // keep matches pretty
+    fn try_from(row: &ONNXTraceRow) -> Result<Self, Self::Error> {
+        match row.instruction.opcode {
             _ => Err("No corresponding ONNX instruction")
         }
     }

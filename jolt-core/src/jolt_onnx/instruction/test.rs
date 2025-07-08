@@ -4,8 +4,15 @@ use ark_std::test_rng;
 use common::constants::REGISTER_COUNT;
 use rand_core::RngCore;
 
-use crate::jolt_onnx::{common::onnx_trace::{LayerState, ONNXInstruction, ONNXTraceRow, Operator}, instruction::{VirtualInstructionSequence}, tracer::tensor::QuantizedTensor};
-
+use crate::{
+    jolt::instruction::JoltInstruction,
+    jolt_onnx::{
+        common::onnx_trace::{LayerState, ONNXInstruction, ONNXTraceRow, Operator},
+        instruction::VirtualInstructionSequence,
+        tracer::tensor::QuantizedTensor,
+        vm::onnx_vm::ONNXInstructionSet,
+    },
+};
 
 /// Tests the consistency and correctness of a virtual instruction sequence.
 /// In detail:
@@ -27,7 +34,11 @@ pub fn jolt_onnx_virtual_sequence_test<I: VirtualInstructionSequence>(opcode: Op
         while rd == "0".to_string() {
             rd = rng.next_u64().to_string();
         }
-        let x = if r_x == "0".to_string() { 0 } else { rng.next_u32() as i8 };
+        let x = if r_x == "0".to_string() {
+            0
+        } else {
+            rng.next_u32() as i8
+        };
         let y = if r_y == r_x {
             x
         } else if r_y == "0".to_string() {
@@ -37,7 +48,7 @@ pub fn jolt_onnx_virtual_sequence_test<I: VirtualInstructionSequence>(opcode: Op
         };
         let result = I::sequence_output(x, y);
 
-        let mut registers : HashMap<String, QuantizedTensor> = HashMap::new();
+        let mut registers: HashMap<String, QuantizedTensor> = HashMap::new();
         registers.insert(r_x.clone(), QuantizedTensor::from(x));
         registers.insert(r_y.clone(), QuantizedTensor::from(y));
 
@@ -59,28 +70,26 @@ pub fn jolt_onnx_virtual_sequence_test<I: VirtualInstructionSequence>(opcode: Op
         assert_eq!(virtual_sequence.len(), I::SEQUENCE_LENGTH);
 
         for row in virtual_sequence {
-            let s1_val = row.layer_state.input_vals[0].clone();
+            println!("row: {:?}", row);
+            for (i, val) in row.layer_state.input_vals.iter().enumerate() {
+                println!("input_val[{i}]: {:?}", val);
                 assert_eq!(
-                    registers.get(&row.instruction.input_refs[0]).unwrap(),
-                    &s1_val,
+                    registers.get(&row.instruction.input_refs[i]).unwrap(),
+                    val,
                     "{row:?}"
                 );
-            let rs2_val = row.layer_state.input_vals[1].clone();
-                assert_eq!(
-                    registers.get(&row.instruction.input_refs[1]).unwrap(),
-                    &rs2_val,
-                    "{row:?}"
-                );
+            }
 
-            // let instruction = JoltONNXInstruction::try_from(&row).unwrap(); 
-            let output = unimplemented!(); // instruction.lookup();
+            let instruction = ONNXInstructionSet::try_from(&row).unwrap();
+            let output = QuantizedTensor::from(instruction.lookup_entry());
+            // TODO: Maybe only have one output val
             let rd = row.instruction.output_refs[0].clone();
-                registers.insert(rd, output);
-                assert_eq!(
-                    registers.get(&rd).unwrap(),
-                    &row.layer_state.output_vals[0],
-                    "{row:?}"
-                );
+            registers.insert(rd.clone(), output);
+            assert_eq!(
+                registers.get(&rd).unwrap(),
+                &row.layer_state.output_vals[0],
+                "{row:?}"
+            );
         }
 
         for (key, val) in registers.iter() {
@@ -97,7 +106,7 @@ pub fn jolt_onnx_virtual_sequence_test<I: VirtualInstructionSequence>(opcode: Op
             } else if key == &rd.clone() {
                 // Check that result was written to rd
                 assert_eq!(*val, QuantizedTensor::from(result));
-            } 
+            }
         }
     }
 }

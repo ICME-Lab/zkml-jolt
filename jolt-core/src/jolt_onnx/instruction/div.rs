@@ -24,7 +24,7 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
         // DIV operands
         // TODO: Do we want to have entry-wise division?
         let x = trace_row.layer_state.input_vals[0].data[0];
-        let y = trace_row.layer_state.input_vals[0].data[1];
+        let y = trace_row.layer_state.input_vals[1].data[0];
 
         let mut virtual_trace = vec![];
 
