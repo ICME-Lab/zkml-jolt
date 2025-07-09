@@ -70,9 +70,14 @@ pub fn jolt_onnx_virtual_sequence_test<I: VirtualInstructionSequence>(opcode: Op
         assert_eq!(virtual_sequence.len(), I::SEQUENCE_LENGTH);
 
         for row in virtual_sequence {
+            println!("{row:?}");
             for (i, val) in row.layer_state.input_vals.iter().enumerate() {
+                println!("i: {i}");
+                println!("input_vals: {val:?}");
+                let rs_i = row.instruction.input_refs[i].clone();
+                registers.insert(rs_i.clone(), val.clone());
                 assert_eq!(
-                    registers.get(&row.instruction.input_refs[i]).unwrap(),
+                    registers.get(&rs_i).unwrap(),
                     val,
                     "{row:?}"
                 );

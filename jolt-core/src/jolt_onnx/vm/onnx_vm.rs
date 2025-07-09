@@ -11,6 +11,7 @@ use crate::jolt::instruction::virtual_assert_valid_signed_remainder::AssertValid
 use crate::jolt::instruction::virtual_move::MOVEInstruction;
 use crate::jolt::instruction::{JoltInstruction, SubtableIndices};
 use crate::jolt_onnx::common::onnx_trace::{ONNXInstruction, ONNXTraceRow, Operator};
+use crate::jolt_onnx::instruction::max::MaxInstruction;
 use crate::jolt_onnx::instruction::JoltONNXInstructionSet;
 use crate::jolt::subtable::{
     identity::IdentitySubtable, JoltSubtableSet, LassoSubtable, SubtableId,
@@ -104,7 +105,8 @@ instruction_set!(
   VirtualAssertValidDiv0: AssertValidDiv0Instruction<WORD_SIZE>,
   VirtualAssertValidSignedRemainder: AssertValidSignedRemainderInstruction<WORD_SIZE>,
   VirtualAssertEq: BEQInstruction<WORD_SIZE>,
-  VirtualMove: MOVEInstruction<WORD_SIZE>
+  VirtualMove: MOVEInstruction<WORD_SIZE>,
+  Max: MaxInstruction<WORD_SIZE>
 );
 
 subtable_enum!(
@@ -145,6 +147,7 @@ impl TryFrom<&ONNXTraceRow> for ONNXInstructionSet {
             Operator::VirtualAssertValidSignedRemainder => Ok(AssertValidSignedRemainderInstruction::<WORD_SIZE>(row.layer_state.input_vals[0].data[0] as u64, row.layer_state.input_vals[1].data[0] as u64).into()),
             Operator::VirtualAssertEq => Ok(BEQInstruction::<WORD_SIZE>(row.layer_state.input_vals[0].data[0] as u64, row.layer_state.input_vals[1].data[0] as u64).into()),
             Operator::VirtualMove => Ok(MOVEInstruction::<WORD_SIZE>(row.layer_state.input_vals[0].data[0] as u64).into()),
+            Operator::Max => Ok(MaxInstruction::<WORD_SIZE>(row.layer_state.input_vals[0].data[0] as u64, row.layer_state.input_vals[1].data[0] as u64).into()),
             _ => Err("No corresponding ONNX instruction")
         }
     }
