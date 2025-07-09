@@ -17,7 +17,7 @@ use crate::jolt_onnx::tracer::tensor::QuantizedTensor;
 pub struct SoftmaxInstruction<const WORD_SIZE: usize>;
 
 impl<const WORD_SIZE: usize> VirtualInstructionSequence for SoftmaxInstruction<WORD_SIZE> {
-    const SEQUENCE_LENGTH: usize = 20;
+    const SEQUENCE_LENGTH: usize = 20; // TODO: This is variable, depending on the shape on the tensor
 
     fn virtual_trace(trace_row: ONNXTraceRow) -> Vec<ONNXTraceRow> {
         assert_eq!(trace_row.instruction.opcode, Operator::Softmax);
@@ -112,19 +112,25 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for SoftmaxInstruction<W
             .collect();
 
         // 4. Run the sum-check to prove that $\sum a_i = N$, where $N$ is the normalisation factor.
-        let sum = SumPrecompile::new(QuantizedTensor::from(a_vec.clone())).sum();
-        virtual_trace.push(ONNXTraceRow {
-            instruction: ONNXInstruction {
-                opcode: Operator::Sum,
-                attributes: None,
-                input_refs: vec![format!("sum_a")],
-                output_refs: vec![format!("sum_out")],
-            },
-            layer_state: LayerState {
-                input_vals: vec![QuantizedTensor::from(a_vec.clone())],
-                output_vals: vec![QuantizedTensor::from(sum)],
-            },
-            advice_value: vec![],
+        let sum = a_vec.iter().enumerate().fold(0, |acc, (i, &a)| {
+            let new_acc = ADDInstruction::<WORD_SIZE>(acc, a as u64).lookup_entry();
+            virtual_trace.push(ONNXTraceRow {
+                instruction: ONNXInstruction {
+                    opcode: Operator::Add,
+                    attributes: None,
+                    input_refs: vec![format!("sum_acc_{i}"), format!("sum_a_{i}")],
+                    output_refs: vec![format!("sum_out_{i}")],
+                },
+                layer_state: LayerState {
+                    input_vals: vec![
+                        QuantizedTensor::from(acc as i8),
+                        QuantizedTensor::from(a as i8),
+                    ],
+                    output_vals: vec![QuantizedTensor::from(new_acc as i8)],
+                },
+                advice_value: vec![],
+            });
+            new_acc
         });
         // 5. Run a division lookup $a_i / N$ for each element in $\vec{a}$. Since the value is in (0,1), we multiply by $2^8$ for quantization.
         a_vec.iter().enumerate().for_each(|(i, &a)| {
