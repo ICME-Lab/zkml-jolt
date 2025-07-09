@@ -1,76 +1,152 @@
 use common::constants::virtual_register_index;
 use tracer::{ELFInstruction, RVTraceRow, RegisterState, RV32IM};
 
-use crate::jolt::instruction::div::DIVInstruction;
-use crate::jolt::instruction::VirtualInstructionSequence;
 use crate::jolt::instruction::{
     add::ADDInstruction, beq::BEQInstruction, mul::MULInstruction,
     virtual_advice::ADVICEInstruction, virtual_assert_valid_div0::AssertValidDiv0Instruction,
     virtual_assert_valid_signed_remainder::AssertValidSignedRemainderInstruction, JoltInstruction,
 };
 use crate::jolt_onnx::common::onnx_trace::{LayerState, ONNXInstruction, ONNXTraceRow, Operator};
+use crate::jolt_onnx::instruction::div::DIVInstruction;
 use crate::jolt_onnx::instruction::max::MaxInstruction;
 use crate::jolt_onnx::instruction::pow_2::Pow2Instruction;
+use crate::jolt_onnx::instruction::VirtualInstructionSequence;
+use crate::jolt_onnx::precompiles::sum::SumPrecompile;
 use crate::jolt_onnx::tracer::tensor::QuantizedTensor;
 
-fn virtual_trace<const WORD_SIZE: usize>(trace_row: ONNXTraceRow) -> Vec<ONNXTraceRow> {
-    assert_eq!(trace_row.instruction.opcode, Operator::Softmax);
+pub struct SoftmaxInstruction<const WORD_SIZE: usize>;
 
-    let mut virtual_trace = vec![];
+impl<const WORD_SIZE: usize> VirtualInstructionSequence for SoftmaxInstruction<WORD_SIZE> {
+    const SEQUENCE_LENGTH: usize = 8;
 
-    // TODO: Is it safe to assume that there is only one input value?
-    let input = trace_row.layer_state.input_vals.unwrap()[0];
+    fn virtual_trace(trace_row: ONNXTraceRow) -> Vec<ONNXTraceRow> {
+        assert_eq!(trace_row.instruction.opcode, Operator::Softmax);
 
-    let max_val = input.data.iter().fold(0, |acc, a| {
-        let max = MaxInstruction::<WORD_SIZE>(acc, *a as u64).lookup_entry();
-        virtual_trace.push(ONNXTraceRow {
-            instruction: ONNXInstruction::new(Operator::Max),
-            layer_state: LayerState {
-                input_vals: vec![QuantizedTensor::new(vec![1], vec![acc, *a as i8], 1.0)],
-                output_vals: vec![QuantizedTensor::new(vec![1], vec![max], 1.0)],
-            },
-        });
-        max
-    });
+        let mut virtual_trace = vec![];
 
-    let normalised: Vec<u64> = input
-        .data
-        .iter()
-        .map(|z| {
-            let a = MULInstruction::<WORD_SIZE>(*z as u64, 63 as u64).lookup_entry();
+        // TODO: Is it safe to assume that there is only one input value?
+        let input = trace_row.layer_state.input_vals[0].clone();
+
+        let max_val = input.data.iter().fold(0, |acc, a| {
+            let max = MaxInstruction::<WORD_SIZE>(acc, *a as u64).lookup_entry();
             virtual_trace.push(ONNXTraceRow {
-                instruction: ONNXInstruction::new(Operator::Mul),
+                instruction: ONNXInstruction::new(Operator::Max),
                 layer_state: LayerState {
-                    input_vals: vec![QuantizedTensor::new(vec![1], vec![*z as i8, 63 as i8], 1.0)],
-                    output_vals: vec![QuantizedTensor::new(vec![1], vec![a], 1.0)],
+                    input_vals: vec![QuantizedTensor::new(
+                        vec![1],
+                        vec![acc as i8, *a as i8],
+                        1.0,
+                    )],
+                    output_vals: vec![QuantizedTensor::new(vec![1], vec![max as i8], 1.0)],
                 },
+                advice_value: vec![],
             });
-            let b = DIVInstruction::<WORD_SIZE>(a, max_val).lookup_entry();
+            max
+        });
+
+        let a_vec: Vec<u64> = input
+            .data
+            .iter()
+            .map(|z| {
+                let a = MULInstruction::<WORD_SIZE>(*z as u64, 63 as u64).lookup_entry();
+                virtual_trace.push(ONNXTraceRow {
+                    instruction: ONNXInstruction::new(Operator::Mul),
+                    layer_state: LayerState {
+                        input_vals: vec![QuantizedTensor::new(
+                            vec![1],
+                            vec![*z as i8, 63 as i8],
+                            1.0,
+                        )],
+                        output_vals: vec![QuantizedTensor::new(vec![1], vec![a as i8], 1.0)],
+                    },
+                    advice_value: vec![],
+                });
+                let b = DIVInstruction::<WORD_SIZE>::sequence_output(QuantizedTensor::from(a), QuantizedTensor::from(max_val));
+                virtual_trace.push(ONNXTraceRow {
+                    instruction: ONNXInstruction::new(Operator::Div),
+                    layer_state: LayerState {
+                        input_vals: vec![QuantizedTensor::new(
+                            vec![1],
+                            vec![a as i8, max_val as i8],
+                            1.0,
+                        )],
+                        output_vals: vec![b.clone()],
+                    },
+                    advice_value: vec![],
+                });
+
+                let pow_2 = Pow2Instruction(b.data[0] as u64).lookup_entry();
+                virtual_trace.push(ONNXTraceRow {
+                    instruction: ONNXInstruction::new(Operator::Pow2),
+                    layer_state: LayerState {
+                        input_vals: vec![b],
+                        output_vals: vec![QuantizedTensor::new(vec![1], vec![pow_2 as i8], 1.0)],
+                    },
+                    advice_value: vec![],
+                });
+
+                pow_2
+            })
+            .collect();
+
+        // 4. Run the sum-check to prove that $\sum a_i = N$, where $N$ is the normalisation factor.
+        let sum = SumPrecompile::new(QuantizedTensor::from(a_vec.clone())).sum();
+        virtual_trace.push(ONNXTraceRow {
+            instruction: ONNXInstruction::new(Operator::Sum),
+            layer_state: LayerState {
+                input_vals: vec![QuantizedTensor::from(a_vec.clone())],
+                output_vals: vec![QuantizedTensor::from(sum)],
+            },
+            advice_value: vec![],
+        });
+        // 5. Run a division lookup $a_i / N$ for each element in $\vec{a}$. Since the value is in (0,1), we multiply by $2^8$ for quantization.
+        a_vec.iter().for_each(|&a| {
+            let b = DIVInstruction::<WORD_SIZE>::sequence_output(QuantizedTensor::from(a), QuantizedTensor::from(sum));
             virtual_trace.push(ONNXTraceRow {
                 instruction: ONNXInstruction::new(Operator::Div),
                 layer_state: LayerState {
-                    input_vals: None,
-                    output_vals: None,
+                    input_vals: vec![QuantizedTensor::new(vec![1], vec![a as i8, sum as i8], 1.0)],
+                    output_vals: vec![b],
                 },
+                advice_value: vec![],
             });
+        });
 
-            let pow_2 = Pow2Instruction(b).lookup_entry();
-            virtual_trace.push(ONNXTraceRow {
-                instruction: ONNXInstruction::new(Operator::Pow2),
-                layer_state: LayerState {
-                    input_vals: None,
-                    output_vals: None,
-                },
-            });
+        virtual_trace
+    }
 
-            pow_2
-        })
-        .collect();
+    fn sequence_output(x: QuantizedTensor, _y: QuantizedTensor) -> QuantizedTensor {
+        /// 1. Take the maximum element from $[z_1, ..., z_n]$. Call this element $z_{max}$. We can recursively apply the [max instruction](https://github.com/ICME-Lab/zkml-jolt/pull/12) as $z_{max} = max(...(max(max(z_0, z_1), z_2),..., z_n)$.
+        let max_val = x.data.iter().max().unwrap();
+        // 2. Multiply each element by $63$ and divide it by $z_{max}$, that is, $z'i = z_i * 63 / z_{max}$ so that the maximum element is now to $63$ and thus no element $2^{z'_i}$ overflows. The sum $\sum 2^{z'_i}$ must not overflow either. This is a more restrictive form of quantization.
+        let a_vec: Vec<u64> = x
+            .data
+            .iter()
+            .map(|z| {
+                let normalized = z * 63 / max_val;
+                // 3. Compute the "power-of-two" lookup table for each $z'_i$ (i.e., $2^{z'_i}$). This will return a vector $\vec{a} = [2^{z'_1},..., 2^{z'_n}]$.
+                let pow_2 = 1 << normalized;
+                pow_2
+            })
+            .collect();
+        // 4. Run the sum-check to prove that $\sum a_i = N$, where $N$ is the normalisation factor.
+        let a_sum = a_vec.iter().sum::<u64>();
 
-    // 4. Run the sum-check to prove that $\sum a_i = N$, where $N$ is the normalisation factor.
-    // 5. Run a division lookup $a_i / N$ for each element in $\vec{a}$. Since the value is in (0,1), we multiply by $2^8$ for quantization.
-    // 6. Concatenate the results.
-
-    todo!()
+        // 5. Run a division lookup $a_i / N$ for each element in $\vec{a}$. Since the value is in (0,1), we multiply by $2^8$ for quantization.
+        let data: Vec<i8> = a_vec.iter().map(|a| ((*a as f32 / a_sum as f32) * 128.0) as i8).collect();
+        QuantizedTensor::new(vec![1], data, 1.0)
+    }
 }
 
+#[cfg(test)]
+mod test {
+
+    use crate::jolt_onnx::instruction::test::jolt_onnx_virtual_sequence_test;
+
+    use super::*;
+
+    #[test]
+    fn softmax_virtual_sequence() {
+        jolt_onnx_virtual_sequence_test::<SoftmaxInstruction<32>>(Operator::Softmax);
+    }
+}

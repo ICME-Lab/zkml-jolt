@@ -6,15 +6,12 @@
 use super::JoltONNXTraceStep;
 use crate::{
     field::JoltField,
-    jolt::instruction::JoltInstructionSet,
     jolt_onnx::{
-        common::onnx_trace::Operator,
-        precompiles::{
+        common::onnx_trace::Operator, instruction::JoltONNXInstructionSet, precompiles::{
             matmult::{MatMultClaims, MatMultProverState, MatMultSumcheck, MatMultVerifierState},
             sumcheck_engine::{BatchableSumcheckInstance, BatchedSumcheck},
             PrecompileOperators,
-        },
-        tracer::model::QuantizedONNXModel,
+        }, tracer::model::QuantizedONNXModel
     },
     subprotocols::sumcheck::SumcheckInstanceProof,
     utils::{errors::ProofVerifyError, transcript::Transcript},
@@ -100,7 +97,7 @@ where
         transcript: &mut ProofTranscript,
     ) -> Vec<MatMultSumcheck<F>>
     where
-        InstructionSet: JoltInstructionSet,
+        InstructionSet: JoltONNXInstructionSet,
     {
         // Filter the operations to only include those that are proven with precompiles.
         // For each precompile operator, initialize the prover state and create a new `MatMultSumcheck`.

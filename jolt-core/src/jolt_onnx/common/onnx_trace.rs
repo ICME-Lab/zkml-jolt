@@ -14,6 +14,8 @@ pub struct ONNXTraceRow {
     pub instruction: ONNXInstruction,
     /// The state of the layer during execution, including input and output values
     pub layer_state: LayerState,
+    /// The advice value for the instruction
+    pub advice_value: Vec<QuantizedTensor>,
 }
 
 /// Stores the input and output values of a layer
@@ -32,11 +34,12 @@ pub struct ONNXInstruction {
     /// The operator that this instruction represents
     pub opcode: Operator,
     /// Optional attributes for the operator, such as alpha and beta for MatMul
-    pub attributes: Option<HashMap<String, Vec<u64>>>,
+    pub attributes: Option<HashMap<String, Vec<u64>>>, // TODO: Maybe remove Option
     /// The inputs to the operator, which are the names of the tensors
     pub input_refs: Vec<String>,
     /// The outputs of the operator, which are the names of the tensors
     pub output_refs: Vec<String>,
+    // TODO: Virtual sequence remaining
 }
 
 impl ONNXInstruction {
@@ -112,22 +115,36 @@ pub enum Operator {
     Relu,
     /// Convolution operator
     Conv,
+    /// Division operator
+    Div,
     /// Max pooling operator
     MaxPool,
     /// Max window operator
     MaxWindow,
     /// Max operator
     Max,
-    /// Sigmoid
-    Sigmoid,
     /// Softmax
     Softmax,
     /// Pow2
     Pow2,
-
-    /// Other
+    /// Sigmoid operator
+    Sigmoid,
+    /// Virtual advice operator
+    VirtualAdvice,
+    /// Virtual move operator
+    VirtualMove,
+    /// Virtual assert equal operator
+    VirtualAssertEq,
+    /// Virtual assert valid div0 operator
+    VirtualAssertValidDiv0,
+    /// Virtual assert valid signed remainder Operator
+    VirtualAssertValidSignedRemainder,
+    /// Add operator
+    Add,
+    /// Mul operator
     Mul,
-    Div
+    /// Sum operator
+    Sum,
 }
 
 /// Used to decorate the matmul operator with its attributes.
@@ -168,3 +185,4 @@ impl JoltONNXDevice {
         }
     }
 }
+

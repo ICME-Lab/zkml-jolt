@@ -1,28 +1,56 @@
 //! This module provides the custom jolt instructions for the ONNX runtime.
 
-use crate::jolt_onnx::common::onnx_trace::{ONNXInstruction, ONNXTraceRow};
 
-pub trait VirtualInstructionSequence {
-    const SEQUENCE_LENGTH: usize;
-    fn virtual_sequence(instruction: ONNXInstruction) -> Vec<ONNXInstruction> {
-        let dummy_trace_row = ONNXTraceRow {
-            instruction,
-            layer_state: LayerState {
-                input_vals: None,
-                output_vals: None,
-            },
-        };
-        Self::virtual_trace(dummy_trace_row)
-            .into_iter()
-            .map(|trace_row| trace_row.instruction)
-            .collect()
-    }
-    fn virtual_trace(trace_row: ONNXTraceRow) -> Vec<ONNXTraceRow>;
-    fn sequence_output(x: u64, y: u64) -> u64;
-}
+use strum::{EnumCount, IntoEnumIterator};
+
+use crate::jolt_onnx::common::onnx_trace::{LayerState, ONNXInstruction, ONNXTraceRow};
+use crate::jolt::instruction::JoltInstruction;
+use crate::jolt_onnx::tracer::tensor::QuantizedTensor;
 
 pub mod max;
 pub mod relu;
 pub mod sigmoid;
 pub mod pow_2;
 pub mod softmax;
+pub mod div;
+pub mod test;
+
+/// Trait for the virtual instruction sequence.
+pub trait VirtualInstructionSequence {
+    /// The length of the virtual instruction sequence.
+    const SEQUENCE_LENGTH: usize;
+    /// Returns the virtual instruction sequence for the given instruction.
+    fn virtual_sequence(instruction: ONNXInstruction) -> Vec<ONNXInstruction> {
+        let dummy_trace_row = ONNXTraceRow {
+            instruction,
+            layer_state: LayerState {
+                input_vals: vec![],
+                output_vals: vec![],
+            },
+            advice_value: vec![],
+        };
+        Self::virtual_trace(dummy_trace_row)
+            .into_iter()
+            .map(|trace_row| trace_row.instruction)
+            .collect()
+    }
+    /// Returns the virtual trace for the given instruction.        
+    fn virtual_trace(trace_row: ONNXTraceRow) -> Vec<ONNXTraceRow>;
+    /// Returns the output of the instruction for the given input.
+    fn sequence_output(x: QuantizedTensor, y: QuantizedTensor) -> QuantizedTensor;
+}
+
+
+/// Trait for the Jolt ONNX instruction set.
+pub trait JoltONNXInstructionSet:
+    JoltInstruction + IntoEnumIterator + EnumCount + for<'a> TryFrom<&'a ONNXInstruction> + Send + Sync
+{
+    /// Returns the index of the instruction in the enum.
+    fn enum_index(instruction: &Self) -> usize {
+        // Discriminant: https://doc.rust-lang.org/reference/items/enumerations.html#pointer-casting
+        let byte = unsafe { *(instruction as *const Self as *const u8) };
+        byte as usize
+    }
+}
+
+

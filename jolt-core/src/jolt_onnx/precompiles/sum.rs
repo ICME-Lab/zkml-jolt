@@ -46,6 +46,10 @@ impl SumPrecompile {
                 .collect_vec(),
         )
     }
+
+    pub fn sum(&self) -> i8 {
+        self.z.data.iter().fold(0, |acc, &x| acc + x as i8)
+    }
 }
 
 /// Container type to manage the prover state in the [`BatchableSumcheckInstance`] for the sum precompile.

@@ -21,6 +21,7 @@ impl Tracer {
         self.rows.push(ONNXTraceRow {
             instruction: inst,
             layer_state: LayerState::default(),
+            advice_value: vec![],
         });
     }
 

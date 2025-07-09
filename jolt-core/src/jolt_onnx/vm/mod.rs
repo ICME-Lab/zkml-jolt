@@ -2,12 +2,12 @@
 #![allow(clippy::field_reassign_with_default)] // TODO: Remove this when all zkVM portions are fully fleshed out
 
 use crate::field::JoltField;
-use crate::jolt::instruction::JoltInstructionSet;
 use crate::jolt::subtable::JoltSubtableSet;
 use crate::jolt::vm::bytecode::{BytecodeRow, BytecodeStuff};
 use crate::jolt::vm::read_write_memory::ReadWriteMemoryStuff;
 use crate::jolt::vm::timestamp_range_check::TimestampRangeCheckStuff;
 use crate::jolt::vm::ProverDebugInfo;
+use crate::jolt_onnx::instruction::JoltONNXInstructionSet;
 use crate::poly::commitment::commitment_scheme::CommitmentScheme;
 use crate::poly::multilinear_polynomial::MultilinearPolynomial;
 use crate::poly::opening_proof::{ProverOpeningAccumulator, VerifierOpeningAccumulator};
@@ -122,7 +122,7 @@ pub struct JoltProof<
 > where
     F: JoltField,
     PCS: CommitmentScheme<ProofTranscript, Field = F>,
-    InstructionSet: JoltInstructionSet,
+    InstructionSet: JoltONNXInstructionSet,
     Subtables: JoltSubtableSet<F>,
     ProofTranscript: Transcript,
 {
@@ -140,7 +140,7 @@ impl<const C: usize, const M: usize, F, PCS, InstructionSet, Subtables, ProofTra
 where
     F: JoltField,
     PCS: CommitmentScheme<ProofTranscript, Field = F>,
-    InstructionSet: JoltInstructionSet,
+    InstructionSet: JoltONNXInstructionSet,
     Subtables: JoltSubtableSet<F>,
     ProofTranscript: Transcript,
 {
@@ -450,7 +450,7 @@ impl<T: CanonicalSerialize + CanonicalDeserialize + Default + Sync> JoltStuff<T>
 
 /// Execution trace step for the Jolt ONNX VM.
 #[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct JoltONNXTraceStep<InstructionSet: JoltInstructionSet> {
+pub struct JoltONNXTraceStep<InstructionSet: JoltONNXInstructionSet> {
     pub(crate) instruction_lookup: Option<InstructionSet>,
     pub(crate) bytecode_row: BytecodeRow,
     pub(crate) memory_ops: [MemoryOp; MEMORY_OPS_PER_INSTRUCTION],
@@ -458,7 +458,7 @@ pub struct JoltONNXTraceStep<InstructionSet: JoltInstructionSet> {
     pub(crate) precompile: Option<PrecompileOperators>,
 }
 
-impl<InstructionSet: JoltInstructionSet> JoltONNXTraceStep<InstructionSet> {
+impl<InstructionSet: JoltONNXInstructionSet> JoltONNXTraceStep<InstructionSet> {
     /// Create a new [`JoltONNXTraceStep`] with default values.
     pub fn no_op() -> Self {
         JoltONNXTraceStep {

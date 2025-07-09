@@ -15,7 +15,8 @@ use itertools::Itertools;
 use rand::prelude::StdRng;
 use serde::{Deserialize, Serialize};
 
-/// Sigmoid instruction
+
+/// Sigmoid inner instruction
 #[derive(Copy, Clone, Default, Debug, Serialize, Deserialize, PartialEq)]
 pub struct SigmoidInstruction(pub u64);
 
@@ -111,10 +112,10 @@ impl JoltInstruction for SigmoidInstruction {
 
 #[cfg(test)]
 mod test {
-    use super::SigmoidInstruction;
     use crate::jolt::instruction::test::{
         instruction_mle_full_hypercube_test, materialize_entry_test,
     };
+    use crate::jolt_onnx::instruction::sigmoid::SigmoidInstruction;
     use crate::{jolt::instruction::JoltInstruction, jolt_instruction_test};
     use ark_bn254::Fr;
     use ark_std::rand::RngCore;
@@ -164,4 +165,5 @@ mod test {
             jolt_instruction_test!(instruction);
         }
     }
+
 }

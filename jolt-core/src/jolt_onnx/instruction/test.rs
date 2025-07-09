@@ -1,0 +1,112 @@
+//! This module provides the test functions for the virtual instruction sequence.
+use std::collections::HashMap;
+
+use ark_std::test_rng;
+use rand_core::RngCore;
+
+use crate::{
+    jolt::instruction::JoltInstruction,
+    jolt_onnx::{
+        common::onnx_trace::{LayerState, ONNXInstruction, ONNXTraceRow, Operator},
+        instruction::VirtualInstructionSequence,
+        tracer::tensor::QuantizedTensor,
+        vm::onnx_vm::ONNXInstructionSet,
+    },
+};
+
+/// Tests the consistency and correctness of a virtual instruction sequence.
+/// In detail:
+/// 1. Sets the references to given values for `x` and `y`.
+/// 2. Constructs an `ONNXTraceRow` with the provided opcode and reference values.
+/// 3. Generates the virtual instruction sequence using the specified instruction type.
+/// 4. Iterates over each row in the virtual sequence and validates the state changes.
+/// 5. Verifies that the references `r_x` and `r_y` have not been modified (not clobbered).
+/// 6. Ensures that the result of the instruction sequence is correctly written to the `rd` reference.
+/// 7. Checks that no unintended modifications have been made to other references.
+pub fn jolt_onnx_virtual_sequence_test<I: VirtualInstructionSequence>(opcode: Operator) {
+    // TODO: We need to map Operator with operands
+    let mut rng = test_rng();
+
+    for _ in 0..1000 {
+        let r_x = rng.next_u64().to_string();
+        let r_y = rng.next_u64().to_string();
+        let mut rd = rng.next_u64().to_string();
+        while rd == "0".to_string() {
+            rd = rng.next_u64().to_string();
+        }
+        let x = if r_x == "0".to_string() {
+            0
+        } else {
+            rng.next_u32() as i8
+        };
+        let y = if r_y == r_x {
+            x
+        } else if r_y == "0".to_string() {
+            0
+        } else {
+            rng.next_u32() as i8
+        };
+        let result = I::sequence_output(QuantizedTensor::from(x), QuantizedTensor::from(y));
+
+        let mut registers: HashMap<String, QuantizedTensor> = HashMap::new();
+        registers.insert(r_x.clone(), QuantizedTensor::from(x));
+        registers.insert(r_y.clone(), QuantizedTensor::from(y));
+
+        let trace_row = ONNXTraceRow {
+            instruction: ONNXInstruction {
+                opcode,
+                input_refs: vec![r_x.clone(), r_y.clone()],
+                output_refs: vec![rd.clone()],
+                attributes: None,
+            },
+            layer_state: LayerState {
+                input_vals: vec![QuantizedTensor::from(x), QuantizedTensor::from(y)],
+                output_vals: vec![result.clone()],
+            },
+            advice_value: vec![],
+        };
+
+        let virtual_sequence = I::virtual_trace(trace_row);
+        assert_eq!(virtual_sequence.len(), I::SEQUENCE_LENGTH);
+
+        for row in virtual_sequence {
+            for (i, val) in row.layer_state.input_vals.iter().enumerate() {
+                assert_eq!(
+                    registers.get(&row.instruction.input_refs[i]).unwrap(),
+                    val,
+                    "{row:?}"
+                );
+            }
+
+            let instruction = ONNXInstructionSet::try_from(&row).unwrap();
+            let output = QuantizedTensor::from(instruction.lookup_entry());
+            // TODO: Maybe only have one output val
+            for (i, val) in row.layer_state.output_vals.iter().enumerate() {
+                let rd = row.instruction.output_refs[i].clone();
+                registers.insert(rd.clone(), output.clone());
+                assert_eq!(
+                    registers.get(&rd).unwrap(),
+                    val,
+                    "{row:?}"
+                );
+            }
+        }
+
+        for (key, val) in registers.iter() {
+            if key == &r_x.clone() {
+                if r_x != rd {
+                    // Check that r_x hasn't been clobbered
+                    assert_eq!(*val, QuantizedTensor::from(x));
+                }
+            } else if key == &r_y.clone() {
+                if r_y != rd {
+                    // Check that r_y hasn't been clobbered
+                    assert_eq!(*val, QuantizedTensor::from(y));
+                }
+            } else if key == &rd.clone() {
+                // Check that result was written to rd
+                assert_eq!(*val, result);
+            }
+        }
+    }
+}
