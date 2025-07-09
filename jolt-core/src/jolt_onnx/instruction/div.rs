@@ -105,7 +105,6 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
                 attributes: None,
                 input_refs: vec![v_r.clone(), r_y.clone()],
                 output_refs: vec![],
-                // virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
             },
             layer_state: LayerState {
                 input_vals: vec![
@@ -125,7 +124,6 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
                 attributes: None,
                 input_refs: vec![r_y.clone(), v_q.clone()],
                 output_refs: vec![],
-                // virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
             },
             layer_state: LayerState {
                 input_vals: vec![
@@ -144,7 +142,6 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
                 attributes: None,
                 input_refs: vec![v_q.clone(), r_y.clone()],
                 output_refs: vec![v_qy.clone()],
-                // virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
             },
             layer_state: LayerState {
                 input_vals: vec![
@@ -163,7 +160,6 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
                 attributes: None,
                 input_refs: vec![v_qy.clone(), v_r.clone()],
                 output_refs: vec![v_0.clone()],
-                // virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
             },
             layer_state: LayerState {
                 input_vals: vec![
@@ -182,7 +178,6 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
                 attributes: None,
                 input_refs: vec![v_0.clone(), r_x.clone()],
                 output_refs: vec![],
-                // virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
             },
             layer_state: LayerState {
                 input_vals: vec![
@@ -200,7 +195,6 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
                 attributes: None,
                 input_refs: vec![v_q.clone()],
                 output_refs: vec![trace_row.instruction.output_refs[0].clone()],
-                // virtual_sequence_remaining: Some(Self::SEQUENCE_LENGTH - virtual_trace.len() - 1),
             },
             layer_state: LayerState {
                 input_vals: vec![QuantizedTensor::from(q as i8)],
