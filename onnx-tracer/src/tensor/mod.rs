@@ -1232,6 +1232,8 @@ impl<T: TensorType + Div<Output = T> + std::marker::Send + std::marker::Sync> Di
 }
 
 /// Returns the broadcasted shape of two tensors
+///
+/// Follows [NumPy's broadcasting rules](https://numpy.org/doc/stable/user/basics.broadcasting.html)
 /// ```
 /// use ezkl::tensor::get_broadcasted_shape;
 /// let a = vec![2, 3];
@@ -1240,24 +1242,24 @@ impl<T: TensorType + Div<Output = T> + std::marker::Send + std::marker::Sync> Di
 /// assert_eq!(c, vec![2, 3]);
 ///
 /// let a = vec![2, 3];
-/// let b = vec![3];
-/// let c = get_broadcasted_shape(&a, &b).unwrap();
-/// assert_eq!(c, vec![2, 3]);
-///
-/// let a = vec![2, 3];
 /// let b = vec![2, 1];
 /// let c = get_broadcasted_shape(&a, &b).unwrap();
 /// assert_eq!(c, vec![2, 3]);
 ///
-/// let a = vec![2, 3];
-/// let b = vec![1, 3];
-/// let c = get_broadcasted_shape(&a, &b).unwrap();
+/// let a = vec![2, 3];                             //  a = [2, 3]
+/// let b = vec![3];                                //  b = [   3]
+/// let c = get_broadcasted_shape(&a, &b).unwrap(); //  c = [2, 3]
 /// assert_eq!(c, vec![2, 3]);
 ///
-/// let a = vec![2, 3];
-/// let b = vec![1, 1];
-/// let c = get_broadcasted_shape(&a, &b).unwrap();
+/// let a = vec![2, 1];                             //  a = [2, 1]
+/// let b = vec![1, 3];                             //  b = [1, 3]
+/// let c = get_broadcasted_shape(&a, &b).unwrap(); //  c = [2, 3]
 /// assert_eq!(c, vec![2, 3]);
+///
+/// let a = vec![8, 1, 6, 1];                       //  a = [8, 1, 6, 1]
+/// let b = vec![7, 1, 5];                          //  b = [   7, 1, 5]
+/// let c = get_broadcasted_shape(&a, &b).unwrap(); //  c = [8, 7, 6, 5]
+/// assert_eq!(c, vec![8, 7, 6, 5]);
 /// ```
 pub fn get_broadcasted_shape(
     shape_a: &[usize],
@@ -1266,19 +1268,43 @@ pub fn get_broadcasted_shape(
     let num_dims_a = shape_a.len();
     let num_dims_b = shape_b.len();
 
-    // reewrite the below using match
-    if num_dims_a == num_dims_b {
-        let mut broadcasted_shape = Vec::with_capacity(num_dims_a);
-        for (dim_a, dim_b) in shape_a.iter().zip(shape_b.iter()) {
-            let max_dim = dim_a.max(dim_b);
-            broadcasted_shape.push(*max_dim);
-        }
-        Ok(broadcasted_shape)
-    } else if num_dims_a < num_dims_b {
-        Ok(shape_b.to_vec())
-    } else {
-        Ok(shape_a.to_vec())
+    if num_dims_a == 0 || num_dims_b == 0 {
+        return Err(Box::new(TensorError::DimError(
+            "Cannot broadcast empty shapes".to_string(),
+        )));
     }
+
+    let mut shape_a = shape_a.to_vec();
+    let mut shape_b = shape_b.to_vec();
+
+    // Reverse the shapes to align them from the last dimension
+    shape_a.reverse();
+    shape_b.reverse();
+
+    // Pad the shorter shape with 1s
+    if num_dims_a < num_dims_b {
+        shape_a.resize(num_dims_b, 1);
+    } else if num_dims_b < num_dims_a {
+        shape_b.resize(num_dims_a, 1);
+    }
+
+    let mut broadcasted_shape = Vec::with_capacity(shape_a.len());
+    for (&dim_a, &dim_b) in shape_a.iter().zip(shape_b.iter()) {
+        if dim_a == dim_b {
+            broadcasted_shape.push(dim_a);
+        } else if dim_a == 1 || dim_b == 1 {
+            broadcasted_shape.push(dim_a.max(dim_b));
+        } else {
+            return Err(Box::new(TensorError::DimError(format!(
+                "Incompatible tensor shapes: {:?} and {:?}",
+                shape_a, shape_b
+            ))));
+        }
+    }
+
+    // Reverse the broadcasted shape to restore the original order
+    broadcasted_shape.reverse();
+    Ok(broadcasted_shape)
 }
 ////////////////////////
 
@@ -1315,5 +1341,48 @@ mod tests {
         let a = Tensor::<i32>::new(Some(&[1, 2, 3, 4, 5, 6]), &[2, 3]).unwrap();
         let b = Tensor::<i32>::new(Some(&[1, 4]), &[2, 1]).unwrap();
         assert_eq!(a.get_slice(&[0..2, 0..1]).unwrap(), b);
+    }
+
+    #[test]
+    fn tensor_broadcast() {
+        let a = vec![2, 3];
+        let b = vec![2, 1];
+        let c = get_broadcasted_shape(&a, &b).unwrap();
+        assert_eq!(c, vec![2, 3]);
+
+        let a = vec![2, 3];
+        let b = vec![1, 3];
+        let c = get_broadcasted_shape(&a, &b).unwrap();
+        assert_eq!(c, vec![2, 3]);
+
+        let a = vec![2, 1];
+        let b = vec![1, 3];
+        let c = get_broadcasted_shape(&a, &b).unwrap();
+        assert_eq!(c, vec![2, 3]);
+
+        let a = vec![256, 256, 3];
+        let b = vec![3];
+        let c = get_broadcasted_shape(&a, &b).unwrap();
+        assert_eq!(c, vec![256, 256, 3]);
+
+        let a = vec![8, 1, 6, 1];
+        let b = vec![7, 1, 5];
+        let c = get_broadcasted_shape(&a, &b).unwrap();
+        assert_eq!(c, vec![8, 7, 6, 5]);
+
+        let a = vec![10, 3];
+        let b = vec![5, 1, 3];
+        let c = get_broadcasted_shape(&a, &b).unwrap();
+        assert_eq!(c, vec![5, 10, 3]);
+
+        let a = vec![3];
+        let b = vec![4];
+        let c = get_broadcasted_shape(&a, &b);
+        assert!(c.is_err());
+
+        let a = vec![2, 1];
+        let b = vec![8, 4, 3];
+        let c = get_broadcasted_shape(&a, &b);
+        assert!(c.is_err());
     }
 }
