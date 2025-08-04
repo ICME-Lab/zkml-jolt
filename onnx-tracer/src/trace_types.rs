@@ -378,6 +378,7 @@ pub enum ONNXOpcode {
     RebaseScale(Box<ONNXOpcode>),
 
     // Virtual instructions
+    VirtualPow2,
     VirtualAdvice,
     VirtualAssertValidSignedRemainder,
     VirtualAssertValidDiv0,
