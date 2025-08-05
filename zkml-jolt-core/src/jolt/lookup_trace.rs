@@ -7,17 +7,9 @@ use jolt_core::jolt::{
 };
 
 // pub const WORD_SIZE: usize = 32;
-
-macro_rules! test_const_generic {
-    ( $variant:ident : $inner:ident <WORD_SIZE>) => {};
-}
-
-test_const_generic!(Add: ADD<WORD_SIZE>);
-
 macro_rules! define_lookup_enum {
     (
         enum $enum_name:ident,
-     //   const $word_size:ident,
         trait $trait_name:ident,
         $($variant:ident : $inner:ident < WORD_SIZE >),+ $(,)?
     ) => {
