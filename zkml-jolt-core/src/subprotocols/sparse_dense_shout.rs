@@ -32,7 +32,7 @@ use rayon::prelude::*;
 use strum::{EnumCount, IntoEnumIterator};
 
 use crate::jolt::lookup_trace::LookupTrace;
-use crate::jolt::lookup_trace::WORD_SIZE;
+// use crate::jolt::lookup_trace::WORD_SIZE;
 
 /// Computes the bit-length of the suffix, for the current (`j`th) round
 /// of sumcheck.
@@ -164,7 +164,11 @@ fn prover_msg_read_checking<const WORD_SIZE: usize, F: JoltField>(
 }
 
 #[allow(clippy::type_complexity)]
-pub fn prove_sparse_dense_shout<F: JoltField, ProofTranscript: Transcript>(
+pub fn prove_sparse_dense_shout<
+    const WORD_SIZE: usize,
+    F: JoltField,
+    ProofTranscript: Transcript,
+>(
     trace: &[ONNXCycle],
     r_cycle: &[F],
     transcript: &mut ProofTranscript,
