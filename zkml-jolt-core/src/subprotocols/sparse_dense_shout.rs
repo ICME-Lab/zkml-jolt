@@ -737,4 +737,9 @@ mod tests {
     fn test_mul() {
         test_sparse_dense_shout(ONNXOpcode::Mul);
     }
+
+    #[test]
+    fn test_pow() {
+        test_sparse_dense_shout(ONNXOpcode::Pow);
+    }
 }

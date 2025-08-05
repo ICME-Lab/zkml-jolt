@@ -260,6 +260,7 @@ impl ONNXInstr {
             ONNXOpcode::Add
             | ONNXOpcode::Sub
             | ONNXOpcode::Mul
+            | ONNXOpcode::Pow
         );
 
         flags[CircuitFlags::RightOperandIsTs2Value as usize] = matches!(
@@ -289,6 +290,7 @@ impl ONNXInstr {
             ONNXOpcode::Add
             | ONNXOpcode::Sub
             | ONNXOpcode::Mul
+            | ONNXOpcode::Pow
         );
 
         flags
@@ -378,7 +380,6 @@ pub enum ONNXOpcode {
     RebaseScale(Box<ONNXOpcode>),
 
     // Virtual instructions
-    Pow,
     VirtualAdvice,
     VirtualAssertValidSignedRemainder,
     VirtualAssertValidDiv0,
