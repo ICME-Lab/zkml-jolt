@@ -4,15 +4,15 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Copy, Clone, Default, Debug, Serialize, Deserialize, PartialEq)]
 
-pub struct VirtualPow2<const WORD_SIZE: usize>(pub u64);
+pub struct POW<const WORD_SIZE: usize>(pub u64);
 
-impl<const WORD_SIZE: usize> InstructionLookup<WORD_SIZE> for VirtualPow2<WORD_SIZE> {
+impl<const WORD_SIZE: usize> InstructionLookup<WORD_SIZE> for POW<WORD_SIZE> {
     fn lookup_table(&self) -> Option<LookupTables<WORD_SIZE>> {
         Some(Pow2Table.into())
     }
 }
 
-impl<const WORD_SIZE: usize> LookupQuery<WORD_SIZE> for VirtualPow2<WORD_SIZE> {
+impl<const WORD_SIZE: usize> LookupQuery<WORD_SIZE> for POW<WORD_SIZE> {
     fn to_instruction_inputs(&self) -> (u64, i64) {
         match WORD_SIZE {
             #[cfg(test)]

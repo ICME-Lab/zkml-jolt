@@ -3,8 +3,8 @@ use onnx_tracer::trace_types::{MemoryState, ONNXCycle, ONNXInstr};
 pub mod add;
 pub mod beq;
 pub mod mul;
+pub mod pow;
 pub mod sub;
-pub mod virtual_pow2;
 
 // TODO(WIP: Forpee) Rebase Scale Virtual Instr ICME-Lab/zkml-jolt#60
 //
