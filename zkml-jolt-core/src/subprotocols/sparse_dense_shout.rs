@@ -695,8 +695,9 @@ mod tests {
         let mut rng = StdRng::from_seed([0u8; 32]);
 
         let mut trace = Vec::with_capacity(TRACE_LEN);
-        trace.resize(TRACE_LEN, ONNXCycle::random(opcode, &mut rng));
+        trace.resize_with(TRACE_LEN, || ONNXCycle::random(opcode.clone(), &mut rng));
         let execution_trace = jolt_execution_trace(trace);
+
         let mut prover_transcript = KeccakTranscript::new(b"test_transcript");
         let r_cycle: Vec<Fr> = prover_transcript.challenge_vector(LOG_T);
 
@@ -724,22 +725,22 @@ mod tests {
     }
 
     #[test]
-    fn test_add() {
+    fn test_op_add() {
         test_sparse_dense_shout(ONNXOpcode::Add);
     }
 
     #[test]
-    fn test_sub() {
+    fn test_op_sub() {
         test_sparse_dense_shout(ONNXOpcode::Sub);
     }
 
     #[test]
-    fn test_mul() {
+    fn test_op_mul() {
         test_sparse_dense_shout(ONNXOpcode::Mul);
     }
 
     #[test]
-    fn test_pow() {
+    fn test_op_pow() {
         test_sparse_dense_shout(ONNXOpcode::Pow);
     }
 }
