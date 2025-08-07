@@ -2,7 +2,7 @@
 //! Used to format the bytecode and define each instr flags and memory access patterns.
 //! Used by the runtime to generate an execution trace for ONNX runtime execution.
 
-use crate::{constants::MEMORY_OPS_PER_INSTRUCTION, tensor::Tensor};
+use crate::{constants::MAX_TENSOR_SIZE, tensor::Tensor};
 use core::panic;
 use rand::{rngs::StdRng, RngCore};
 use serde::{Deserialize, Serialize};
@@ -12,7 +12,7 @@ use strum_macros::EnumCount as EnumCountMacro;
 
 /// Used to calculate the zkVM address's from the execution trace.
 /// Since the 0 address is reserved for the zero register, we prepend a 1 to the address's in the execution trace.
-const ZERO_REGISTER_PREPEND: usize = 1;
+const ZERO_ADDR_PREPEND: usize = 1;
 
 /// Represents a step in the execution trace, where an execution trace is a `Vec<ONNXCycle>`.
 /// Records what the VM did at a cycle of execution.
@@ -41,60 +41,19 @@ impl ONNXCycle {
         }
     }
 
-    // HACKS(Forpee): These methods are going to be removed once we 1. migrate runtime to 64-bit and 2. allow jolt-prover to intake tensor ops at each cycle.
-    // TODO: Also Refactor execution trace.
+    // # NOTE: Adds [ZERO_ADDR_PREPEND] to the orignal traced value
     pub fn td(&self) -> usize {
-        self.instr.td.map_or(0, |td| td + ZERO_REGISTER_PREPEND)
+        self.instr.td.map_or(0, |td| td + ZERO_ADDR_PREPEND)
     }
+
+    // # NOTE: Adds [ZERO_ADDR_PREPEND] to the orignal traced value
     pub fn ts1(&self) -> usize {
-        self.instr.ts1.map_or(0, |ts1| ts1 + ZERO_REGISTER_PREPEND)
+        self.instr.ts1.map_or(0, |ts1| ts1 + ZERO_ADDR_PREPEND)
     }
+
+    // # NOTE: Adds [ZERO_ADDR_PREPEND] to the orignal traced value
     pub fn ts2(&self) -> usize {
-        self.instr.ts2.map_or(0, |ts2| ts2 + ZERO_REGISTER_PREPEND)
-    }
-    pub fn td_write(&self) -> (usize, u64, u64) {
-        match self.to_memory_ops()[2] {
-            MemoryOp::Write(td, pre_val, post_val) => (td as usize, pre_val, post_val),
-            _ => panic!("Expected td to be a write operation"),
-        }
-    }
-    pub fn ts1_read(&self) -> (usize, u64) {
-        match self.to_memory_ops()[0] {
-            MemoryOp::Read(ts1, ts1_val) => (ts1 as usize, ts1_val),
-            _ => panic!("Expected ts1 to be a read operation"),
-        }
-    }
-    pub fn ts2_read(&self) -> (usize, u64) {
-        match self.to_memory_ops()[1] {
-            MemoryOp::Read(ts2, ts2_val) => (ts2 as usize, ts2_val),
-            _ => panic!("Expected ts2 to be a read operation"),
-        }
-    }
-    pub fn td_post_val(&self) -> u64 {
-        self.memory_state
-            .td_post_val
-            .as_ref()
-            .map(|t| t.inner[0] as i32 as u32 as u64)
-            .unwrap_or(0)
-    }
-    pub fn td_pre_val(&self) -> u64 {
-        // FIXME: This is not correct for input and const nodes
-        // This value is only written to once
-        0
-    }
-    pub fn ts1_val(&self) -> u64 {
-        self.memory_state
-            .ts1_val
-            .as_ref()
-            .map(|t| t.inner[0] as i32 as u32 as u64)
-            .unwrap_or(0)
-    }
-    pub fn ts2_val(&self) -> u64 {
-        self.memory_state
-            .ts2_val
-            .as_ref()
-            .map(|t| t.inner[0] as i32 as u32 as u64)
-            .unwrap_or(0)
+        self.instr.ts2.map_or(0, |ts2| ts2 + ZERO_ADDR_PREPEND)
     }
 }
 
@@ -190,35 +149,75 @@ impl MemoryOp {
 }
 
 impl ONNXCycle {
-    pub fn to_memory_ops(&self) -> [MemoryOp; MEMORY_OPS_PER_INSTRUCTION] {
-        let ts1_read = || MemoryOp::Read(self.ts1() as u64, self.ts1_val());
-        let ts2_read = || MemoryOp::Read(self.ts2() as u64, self.ts2_val());
-        let td_write = || MemoryOp::Write(self.td() as u64, self.td_pre_val(), self.td_post_val());
-
-        // // Canonical ordering for memory instructions
-        // // 0: ts1
-        // // 1: ts2
-        // // 2: td
-        // // If any are empty a no_op is inserted.
-
-        match self.instr.opcode {
-            ONNXOpcode::Add | ONNXOpcode::Sub | ONNXOpcode::Mul => {
-                [ts1_read(), ts2_read(), td_write()]
-            }
-            ONNXOpcode::Noop => [
-                MemoryOp::noop_read(),
-                MemoryOp::noop_read(),
-                MemoryOp::noop_write(),
-            ],
-            ONNXOpcode::Constant => [
-                MemoryOp::noop_read(),
-                MemoryOp::noop_read(),
-                MemoryOp::noop_write(),
-            ],
-            ONNXOpcode::Input => [MemoryOp::noop_read(), MemoryOp::noop_read(), td_write()],
-            _ => unreachable!("{self:?}"),
-        }
+    #[allow(clippy::type_complexity)]
+    pub fn to_memory_ops(
+        &self,
+    ) -> (
+        (Vec<usize>, Vec<u64>),
+        (Vec<usize>, Vec<u64>),
+        (Vec<usize>, Vec<u64>, Vec<u64>),
+    ) {
+        let ts1 = self.memory_state.ts1_val.as_ref().map_or_else(
+            || (vec![0usize; MAX_TENSOR_SIZE], vec![0; MAX_TENSOR_SIZE]),
+            |t| {
+                assert!(
+                    t.inner.len() <= MAX_TENSOR_SIZE,
+                    "ts1_val length exceeds MAX_TENSOR_SIZE"
+                );
+                let mut val: Vec<u64> = t.inner.iter().map(normalize).collect();
+                val.resize(MAX_TENSOR_SIZE, 0);
+                (get_tensor_addresses(self.ts1()), val)
+            },
+        );
+        let ts2 = self.memory_state.ts2_val.as_ref().map_or_else(
+            || (vec![0usize; MAX_TENSOR_SIZE], vec![0; MAX_TENSOR_SIZE]),
+            |t| {
+                assert!(
+                    t.inner.len() <= MAX_TENSOR_SIZE,
+                    "ts2_val length exceeds MAX_TENSOR_SIZE"
+                );
+                let mut val: Vec<u64> = t.inner.iter().map(normalize).collect();
+                val.resize(MAX_TENSOR_SIZE, 0);
+                (get_tensor_addresses(self.ts2()), val)
+            },
+        );
+        let td = self.memory_state.td_post_val.as_ref().map_or_else(
+            || {
+                (
+                    vec![0usize; MAX_TENSOR_SIZE],
+                    vec![0; MAX_TENSOR_SIZE],
+                    vec![0; MAX_TENSOR_SIZE],
+                )
+            },
+            |t| {
+                assert!(
+                    t.inner.len() <= MAX_TENSOR_SIZE,
+                    "ts2_val length exceeds MAX_TENSOR_SIZE"
+                );
+                let mut post_val: Vec<u64> = t.inner.iter().map(normalize).collect();
+                post_val.resize(MAX_TENSOR_SIZE, 0);
+                (
+                    get_tensor_addresses(self.td()),
+                    vec![0; MAX_TENSOR_SIZE], // TODO: It is not guaranteed that td_pre_val is always 0. For example const opcodes.
+                    post_val,
+                )
+            },
+        );
+        (ts1, ts2, td)
     }
+}
+
+fn get_tensor_addresses(t: usize) -> Vec<usize> {
+    let mut addresses = Vec::new();
+    for i in 0..MAX_TENSOR_SIZE {
+        addresses.push(t * MAX_TENSOR_SIZE + i);
+    }
+    addresses
+}
+
+// HACK(Forpee): This is a temporary function to normalize i128 values to u64 for the jolt execution trace.
+fn normalize(value: &i128) -> u64 {
+    *value as i32 as u32 as u64
 }
 
 /// Boolean flags used in Jolt's R1CS constraints (`opflags` in the Jolt paper).
@@ -226,18 +225,19 @@ impl ONNXCycle {
 /// of the Jolt paper.
 #[derive(Clone, Copy, Debug, PartialEq, EnumCountMacro)]
 pub enum CircuitFlags {
-    /// 1 if the first instruction operand is RS1 value; 0 otherwise.
-    LeftOperandIsRs1Value,
-    /// 1 if the first instruction operand is RS2 value; 0 otherwise.
-    RightOperandIsRs2Value,
+    /// 1 if the first instruction operand is TS1 value; 0 otherwise.
+    LeftOperandIsTs1Value,
+    /// 1 if the first instruction operand is TS2 value; 0 otherwise.
+    RightOperandIsTs2Value,
     /// 1 if the first lookup operand is the sum of the two instruction operands.
     AddOperands,
     /// 1 if the first lookup operand is the difference between the two instruction operands.
     SubtractOperands,
     /// 1 if the first lookup operand is the product of the two instruction operands.
     MultiplyOperands,
-    /// 1 if the lookup output is to be stored in `rd` at the end of the step.
-    WriteLookupOutputToRD,
+    /// 1 if the lookup output is to be stored in `td` at the end of the step.
+    WriteLookupOutputToTD,
+    // TODO(Forpee): Virtual Instructions (#20 https://github.com/ICME-Lab/zkml-jolt/issues/20)
     // /// 1 if the instruction is "inline", as defined in Section 6.1 of the Jolt paper.
     // InlineSequenceInstruction,
     // /// 1 if the instruction is an assert, as defined in Section 6.1.1 of the Jolt paper.
@@ -255,14 +255,14 @@ impl ONNXInstr {
     pub fn to_circuit_flags(&self) -> [bool; NUM_CIRCUIT_FLAGS] {
         let mut flags = [false; NUM_CIRCUIT_FLAGS];
 
-        flags[CircuitFlags::LeftOperandIsRs1Value as usize] = matches!(
+        flags[CircuitFlags::LeftOperandIsTs1Value as usize] = matches!(
             self.opcode,
             ONNXOpcode::Add
             | ONNXOpcode::Sub
             | ONNXOpcode::Mul
         );
 
-        flags[CircuitFlags::RightOperandIsRs2Value as usize] = matches!(
+        flags[CircuitFlags::RightOperandIsTs2Value as usize] = matches!(
             self.opcode,
             ONNXOpcode::Add
             | ONNXOpcode::Sub
@@ -284,7 +284,7 @@ impl ONNXInstr {
             ONNXOpcode::Mul,
         );
 
-        flags[CircuitFlags::WriteLookupOutputToRD as usize] = matches!(
+        flags[CircuitFlags::WriteLookupOutputToTD as usize] = matches!(
             self.opcode,
             ONNXOpcode::Add
             | ONNXOpcode::Sub
@@ -304,6 +304,7 @@ impl InterleavedBitsMarker for [bool; NUM_CIRCUIT_FLAGS] {
         !self[CircuitFlags::AddOperands]
             && !self[CircuitFlags::SubtractOperands]
             && !self[CircuitFlags::MultiplyOperands]
+        // TODO(Forpee): Virtual Instructions (#20 https://github.com/ICME-Lab/zkml-jolt/issues/20)
         // && !self[CircuitFlags::Advice]
     }
 }
