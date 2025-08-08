@@ -272,7 +272,8 @@ impl ONNXInstr {
 
         flags[CircuitFlags::AddOperands as usize] = matches!(
             self.opcode,
-            ONNXOpcode::Add,
+            ONNXOpcode::Add
+            | ONNXOpcode::Pow
         );
 
         flags[CircuitFlags::SubtractOperands as usize] = matches!(
