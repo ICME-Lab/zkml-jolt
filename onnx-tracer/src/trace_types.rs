@@ -68,7 +68,7 @@ pub struct MemoryState {
 impl MemoryState {
     pub fn random(rng: &mut StdRng) -> Self {
         MemoryState {
-            ts1_val: Some(Tensor::new(Some(&[rng.next_u64() as i128]), &[1]).unwrap()), // Works with value 0 and 1
+            ts1_val: Some(Tensor::new(Some(&[rng.next_u64() as i128]), &[1]).unwrap()),
             ts2_val: Some(Tensor::new(Some(&[rng.next_u64() as i128]), &[1]).unwrap()),
             td_pre_val: Some(Tensor::new(Some(&[rng.next_u64() as i128]), &[1]).unwrap()),
             td_post_val: Some(Tensor::new(Some(&[rng.next_u64() as i128]), &[1]).unwrap()),
