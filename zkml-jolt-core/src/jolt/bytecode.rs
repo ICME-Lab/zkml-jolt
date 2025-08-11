@@ -1,5 +1,7 @@
 //! Implements the fetch-decode portion of the zkVM.
 
+use std::collections::BTreeMap;
+
 use itertools::Itertools;
 use jolt_core::{
     field::JoltField,
@@ -19,7 +21,7 @@ use jolt_core::{
         transcript::{AppendToTranscript, Transcript},
     },
 };
-use onnx_tracer::trace_types::ONNXInstr;
+use onnx_tracer::{constants::MAX_TENSOR_SIZE, trace_types::ONNXInstr};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -28,22 +30,74 @@ use crate::jolt::execution_trace::JoltONNXCycle;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BytecodePreprocessing {
     pub code_size: usize,
-    bytecode: Vec<ONNXInstr>,
+    pub bytecode: Vec<ONNXInstr>,
+    /// Maps the memory address of each instruction in the bytecode to its "virtual" address.
+    /// See Section 6.1 of the Jolt paper, "Reflecting the program counter". The virtual address
+    /// is the one used to keep track of the next (potentially virtual) instruction to execute.
+    /// Key: (ELF address, virtual sequence index or 0)
+    pub virtual_address_map: BTreeMap<(usize, usize), usize>,
 }
 
 impl BytecodePreprocessing {
     #[tracing::instrument(skip_all, name = "BytecodePreprocessing::preprocess")]
     pub fn preprocess(mut bytecode: Vec<ONNXInstr>) -> Self {
+        let mut virtual_address_map = BTreeMap::new();
+        let mut virtual_address = 1; // Account for no-op instruction prepended to bytecode
+        for instruction in bytecode.iter_mut() {
+            assert_eq!(
+                virtual_address_map.insert(
+                    (
+                        instruction.address,
+                        instruction.virtual_sequence_remaining.unwrap_or(0)
+                    ),
+                    virtual_address
+                ),
+                None
+            );
+            virtual_address += 1;
+        }
+
         // Bytecode: Prepend a single no-op instruction
         bytecode.insert(0, ONNXInstr::no_op());
+        assert_eq!(virtual_address_map.insert((0, 0), 0), None);
 
         // Bytecode: Pad to nearest power of 2
-        let code_size = bytecode.len().next_power_of_two();
-        bytecode.resize(code_size, ONNXInstr::no_op());
+        let code_size = bytecode.len();
+        let padded_code_size = bytecode.len().next_power_of_two();
+        let last_address = bytecode.last().unwrap().address;
+        let padding = padded_code_size - bytecode.len();
+        bytecode.extend((0..padding).map(|i| {
+            let mut no_op = ONNXInstr::no_op();
+            no_op.address = last_address + i + 1;
+            assert_eq!(
+                virtual_address_map.insert((no_op.address, 0), code_size + i),
+                None
+            );
+            no_op
+        }));
+
         Self {
-            code_size,
+            code_size: padded_code_size,
             bytecode,
+            virtual_address_map,
         }
+    }
+
+    pub fn get_pc(&self, cycle: &JoltONNXCycle) -> usize {
+        *self
+            .virtual_address_map
+            .get(&(
+                cycle.instr.address,
+                cycle.instr.virtual_sequence_remaining.unwrap_or(0),
+            ))
+            .unwrap_or_else(|| panic!("Cannot get pc for cycle {cycle:#?}"))
+    }
+
+    pub fn map_trace_to_pc<'a, 'b>(
+        &'b self,
+        trace: &'a [JoltONNXCycle],
+    ) -> impl rayon::iter::ParallelIterator<Item = u64> + use<'a, 'b> {
+        trace.par_iter().map(|cycle| self.get_pc(cycle) as u64)
     }
 }
 
@@ -81,7 +135,13 @@ where
         let mut F = vec![F::zero(); K];
         // Iterate through bytecode trace.
         for (j, cycle) in trace.iter().enumerate() {
-            let k = cycle.instr.address;
+            let k = *preprocessing
+                .virtual_address_map
+                .get(&(
+                    cycle.instr.address,
+                    cycle.instr.virtual_sequence_remaining.unwrap_or(0),
+                ))
+                .unwrap();
             F[k] += E[j]
         }
         let gamma: F = transcript.challenge_scalar();
@@ -130,7 +190,7 @@ where
             SumcheckInstanceProof::new(sumcheck_proof);
         // --- Booleanity check ---
         let (booleanity_sumcheck_proof, _r_address_prime, _r_cycle_prime, ra_claim_prime) =
-            prove_booleanity(trace, &r_address, E, F, transcript);
+            prove_booleanity(preprocessing, trace, &r_address, E, F, transcript);
 
         // --- raf evaluation ---
         BytecodeProof {
@@ -144,8 +204,9 @@ where
 
     /// Reed-solomon fingerprint each instr in the program bytecode
     fn bytecode_to_val(program_bytecode: &[ONNXInstr], gamma: &F) -> Vec<F> {
-        let mut gamma_pows = [F::one(); 4];
-        for i in 1..4 {
+        const DEGREE: usize = 5 + MAX_TENSOR_SIZE;
+        let mut gamma_pows = [F::one(); DEGREE];
+        for i in 1..DEGREE {
             gamma_pows[i] *= *gamma * gamma_pows[i - 1];
         }
         program_bytecode
@@ -158,7 +219,11 @@ where
                     (instr.ts1.unwrap_or_default() as u64).field_mul(gamma_pows[2]);
                 linear_combination +=
                     (instr.ts2.unwrap_or_default() as u64).field_mul(gamma_pows[3]);
-                // TODO: Add td
+                linear_combination +=
+                    (instr.td.unwrap_or_default() as u64).field_mul(gamma_pows[4]);
+                (0..MAX_TENSOR_SIZE)
+                    .map(|i| instr.imm()[i].field_mul(gamma_pows[5 + i]))
+                    .fold(linear_combination, |acc, x| acc + x);
                 linear_combination
             })
             .collect()
@@ -171,6 +236,7 @@ where
 /// - `Vec<F>`: r_cycle_prime.
 /// - `F`: ra_claim_prime.
 pub fn prove_booleanity<F, ProofTranscript>(
+    preprocessing: &BytecodePreprocessing,
     trace: &[JoltONNXCycle],
     r: &[F],
     D: Vec<F>,
@@ -289,7 +355,19 @@ where
 
     // Last log(T) rounds of sumcheck
     let eq_r_r = B.final_sumcheck_claim();
-    let H: Vec<F> = trace.iter().map(|cycle| F[cycle.instr.address]).collect();
+    let H: Vec<F> = trace
+        .iter()
+        .map(|cycle| {
+            let k = *preprocessing
+                .virtual_address_map
+                .get(&(
+                    cycle.instr.address,
+                    cycle.instr.virtual_sequence_remaining.unwrap_or(0),
+                ))
+                .unwrap();
+            F[k]
+        })
+        .collect();
     let mut H = MultilinearPolynomial::from(H);
     let mut D = MultilinearPolynomial::from(D);
     let mut r_cycle_prime: Vec<F> = Vec::with_capacity(T.log_2());

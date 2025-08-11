@@ -73,19 +73,49 @@ impl<F: JoltField> R1CSConstraints<F> for JoltONNXConstraints {
                 JoltONNXR1CSInputs::Product(i),
             );
 
+            // if Assert {
+            //     assert!(LookupOutput == 1)
+            // }
+            cs.constrain_eq_conditional(
+                JoltONNXR1CSInputs::OpFlags(CircuitFlags::Assert),
+                JoltONNXR1CSInputs::LookupOutput(i),
+                1,
+            );
+
             // if Rd != 0 && WriteLookupOutputToRD {
             //     assert!(RdWriteValue == LookupOutput)
             // }
             cs.constrain_prod(
-                JoltONNXR1CSInputs::Rd(i),
+                JoltONNXR1CSInputs::Td(i),
                 JoltONNXR1CSInputs::OpFlags(CircuitFlags::WriteLookupOutputToTD),
                 JoltONNXR1CSInputs::WriteLookupOutputToTD(i),
             );
             cs.constrain_eq_conditional(
                 JoltONNXR1CSInputs::WriteLookupOutputToTD(i),
-                JoltONNXR1CSInputs::RdWriteValue(i),
+                JoltONNXR1CSInputs::TdWriteValue(i),
                 JoltONNXR1CSInputs::LookupOutput(i),
             );
         }
+
+        // if DoNotUpdatePC {
+        //     assert!(NextUnexpandedPC == UnexpandedPC)
+        // } else {
+        //     assert!(NextUnexpandedPC == UnexpandedPC + 1)
+        // }
+        cs.constrain_if_else(
+            JoltONNXR1CSInputs::OpFlags(CircuitFlags::DoNotUpdateUnexpandedPC),
+            JoltONNXR1CSInputs::UnexpandedPC,
+            JoltONNXR1CSInputs::UnexpandedPC + 1,
+            JoltONNXR1CSInputs::NextUnexpandedPC,
+        );
+
+        // if Inline {
+        //     assert!(NextPC == PC + 1)
+        // }
+        cs.constrain_eq_conditional(
+            JoltONNXR1CSInputs::OpFlags(CircuitFlags::InlineSequenceInstruction),
+            JoltONNXR1CSInputs::NextPC,
+            JoltONNXR1CSInputs::PC + 1,
+        );
     }
 }

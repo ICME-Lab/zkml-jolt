@@ -2,17 +2,16 @@
 //! Used to format the bytecode and define each instr flags and memory access patterns.
 //! Used by the runtime to generate an execution trace for ONNX runtime execution.
 
-use crate::{constants::MAX_TENSOR_SIZE, tensor::Tensor};
+use crate::{
+    constants::{MAX_TENSOR_SIZE, ZERO_ADDR_PREPEND},
+    tensor::Tensor,
+};
 use core::panic;
 use rand::{rngs::StdRng, RngCore};
 use serde::{Deserialize, Serialize};
 use std::ops::{Index, IndexMut};
 use strum::EnumCount;
 use strum_macros::EnumCount as EnumCountMacro;
-
-/// Used to calculate the zkVM address's from the execution trace.
-/// Since the 0 address is reserved for the zero register, we prepend a 1 to the address's in the execution trace.
-const ZERO_ADDR_PREPEND: usize = 1;
 
 /// Represents a step in the execution trace, where an execution trace is a `Vec<ONNXCycle>`.
 /// Records what the VM did at a cycle of execution.
@@ -21,7 +20,7 @@ const ZERO_ADDR_PREPEND: usize = 1;
 pub struct ONNXCycle {
     pub instr: ONNXInstr,
     pub memory_state: MemoryState,
-    pub advice_value: Option<i128>,
+    pub advice_value: Option<Tensor<i128>>,
 }
 
 impl ONNXCycle {
@@ -37,7 +36,9 @@ impl ONNXCycle {
         ONNXCycle {
             instr: ONNXInstr::dummy(opcode),
             memory_state: MemoryState::random(rng),
-            advice_value: None,
+            advice_value: Some(Tensor::from(
+                (0..MAX_TENSOR_SIZE).map(|_| rng.next_u64() as u32 as i32 as i128),
+            )),
         }
     }
 
@@ -68,10 +69,18 @@ pub struct MemoryState {
 impl MemoryState {
     pub fn random(rng: &mut StdRng) -> Self {
         MemoryState {
-            ts1_val: Some(Tensor::new(Some(&[rng.next_u64() as i128]), &[1]).unwrap()),
-            ts2_val: Some(Tensor::new(Some(&[rng.next_u64() as i128]), &[1]).unwrap()),
-            td_pre_val: Some(Tensor::new(Some(&[rng.next_u64() as i128]), &[1]).unwrap()),
-            td_post_val: Some(Tensor::new(Some(&[rng.next_u64() as i128]), &[1]).unwrap()),
+            ts1_val: Some(
+                Tensor::new(Some(&[rng.next_u64() as u32 as i32 as i128]), &[1]).unwrap(),
+            ),
+            ts2_val: Some(
+                Tensor::new(Some(&[rng.next_u64() as u32 as i32 as i128]), &[1]).unwrap(),
+            ),
+            td_pre_val: Some(
+                Tensor::new(Some(&[rng.next_u64() as u32 as i32 as i128]), &[1]).unwrap(),
+            ),
+            td_post_val: Some(
+                Tensor::new(Some(&[rng.next_u64() as u32 as i32 as i128]), &[1]).unwrap(),
+            ),
         }
     }
 }
@@ -116,7 +125,7 @@ pub struct ONNXInstr {
     /// This is analogous to the `rd` register specifier in RISC-V, indicating
     /// where the result of the operation should be written.
     pub td: Option<usize>,
-    pub imm: Option<i128>,
+    pub imm: Option<Tensor<i128>>, // Immediate value, if applicable
     /// If this instruction is part of a "virtual sequence" (see Section 6.2 of the
     /// Jolt paper), then this contains the number of virtual instructions after this
     /// one in the sequence. I.e. if this is the last instruction in the sequence,
@@ -150,6 +159,13 @@ impl MemoryOp {
 
 impl ONNXCycle {
     #[allow(clippy::type_complexity)]
+    /// Converts the cycle's tensor state into memory operation tuples for ts1, ts2, and td.
+    ///
+    /// Each returned tuple contains:
+    /// - A vector of memory addresses, obtained via `get_tensor_addresses`.
+    /// - A vector of normalized values (u64), padded with zeros up to `MAX_TENSOR_SIZE`.
+    ///
+    /// Panics if any underlying tensor's length exceeds `MAX_TENSOR_SIZE`.
     pub fn to_memory_ops(
         &self,
     ) -> (
@@ -157,57 +173,118 @@ impl ONNXCycle {
         (Vec<usize>, Vec<u64>),
         (Vec<usize>, Vec<u64>, Vec<u64>),
     ) {
-        let ts1 = self.memory_state.ts1_val.as_ref().map_or_else(
-            || (vec![0usize; MAX_TENSOR_SIZE], vec![0; MAX_TENSOR_SIZE]),
-            |t| {
-                assert!(
-                    t.inner.len() <= MAX_TENSOR_SIZE,
-                    "ts1_val length exceeds MAX_TENSOR_SIZE"
-                );
-                let mut val: Vec<u64> = t.inner.iter().map(normalize).collect();
-                val.resize(MAX_TENSOR_SIZE, 0);
-                (get_tensor_addresses(self.ts1()), val)
-            },
-        );
-        let ts2 = self.memory_state.ts2_val.as_ref().map_or_else(
-            || (vec![0usize; MAX_TENSOR_SIZE], vec![0; MAX_TENSOR_SIZE]),
-            |t| {
-                assert!(
-                    t.inner.len() <= MAX_TENSOR_SIZE,
-                    "ts2_val length exceeds MAX_TENSOR_SIZE"
-                );
-                let mut val: Vec<u64> = t.inner.iter().map(normalize).collect();
-                val.resize(MAX_TENSOR_SIZE, 0);
-                (get_tensor_addresses(self.ts2()), val)
-            },
-        );
-        let td = self.memory_state.td_post_val.as_ref().map_or_else(
-            || {
-                (
-                    vec![0usize; MAX_TENSOR_SIZE],
-                    vec![0; MAX_TENSOR_SIZE],
-                    vec![0; MAX_TENSOR_SIZE],
-                )
-            },
-            |t| {
-                assert!(
-                    t.inner.len() <= MAX_TENSOR_SIZE,
-                    "ts2_val length exceeds MAX_TENSOR_SIZE"
-                );
-                let mut post_val: Vec<u64> = t.inner.iter().map(normalize).collect();
-                post_val.resize(MAX_TENSOR_SIZE, 0);
-                (
-                    get_tensor_addresses(self.td()),
-                    vec![0; MAX_TENSOR_SIZE], // TODO: It is not guaranteed that td_pre_val is always 0. For example const opcodes.
-                    post_val,
-                )
-            },
+        let ts1 = (get_tensor_addresses(self.ts1()), self.ts1_vals());
+        let ts2 = (get_tensor_addresses(self.ts2()), self.ts2_vals());
+        let td = (
+            get_tensor_addresses(self.td()),
+            self.td_pre_vals(),
+            self.td_post_vals(),
         );
         (ts1, ts2, td)
     }
+
+    /// Returns normalized and padded values for ts1.
+    ///
+    /// - Normalizes each element of `ts1_val` via `normalize`.
+    /// - Pads the resulting Vec<u64> with zeros up to `MAX_TENSOR_SIZE`.
+    ///
+    /// If no `ts1_val` is present, returns a zero-filled Vec<u64> of length `MAX_TENSOR_SIZE`.
+    ///
+    /// # Panics
+    /// Panics if the tensor's length exceeds `MAX_TENSOR_SIZE`.
+    pub fn ts1_vals(&self) -> Vec<u64> {
+        self.build_vals(self.memory_state.ts1_val.as_ref(), "ts1_val")
+    }
+
+    /// Returns normalized and padded values for ts2.
+    ///
+    /// Behaves like `ts1_vals`, but for `ts2_val`.
+    pub fn ts2_vals(&self) -> Vec<u64> {
+        self.build_vals(self.memory_state.ts2_val.as_ref(), "ts2_val")
+    }
+
+    /// Returns normalized and padded post-execution values for td.
+    ///
+    /// - Normalizes each element of `td_post_val` via `normalize`.
+    /// - Pads the Vec<u64> with zeros up to `MAX_TENSOR_SIZE`.
+    ///
+    /// If no `td_post_val` is present, returns a zero-filled Vec<u64> of length `MAX_TENSOR_SIZE`.
+    ///
+    /// # Panics
+    /// Panics if `td_post_val`'s length exceeds `MAX_TENSOR_SIZE`.
+    pub fn td_post_vals(&self) -> Vec<u64> {
+        self.build_vals(self.memory_state.td_post_val.as_ref(), "td_post_val")
+    }
+
+    /// Returns a zero-filled Vec<u64> for pre-execution values of td.
+    ///
+    /// Currently always zeros; may change for const opcodes.
+    pub fn td_pre_vals(&self) -> Vec<u64> {
+        self.build_vals(self.memory_state.td_pre_val.as_ref(), "td_pre_val")
+    }
+
+    /// Helper to build normalized and padded u64 values from an optional TensorValue.
+    ///
+    /// - `tensor_opt`: Optional reference to the raw tensor values.
+    /// - `name`: Used in panic message if length exceeds limit.
+    ///
+    /// # Panics
+    /// - Panics if the tensor's length exceeds `MAX_TENSOR_SIZE`.
+    /// ---
+    /// Returns a Vec<u64> of normalized values, padded with zeros to `MAX_TENSOR_SIZE`.
+    fn build_vals(&self, tensor_opt: Option<&Tensor<i128>>, name: &str) -> Vec<u64> {
+        match tensor_opt {
+            Some(t) => {
+                assert!(
+                    t.inner.len() <= MAX_TENSOR_SIZE,
+                    "{name} length exceeds MAX_TENSOR_SIZE",
+                );
+                let mut vals: Vec<u64> = t.inner.iter().map(normalize).collect();
+                vals.resize(MAX_TENSOR_SIZE, 0);
+                vals
+            }
+            None => vec![0u64; MAX_TENSOR_SIZE],
+        }
+    }
+
+    /// Returns the optional tensor for ts1 (unmodified).
+    pub fn ts1_val_raw(&self) -> Option<&Tensor<i128>> {
+        self.memory_state.ts1_val.as_ref()
+    }
+
+    /// Returns the optional tensor for ts2 (unmodified).
+    pub fn ts2_val_raw(&self) -> Option<&Tensor<i128>> {
+        self.memory_state.ts2_val.as_ref()
+    }
+
+    /// Returns the optional tensor for td_post (unmodified).
+    pub fn td_post_val_raw(&self) -> Option<&Tensor<i128>> {
+        self.memory_state.td_post_val.as_ref()
+    }
+
+    /// Returns the optional tensor for advice.
+    /// # Note normalizes the advice value to u64 and pads it to `MAX_TENSOR_SIZE`.
+    /// # Panics if the advice value's length exceeds `MAX_TENSOR_SIZE`.
+    pub fn advice_value(&self) -> Option<Vec<u64>> {
+        self.advice_value.as_ref().map(|adv| {
+            assert!(
+                adv.inner.len() <= MAX_TENSOR_SIZE,
+                "advice_value length exceeds MAX_TENSOR_SIZE"
+            );
+            let mut vals: Vec<u64> = adv.inner.iter().map(normalize).collect();
+            vals.resize(MAX_TENSOR_SIZE, 0);
+            vals
+        })
+    }
+
+    pub fn imm(&self) -> Vec<u64> {
+        self.instr.imm()
+    }
 }
 
-fn get_tensor_addresses(t: usize) -> Vec<usize> {
+/// Converts a tensor index to a vector of addresses.
+/// Used in the zkVM to track all the onnx runtime machine tensor read and write addresses.
+pub fn get_tensor_addresses(t: usize) -> Vec<usize> {
     let mut addresses = Vec::new();
     for i in 0..MAX_TENSOR_SIZE {
         addresses.push(t * MAX_TENSOR_SIZE + i);
@@ -216,7 +293,16 @@ fn get_tensor_addresses(t: usize) -> Vec<usize> {
 }
 
 // HACK(Forpee): This is a temporary function to normalize i128 values to u64 for the jolt execution trace.
+/// Normalizes an i128 value to u64 by casting it through i32 and u32.
+/// # Panics
+/// Panics if the value's absolute value exceeds `i128::from(u32::MAX)`.
+/// This is to ensure that the immediate value can be safely normalized to u32 and then store in 64 bits.
 fn normalize(value: &i128) -> u64 {
+    // TODO: Temp assert. We will remove this when we migrate runtime to 32-bit quant strat.
+    assert!(
+        value.abs() <= i128::from(u32::MAX),
+        "Value out of bounds for normalization"
+    );
     *value as i32 as u32 as u64
 }
 
@@ -229,6 +315,8 @@ pub enum CircuitFlags {
     LeftOperandIsTs1Value,
     /// 1 if the first instruction operand is TS2 value; 0 otherwise.
     RightOperandIsTs2Value,
+    /// 1 if the second instruction operand is `imm`; 0 otherwise.
+    RightOperandIsImm,
     /// 1 if the first lookup operand is the sum of the two instruction operands.
     AddOperands,
     /// 1 if the first lookup operand is the difference between the two instruction operands.
@@ -237,15 +325,16 @@ pub enum CircuitFlags {
     MultiplyOperands,
     /// 1 if the lookup output is to be stored in `td` at the end of the step.
     WriteLookupOutputToTD,
-    // TODO(Forpee): Virtual Instructions (#20 https://github.com/ICME-Lab/zkml-jolt/issues/20)
-    // /// 1 if the instruction is "inline", as defined in Section 6.1 of the Jolt paper.
-    // InlineSequenceInstruction,
-    // /// 1 if the instruction is an assert, as defined in Section 6.1.1 of the Jolt paper.
-    // Assert,
-    // /// Used in virtual sequences; the program counter should be the same for the full sequence.
-    // DoNotUpdateUnexpandedPC,
-    // /// Is (virtual) advice instruction
-    // Advice,
+    /// 1 if the instruction is "inline", as defined in Section 6.1 of the Jolt paper.
+    InlineSequenceInstruction,
+    /// 1 if the instruction is an assert, as defined in Section 6.1.1 of the Jolt paper.
+    Assert,
+    /// Used in virtual sequences; the program counter should be the same for the full sequence.
+    DoNotUpdateUnexpandedPC,
+    /// Is (virtual) advice instruction
+    Advice,
+    /// Is constant instruction
+    Const,
 }
 
 pub const NUM_CIRCUIT_FLAGS: usize = CircuitFlags::COUNT;
@@ -260,6 +349,10 @@ impl ONNXInstr {
             ONNXOpcode::Add
             | ONNXOpcode::Sub
             | ONNXOpcode::Mul
+            | ONNXOpcode::VirtualMove
+            | ONNXOpcode::VirtualAssertValidSignedRemainder
+            | ONNXOpcode::VirtualAssertValidDiv0
+            | ONNXOpcode::VirtualAssertEq
         );
 
         flags[CircuitFlags::RightOperandIsTs2Value as usize] = matches!(
@@ -267,11 +360,20 @@ impl ONNXInstr {
             ONNXOpcode::Add
             | ONNXOpcode::Sub
             | ONNXOpcode::Mul
+            | ONNXOpcode::VirtualAssertValidSignedRemainder
+            | ONNXOpcode::VirtualAssertValidDiv0
+            | ONNXOpcode::VirtualAssertEq
+        );
+
+        flags[CircuitFlags::RightOperandIsImm as usize] = matches!(
+            self.opcode,
+            | ONNXOpcode::VirtualMove
         );
 
         flags[CircuitFlags::AddOperands as usize] = matches!(
             self.opcode,
-            ONNXOpcode::Add,
+            ONNXOpcode::Add
+            | ONNXOpcode::VirtualMove
         );
 
         flags[CircuitFlags::SubtractOperands as usize] = matches!(
@@ -289,7 +391,32 @@ impl ONNXInstr {
             ONNXOpcode::Add
             | ONNXOpcode::Sub
             | ONNXOpcode::Mul
+            | ONNXOpcode::VirtualAdvice
+            | ONNXOpcode::VirtualMove
+            | ONNXOpcode::VirtualConst
         );
+
+        flags[CircuitFlags::Advice as usize] = matches!(
+            self.opcode,
+            ONNXOpcode::VirtualAdvice
+        );
+
+        flags[CircuitFlags::Const as usize] = matches!(
+            self.opcode,
+            ONNXOpcode::VirtualConst
+        );
+
+        flags[CircuitFlags::Assert as usize] = matches!(
+            self.opcode,
+            ONNXOpcode::VirtualAssertValidSignedRemainder
+            | ONNXOpcode::VirtualAssertValidDiv0
+            | ONNXOpcode::VirtualAssertEq
+        );
+
+        flags[CircuitFlags::InlineSequenceInstruction as usize] =
+            self.virtual_sequence_remaining.is_some();
+        flags[CircuitFlags::DoNotUpdateUnexpandedPC as usize] =
+            self.virtual_sequence_remaining.unwrap_or(0) != 0;
 
         flags
     }
@@ -304,8 +431,8 @@ impl InterleavedBitsMarker for [bool; NUM_CIRCUIT_FLAGS] {
         !self[CircuitFlags::AddOperands]
             && !self[CircuitFlags::SubtractOperands]
             && !self[CircuitFlags::MultiplyOperands]
-        // TODO(Forpee): Virtual Instructions (#20 https://github.com/ICME-Lab/zkml-jolt/issues/20)
-        // && !self[CircuitFlags::Advice]
+            && !self[CircuitFlags::Advice]
+            && !self[CircuitFlags::Const]
     }
 }
 
@@ -346,6 +473,21 @@ impl ONNXInstr {
             virtual_sequence_remaining: None,
         }
     }
+
+    pub fn imm(&self) -> Vec<u64> {
+        match self.imm.clone() {
+            Some(imm) => {
+                assert!(
+                    imm.inner.len() <= MAX_TENSOR_SIZE,
+                    "imm length exceeds MAX_TENSOR_SIZE"
+                );
+                let mut vals: Vec<u64> = imm.inner.iter().map(normalize).collect();
+                vals.resize(MAX_TENSOR_SIZE, 0);
+                vals
+            }
+            None => vec![0u64; MAX_TENSOR_SIZE],
+        }
+    }
 }
 
 // TODO: Expand the instruction set architecture (ISA):
@@ -383,9 +525,13 @@ pub enum ONNXOpcode {
     VirtualAssertValidDiv0,
     VirtualMove,
     VirtualAssertEq,
+    VirtualConst,
 }
 
 impl ONNXOpcode {
+    // TODO: Refactor bitflag generation to be more extensible.
+    // Currently uses manual bit shifting due to RebaseScale variant containing
+    // a Box<ONNXOpcode>, which prevents simple discriminant-based conversion.
     pub fn into_bitflag(self) -> u64 {
         match self {
             ONNXOpcode::Noop => 1u64 << 0,
@@ -405,7 +551,15 @@ impl ONNXOpcode {
             ONNXOpcode::MeanOfSquares => 1u64 << 14,
             ONNXOpcode::Sigmoid => 1u64 << 15,
             ONNXOpcode::Softmax => 1u64 << 16,
-            _ => panic!("ONNXOpcode not implemented in into_bitflag"),
+
+            // Virtual instructions
+            ONNXOpcode::VirtualAdvice => 1u64 << 17,
+            ONNXOpcode::VirtualAssertValidSignedRemainder => 1u64 << 18,
+            ONNXOpcode::VirtualAssertValidDiv0 => 1u64 << 19,
+            ONNXOpcode::VirtualMove => 1u64 << 20,
+            ONNXOpcode::VirtualAssertEq => 1u64 << 21,
+            ONNXOpcode::VirtualConst => 1u64 << 22,
+            _ => panic!("ONNXOpcode {self:#?} not implemented in into_bitflag"),
         }
     }
 }
