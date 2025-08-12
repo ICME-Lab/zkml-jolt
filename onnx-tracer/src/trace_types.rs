@@ -132,6 +132,8 @@ pub struct ONNXInstr {
     /// `virtual_sequence_remaining` will be Some(0); if this is the penultimate instruction
     /// in the sequence, `virtual_sequence_remaining` will be Some(1); etc.
     pub virtual_sequence_remaining: Option<usize>,
+    /// Number of active elements in the output (useful since we pad the output to `MAX_TENSOR_SIZE`).
+    pub active_output_elements: usize,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
@@ -237,7 +239,10 @@ impl ONNXCycle {
             Some(t) => {
                 assert!(
                     t.inner.len() <= MAX_TENSOR_SIZE,
-                    "{name} length exceeds MAX_TENSOR_SIZE",
+                    "{} length exceeds MAX_TENSOR_SIZE; actual length = {}, MAX_TENSOR_SIZE = {}",
+                    name,
+                    t.inner.len(),
+                    MAX_TENSOR_SIZE
                 );
                 let mut vals: Vec<u64> = t.inner.iter().map(normalize).collect();
                 vals.resize(MAX_TENSOR_SIZE, 0);
@@ -335,6 +340,8 @@ pub enum CircuitFlags {
     Advice,
     /// Is constant instruction
     Const,
+    /// Is this a sum operator
+    SumOperands,
 }
 
 pub const NUM_CIRCUIT_FLAGS: usize = CircuitFlags::COUNT;
@@ -353,6 +360,8 @@ impl ONNXInstr {
             | ONNXOpcode::VirtualAssertValidSignedRemainder
             | ONNXOpcode::VirtualAssertValidDiv0
             | ONNXOpcode::VirtualAssertEq
+            | ONNXOpcode::Gte
+            | ONNXOpcode::Sum
         );
 
         flags[CircuitFlags::RightOperandIsTs2Value as usize] = matches!(
@@ -363,6 +372,7 @@ impl ONNXInstr {
             | ONNXOpcode::VirtualAssertValidSignedRemainder
             | ONNXOpcode::VirtualAssertValidDiv0
             | ONNXOpcode::VirtualAssertEq
+            | ONNXOpcode::Gte
         );
 
         flags[CircuitFlags::RightOperandIsImm as usize] = matches!(
@@ -394,6 +404,8 @@ impl ONNXInstr {
             | ONNXOpcode::VirtualAdvice
             | ONNXOpcode::VirtualMove
             | ONNXOpcode::VirtualConst
+            | ONNXOpcode::Gte
+            | ONNXOpcode::Sum,
         );
 
         flags[CircuitFlags::Advice as usize] = matches!(
@@ -404,6 +416,7 @@ impl ONNXInstr {
         flags[CircuitFlags::Const as usize] = matches!(
             self.opcode,
             ONNXOpcode::VirtualConst
+            | ONNXOpcode::Constant
         );
 
         flags[CircuitFlags::Assert as usize] = matches!(
@@ -417,6 +430,11 @@ impl ONNXInstr {
             self.virtual_sequence_remaining.is_some();
         flags[CircuitFlags::DoNotUpdateUnexpandedPC as usize] =
             self.virtual_sequence_remaining.unwrap_or(0) != 0;
+
+        flags[CircuitFlags::SumOperands as usize] = matches!(
+            self.opcode,
+            ONNXOpcode::Sum
+        );
 
         flags
     }
@@ -433,6 +451,7 @@ impl InterleavedBitsMarker for [bool; NUM_CIRCUIT_FLAGS] {
             && !self[CircuitFlags::MultiplyOperands]
             && !self[CircuitFlags::Advice]
             && !self[CircuitFlags::Const]
+            && !self[CircuitFlags::SumOperands]
     }
 }
 
@@ -459,6 +478,7 @@ impl ONNXInstr {
             td: None,
             imm: None,
             virtual_sequence_remaining: None,
+            active_output_elements: 0,
         }
     }
 
@@ -471,6 +491,7 @@ impl ONNXInstr {
             td: None,
             imm: None,
             virtual_sequence_remaining: None,
+            active_output_elements: 0,
         }
     }
 
@@ -518,6 +539,8 @@ pub enum ONNXOpcode {
     Sigmoid,
     Softmax,
     RebaseScale(Box<ONNXOpcode>),
+    Gte,
+    Reshape,
 
     // Virtual instructions
     VirtualAdvice,
@@ -559,6 +582,9 @@ impl ONNXOpcode {
             ONNXOpcode::VirtualMove => 1u64 << 20,
             ONNXOpcode::VirtualAssertEq => 1u64 << 21,
             ONNXOpcode::VirtualConst => 1u64 << 22,
+
+            ONNXOpcode::Gte => 1u64 << 23,
+            ONNXOpcode::Reshape => 1u64 << 24,
             _ => panic!("ONNXOpcode {self:#?} not implemented in into_bitflag"),
         }
     }

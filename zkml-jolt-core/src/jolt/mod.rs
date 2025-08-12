@@ -249,7 +249,7 @@ where
 }
 
 #[cfg(test)]
-mod tests {
+mod e2e_tests {
     use crate::{
         jolt::{JoltProverPreprocessing, JoltSNARK, execution_trace::jolt_execution_trace},
         program::ONNXProgram,
@@ -258,8 +258,8 @@ mod tests {
     use jolt_core::{
         poly::commitment::dory::DoryCommitmentScheme, utils::transcript::KeccakTranscript,
     };
-    use log::{debug, info};
-    use onnx_tracer::{builder, model, tensor::Tensor};
+    use log::debug;
+    use onnx_tracer::{builder, logger::init_logger, model, tensor::Tensor};
     use serde_json::Value;
     use serial_test::serial;
     use std::{collections::HashMap, fs::File, io::Read};
@@ -267,6 +267,87 @@ mod tests {
     type PCS = DoryCommitmentScheme<KeccakTranscript>;
 
     // TODO: Refactor duplicate code in tests
+
+    /*
+        vocab.json:
+        {
+            "i": 1,
+            "love": 2,
+            "this": 3,
+            "is": 4,
+            "great": 5,
+            "happy": 6,
+            "with": 7,
+            "the": 8,
+            "result": 9,
+            "hate": 10,
+            "bad": 11,
+            "not": 12,
+            "satisfied": 13
+        }
+    */
+
+    /// const: [I, love, this, 0, 0]
+    const I_LOVE_THIS: [i128; 5] = [1, 2, 3, 0, 0];
+
+    /// const: [I, hate, this, 0, 0]
+    const I_HATE_THIS: [i128; 5] = [1, 10, 3, 0, 0];
+
+    /// const: [This, is, great, 0, 0]
+    const THIS_IS_GREAT: [i128; 5] = [3, 4, 5, 0, 0];
+
+    /// const: [This, is, bad, 0, 0]
+    const THIS_IS_BAD: [i128; 5] = [3, 4, 11, 0, 0];
+
+    const TEST_SENTIMENT_INPUTS: [[i128; 5]; 4] =
+        [I_LOVE_THIS, I_HATE_THIS, THIS_IS_GREAT, THIS_IS_BAD];
+
+    /// The sentiment analysis model processes tokenized text inputs and outputs sentiment predictions.
+    /// Expected outputs: 1 = positive sentiment, 0 = negative sentiment
+    /// These test cases verify the model correctly classifies:
+    /// - "I love this" → positive (1)
+    /// - "I hate this" → negative (0)
+    /// - "This is great" → positive (1)
+    /// - "This is bad" → negative (0)
+    const EXPECTED_SENTIMENT_OUTPUTS: [i128; 4] = [1, 0, 1, 0];
+
+    #[test]
+    #[serial]
+    fn test_embedding_sentiment() {
+        init_logger();
+
+        // --- Preprocessing ---
+        let mut sentiment_model = builder::embedding_sentiment_model();
+        let program_bytecode = onnx_tracer::decode_model(sentiment_model.clone());
+        debug!("Program code: {program_bytecode:#?}");
+        let pp: JoltProverPreprocessing<Fr, PCS, KeccakTranscript> =
+            JoltSNARK::prover_preprocess(program_bytecode);
+
+        // --- Test inference ---
+        for (i, input) in TEST_SENTIMENT_INPUTS.iter().enumerate() {
+            let result = sentiment_model
+                .forward(&[Tensor::new(Some(input), &[1, 5]).unwrap()])
+                .unwrap();
+            let output = result.outputs[0].clone();
+            assert_eq!(output.inner[0], EXPECTED_SENTIMENT_OUTPUTS[i]);
+        }
+        sentiment_model.clear_execution_trace();
+
+        // --- Prove ---
+        let raw_trace = onnx_tracer::execution_trace(
+            sentiment_model,
+            &Tensor::new(Some(&THIS_IS_GREAT), &[1, 5]).unwrap(),
+        );
+        debug!("Raw trace: {raw_trace:#?}");
+        let execution_trace = jolt_execution_trace(raw_trace);
+        debug!("Execution trace: {execution_trace:#?}");
+        debug!("Execution trace length: {}", execution_trace.len());
+        let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
+            JoltSNARK::prove(pp.clone(), execution_trace);
+
+        // --- Verify ---
+        snark.verify((&pp).into()).unwrap();
+    }
 
     #[serial]
     #[test]
@@ -479,8 +560,8 @@ mod tests {
                 .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
                 .unwrap();
 
-            info!("Output: {}", output.show());
-            info!("Predicted class: {}", classes[pred_idx]);
+            debug!("Output: {}", output.show());
+            debug!("Predicted class: {}", classes[pred_idx]);
 
             predicted_classes.push(classes[pred_idx]);
         }
@@ -521,7 +602,7 @@ mod tests {
             .forward(&[text_classification.inputs.clone()])
             .unwrap();
         let output = result.outputs[0].clone();
-        info!("Output: {output:#?}",);
+        debug!("Output: {output:#?}",);
     }
 
     #[should_panic(expected = "not yet implemented")]

@@ -1,6 +1,7 @@
 use crate::jolt::JoltProverPreprocessing;
 use crate::jolt::instruction::VirtualInstructionSequence;
 use crate::jolt::instruction::div::DIVInstruction;
+use crate::jolt::instruction::precompile::reduce_sum::ReduceSumInstruction;
 use crate::jolt::instruction::virtual_advice::ADVICEInstruction;
 use crate::jolt::instruction::virtual_const::ConstInstruction;
 use crate::utils::u64_vec_to_i128_iter;
@@ -26,7 +27,7 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::jolt::instruction::{
-    add::ADD, beq::BEQInstruction, mul::MUL, sub::SUB,
+    add::ADD, beq::BEQInstruction, ge::GEInstruction, mul::MUL, sub::SUB,
     virtual_assert_valid_div0::AssertValidDiv0Instruction,
     virtual_assert_valid_signed_remainder::AssertValidSignedRemainderInstruction,
     virtual_move::MOVEInstruction,
@@ -38,13 +39,14 @@ pub const WORD_SIZE: usize = 32;
 pub type ExecutionTrace = Vec<JoltONNXCycle>;
 pub type ONNXLookup = Vec<ElementWiseLookup>;
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct JoltONNXCycle {
     pub instruction_lookups: Option<ONNXLookup>,
     pub circuit_flags: [bool; NUM_CIRCUIT_FLAGS],
     pub memory_ops: MemoryOps,
     pub instr: ONNXInstr,
     pub advice_value: Option<Vec<u64>>,
+    pub precompile: Option<Precompile>,
 }
 
 // TODO(Forpee): Refactor these clones in JoltONNXCycle::ts1_read, ts2_read, td_write
@@ -83,6 +85,7 @@ impl JoltONNXCycle {
             memory_ops: MemoryOps::no_op(),
             instr: ONNXInstr::no_op(),
             advice_value: None,
+            precompile: None,
         }
     }
 }
@@ -106,11 +109,26 @@ impl JoltONNXCycle {
 
         // now safely populate lookups
         cycle.populate_instruction_lookups_internal();
+        cycle.populate_precompile();
         cycle
     }
 
     fn populate_instruction_lookups_internal(&mut self) {
         self.instruction_lookups = self.to_instruction_lookups();
+    }
+
+    fn populate_precompile(&mut self) {
+        let (_, ts1) = self.ts1_read();
+        match self.instr().opcode {
+            ONNXOpcode::Sum => {
+                let precompile = ReduceSumInstruction::<WORD_SIZE>(ts1);
+                self.precompile = Some(Precompile::ReduceSum(precompile));
+            }
+            _ => {
+                // No precompile for other opcodes
+                self.precompile = None;
+            }
+        }
     }
 }
 
@@ -190,6 +208,37 @@ impl MemoryOps {
     }
 }
 
+#[derive(Clone, Serialize, Deserialize)]
+pub enum Precompile {
+    ReduceSum(ReduceSumInstruction<WORD_SIZE>),
+}
+
+impl ONNXLookupQuery<WORD_SIZE> for Precompile {
+    fn to_instruction_inputs(&self) -> (Vec<u64>, Vec<i64>) {
+        match self {
+            Precompile::ReduceSum(instr) => instr.to_instruction_inputs(),
+        }
+    }
+
+    fn to_lookup_operands(&self) -> (Vec<u64>, Vec<u64>) {
+        match self {
+            Precompile::ReduceSum(instr) => instr.to_lookup_operands(),
+        }
+    }
+
+    fn to_lookup_index(&self) -> Vec<u64> {
+        match self {
+            Precompile::ReduceSum(instr) => instr.to_lookup_index(),
+        }
+    }
+
+    fn to_lookup_output(&self) -> Vec<u64> {
+        match self {
+            Precompile::ReduceSum(instr) => instr.to_lookup_output(),
+        }
+    }
+}
+
 pub trait WitnessGenerator {
     fn generate_witness<F, PCS, ProofTranscript>(
         &self,
@@ -220,6 +269,10 @@ impl<const WORD_SIZE: usize> ONNXLookupQuery<WORD_SIZE> for JoltONNXCycle {
     /// Returns a tuple of the instruction's inputs. If the instruction has only one input,
     /// one of the tuple values will be 0.
     fn to_instruction_inputs(&self) -> (Vec<u64>, Vec<i64>) {
+        if let Some(precompile) = &self.precompile {
+            return precompile.to_instruction_inputs();
+        }
+
         self.instruction_lookups.as_ref().map_or(
             (vec![0; MAX_TENSOR_SIZE], vec![0; MAX_TENSOR_SIZE]),
             |lookups| {
@@ -235,6 +288,9 @@ impl<const WORD_SIZE: usize> ONNXLookupQuery<WORD_SIZE> for JoltONNXCycle {
     /// same as the instruction inputs returned by `to_instruction_inputs`, but in some cases
     /// (e.g. ADD, MUL) the instruction inputs are combined to form a single lookup operand.
     fn to_lookup_operands(&self) -> (Vec<u64>, Vec<u64>) {
+        if let Some(precompile) = &self.precompile {
+            return precompile.to_lookup_operands();
+        }
         self.instruction_lookups.as_ref().map_or(
             (vec![0; MAX_TENSOR_SIZE], vec![0; MAX_TENSOR_SIZE]),
             |lookups| {
@@ -249,6 +305,9 @@ impl<const WORD_SIZE: usize> ONNXLookupQuery<WORD_SIZE> for JoltONNXCycle {
     /// Converts this instruction's operands into a lookup index (as used in sparse-dense Shout).
     /// By default, interleaves the two bits of the two operands together.
     fn to_lookup_index(&self) -> Vec<u64> {
+        if let Some(precompile) = &self.precompile {
+            return precompile.to_lookup_index();
+        }
         self.instruction_lookups
             .as_ref()
             .map_or(vec![0; MAX_TENSOR_SIZE], |lookups| {
@@ -261,6 +320,9 @@ impl<const WORD_SIZE: usize> ONNXLookupQuery<WORD_SIZE> for JoltONNXCycle {
 
     /// Computes the output lookup entry for this instruction as a u64.
     fn to_lookup_output(&self) -> Vec<u64> {
+        if let Some(precompile) = &self.precompile {
+            return precompile.to_lookup_output();
+        }
         self.instruction_lookups
             .as_ref()
             .map_or(vec![0; MAX_TENSOR_SIZE], |lookups| {
@@ -301,6 +363,8 @@ pub enum CommittedPolynomials {
     RightInstructionInput(usize),
     /// Product of `LeftInstructionInput` and `RightInstructionInput`
     Product(usize),
+    /// Td * CircuitFlag::WriteLookupOutputToTD
+    TdProdFlag(usize),
     // /// Whether the current instruction should write the lookup output to
     // /// the destination register
     WriteLookupOutputToTD(usize),
@@ -311,31 +375,25 @@ pub enum CommittedPolynomials {
     InstructionRa(usize),
 }
 
-pub const ALL_COMMITTED_POLYNOMIALS: [CommittedPolynomials; 4 * MAX_TENSOR_SIZE + 4] = {
-    let mut arr = [CommittedPolynomials::LeftInstructionInput(0); 4 * MAX_TENSOR_SIZE + 4];
+macro_rules! fill_array_committed {
+    ($arr:ident, $idx:ident, $variant:ident) => {{
+        let mut i = 0;
+        while i < MAX_TENSOR_SIZE {
+            $arr[$idx] = CommittedPolynomials::$variant(i);
+            $idx += 1;
+            i += 1;
+        }
+    }};
+}
+
+pub const ALL_COMMITTED_POLYNOMIALS: [CommittedPolynomials; 5 * MAX_TENSOR_SIZE + 4] = {
+    let mut arr = [CommittedPolynomials::LeftInstructionInput(0); 5 * MAX_TENSOR_SIZE + 4];
     let mut idx = 0;
-    while idx < MAX_TENSOR_SIZE {
-        arr[idx] = CommittedPolynomials::LeftInstructionInput(idx);
-        idx += 1;
-    }
-    let mut j = 0;
-    while j < MAX_TENSOR_SIZE {
-        arr[idx] = CommittedPolynomials::RightInstructionInput(j);
-        idx += 1;
-        j += 1;
-    }
-    let mut k = 0;
-    while k < MAX_TENSOR_SIZE {
-        arr[idx] = CommittedPolynomials::Product(k);
-        idx += 1;
-        k += 1;
-    }
-    let mut n = 0;
-    while n < MAX_TENSOR_SIZE {
-        arr[idx] = CommittedPolynomials::WriteLookupOutputToTD(n);
-        idx += 1;
-        n += 1;
-    }
+    fill_array_committed!(arr, idx, LeftInstructionInput);
+    fill_array_committed!(arr, idx, RightInstructionInput);
+    fill_array_committed!(arr, idx, Product);
+    fill_array_committed!(arr, idx, TdProdFlag);
+    fill_array_committed!(arr, idx, WriteLookupOutputToTD);
     arr[idx] = CommittedPolynomials::InstructionRa(0);
     arr[idx + 1] = CommittedPolynomials::InstructionRa(1);
     arr[idx + 2] = CommittedPolynomials::InstructionRa(2);
@@ -392,13 +450,26 @@ impl WitnessGenerator for CommittedPolynomials {
                     .collect();
                 coeffs.into()
             }
-            CommittedPolynomials::WriteLookupOutputToTD(i) => {
-                let coeffs: Vec<u8> = trace
+            CommittedPolynomials::TdProdFlag(i) => {
+                let coeffs: Vec<u32> = trace
                     .par_iter()
                     .map(|cycle| {
                         let flag = cycle.instr.to_circuit_flags()
                             [CircuitFlags::WriteLookupOutputToTD as usize];
-                        (cycle.td_write().0[*i] as u8) * (flag as u8)
+                        (cycle.td_write().0[*i] as u32) * (flag as u8 as u32)
+                    })
+                    .collect();
+                coeffs.into()
+            }
+            CommittedPolynomials::WriteLookupOutputToTD(i) => {
+                let coeffs: Vec<u32> = trace
+                    .par_iter()
+                    .map(|cycle| {
+                        let flag = cycle.instr.to_circuit_flags()
+                            [CircuitFlags::WriteLookupOutputToTD as usize];
+                        (cycle.td_write().0[*i] as u32)
+                            * (flag as u8 as u32)
+                            * ((*i < cycle.instr.active_output_elements) as u8 as u32)
                     })
                     .collect();
                 coeffs.into()
@@ -472,65 +543,47 @@ pub enum JoltONNXR1CSInputs {
     UnexpandedPC,     // Virtual (bytecode rv)
     NextUnexpandedPC, // Virtual (spartan shift sumcheck)
     NextPC,           // Virtual (spartan shift sumcheck)
+    ActiveOutput(usize),
+    TdProdFlag(usize), // Td * CircuitFlag::WriteLookupOutputToTD
+    Ts1Value(usize),   // Virtual (tensor registers rv)
+    Ts2Value(usize),   // Virtual (tensor registers rv)
+    Imm(usize),        // Virtual (bytecode rv)
 }
 
+macro_rules! fill_array_r1cs_inputs {
+    ($arr:ident, $idx:ident, $variant:ident) => {{
+        let mut i = 0;
+        while i < MAX_TENSOR_SIZE {
+            $arr[$idx] = JoltONNXR1CSInputs::$variant(i);
+            $idx += 1;
+            i += 1;
+        }
+    }};
+}
+
+const NUM_TENSOR_INPUTS: usize = 14;
+const NUM_SINGLE_INPUTS: usize = NUM_CIRCUIT_FLAGS + 4; // 4 for PC, UnexpandedPC, NextUnexpandedPC, NextPC
 /// This const serves to define a canonical ordering over inputs (and thus indices
 /// for each input). This is needed for sumcheck.
-pub const ALL_R1CS_INPUTS: [JoltONNXR1CSInputs; 9 * MAX_TENSOR_SIZE + 11] = {
-    let mut arr = [JoltONNXR1CSInputs::Td(0); 9 * MAX_TENSOR_SIZE + 11];
+pub const ALL_R1CS_INPUTS: [JoltONNXR1CSInputs;
+    NUM_TENSOR_INPUTS * MAX_TENSOR_SIZE + NUM_SINGLE_INPUTS] = {
+    let mut arr =
+        [JoltONNXR1CSInputs::Td(0); NUM_TENSOR_INPUTS * MAX_TENSOR_SIZE + NUM_SINGLE_INPUTS];
     let mut idx = 0;
-    while idx < MAX_TENSOR_SIZE {
-        arr[idx] = JoltONNXR1CSInputs::Td(idx);
-        idx += 1;
-    }
-    let mut h = 0;
-    while h < MAX_TENSOR_SIZE {
-        arr[idx] = JoltONNXR1CSInputs::TdWriteValue(h);
-        idx += 1;
-        h += 1;
-    }
-    let mut i = 0;
-    while i < MAX_TENSOR_SIZE {
-        arr[idx] = JoltONNXR1CSInputs::LeftInstructionInput(i);
-        idx += 1;
-        i += 1;
-    }
-    let mut j = 0;
-    while j < MAX_TENSOR_SIZE {
-        arr[idx] = JoltONNXR1CSInputs::RightInstructionInput(j);
-        idx += 1;
-        j += 1;
-    }
-    let mut k = 0;
-    while k < MAX_TENSOR_SIZE {
-        arr[idx] = JoltONNXR1CSInputs::Product(k);
-        idx += 1;
-        k += 1;
-    }
-    let mut l = 0;
-    while l < MAX_TENSOR_SIZE {
-        arr[idx] = JoltONNXR1CSInputs::LeftLookupOperand(l);
-        idx += 1;
-        l += 1;
-    }
-    let mut m = 0;
-    while m < MAX_TENSOR_SIZE {
-        arr[idx] = JoltONNXR1CSInputs::RightLookupOperand(m);
-        idx += 1;
-        m += 1;
-    }
-    let mut n = 0;
-    while n < MAX_TENSOR_SIZE {
-        arr[idx] = JoltONNXR1CSInputs::LookupOutput(n);
-        idx += 1;
-        n += 1;
-    }
-    let mut o = 0;
-    while o < MAX_TENSOR_SIZE {
-        arr[idx] = JoltONNXR1CSInputs::WriteLookupOutputToTD(o);
-        idx += 1;
-        o += 1;
-    }
+    fill_array_r1cs_inputs!(arr, idx, Td);
+    fill_array_r1cs_inputs!(arr, idx, TdWriteValue);
+    fill_array_r1cs_inputs!(arr, idx, LeftInstructionInput);
+    fill_array_r1cs_inputs!(arr, idx, RightInstructionInput);
+    fill_array_r1cs_inputs!(arr, idx, Product);
+    fill_array_r1cs_inputs!(arr, idx, LeftLookupOperand);
+    fill_array_r1cs_inputs!(arr, idx, RightLookupOperand);
+    fill_array_r1cs_inputs!(arr, idx, LookupOutput);
+    fill_array_r1cs_inputs!(arr, idx, WriteLookupOutputToTD);
+    fill_array_r1cs_inputs!(arr, idx, ActiveOutput);
+    fill_array_r1cs_inputs!(arr, idx, TdProdFlag);
+    fill_array_r1cs_inputs!(arr, idx, Ts1Value);
+    fill_array_r1cs_inputs!(arr, idx, Ts2Value);
+    fill_array_r1cs_inputs!(arr, idx, Imm);
     arr[idx] = JoltONNXR1CSInputs::OpFlags(CircuitFlags::AddOperands);
     idx += 1;
     arr[idx] = JoltONNXR1CSInputs::OpFlags(CircuitFlags::SubtractOperands);
@@ -545,6 +598,18 @@ pub const ALL_R1CS_INPUTS: [JoltONNXR1CSInputs; 9 * MAX_TENSOR_SIZE + 11] = {
     idx += 1;
     arr[idx] = JoltONNXR1CSInputs::OpFlags(CircuitFlags::InlineSequenceInstruction);
     idx += 1;
+    arr[idx] = JoltONNXR1CSInputs::OpFlags(CircuitFlags::SumOperands);
+    idx += 1;
+    arr[idx] = JoltONNXR1CSInputs::OpFlags(CircuitFlags::LeftOperandIsTs1Value);
+    idx += 1;
+    arr[idx] = JoltONNXR1CSInputs::OpFlags(CircuitFlags::RightOperandIsTs2Value);
+    idx += 1;
+    arr[idx] = JoltONNXR1CSInputs::OpFlags(CircuitFlags::RightOperandIsImm);
+    idx += 1;
+    arr[idx] = JoltONNXR1CSInputs::OpFlags(CircuitFlags::Const);
+    idx += 1;
+    arr[idx] = JoltONNXR1CSInputs::OpFlags(CircuitFlags::Advice);
+    idx += 1;
     arr[idx] = JoltONNXR1CSInputs::PC;
     idx += 1;
     arr[idx] = JoltONNXR1CSInputs::UnexpandedPC;
@@ -552,6 +617,7 @@ pub const ALL_R1CS_INPUTS: [JoltONNXR1CSInputs; 9 * MAX_TENSOR_SIZE + 11] = {
     arr[idx] = JoltONNXR1CSInputs::NextUnexpandedPC;
     idx += 1;
     arr[idx] = JoltONNXR1CSInputs::NextPC;
+
     arr
 };
 
@@ -635,9 +701,9 @@ impl WitnessGenerator for JoltONNXR1CSInputs {
                 coeffs.into()
             }
             JoltONNXR1CSInputs::Td(i) => {
-                let coeffs: Vec<u8> = trace
+                let coeffs: Vec<u32> = trace
                     .par_iter()
-                    .map(|cycle| cycle.td_write().0.get(*i).cloned().unwrap() as u8)
+                    .map(|cycle| cycle.td_write().0.get(*i).cloned().unwrap() as u32)
                     .collect();
                 coeffs.into()
             }
@@ -645,6 +711,27 @@ impl WitnessGenerator for JoltONNXR1CSInputs {
                 let coeffs: Vec<u64> = trace
                     .par_iter()
                     .map(|cycle| cycle.td_write().2.get(*i).cloned().unwrap())
+                    .collect();
+                coeffs.into()
+            }
+            JoltONNXR1CSInputs::Ts1Value(i) => {
+                let coeffs: Vec<u64> = trace
+                    .par_iter()
+                    .map(|cycle| cycle.ts1_read().1.get(*i).cloned().unwrap())
+                    .collect();
+                coeffs.into()
+            }
+            JoltONNXR1CSInputs::Ts2Value(i) => {
+                let coeffs: Vec<u64> = trace
+                    .par_iter()
+                    .map(|cycle| cycle.ts2_read().1.get(*i).cloned().unwrap())
+                    .collect();
+                coeffs.into()
+            }
+            JoltONNXR1CSInputs::Imm(i) => {
+                let coeffs: Vec<u64> = trace
+                    .par_iter()
+                    .map(|cycle| cycle.instr.imm().get(*i).cloned().unwrap())
                     .collect();
                 coeffs.into()
             }
@@ -708,6 +795,16 @@ impl WitnessGenerator for JoltONNXR1CSInputs {
                     .collect();
                 coeffs.into()
             }
+            JoltONNXR1CSInputs::TdProdFlag(i) => {
+                CommittedPolynomials::TdProdFlag(*i).generate_witness(trace, preprocessing)
+            }
+            JoltONNXR1CSInputs::ActiveOutput(i) => {
+                let coeffs: Vec<u8> = trace
+                    .par_iter()
+                    .map(|cycle| (*i < cycle.instr.active_output_elements) as u8)
+                    .collect();
+                coeffs.into()
+            }
         }
     }
 }
@@ -759,6 +856,16 @@ macro_rules! define_lookup_enum {
                 }
             }
         }
+
+        impl InstructionLookup<$word_size> for $enum_name {
+            fn lookup_table(&self) -> Option<LookupTables<$word_size>> {
+                match self {
+                    $(
+                        $enum_name::$variant(inner) => inner.lookup_table(),
+                    )+
+                }
+            }
+        }
     };
 }
 
@@ -769,29 +876,15 @@ define_lookup_enum!(
     Add: ADD<WORD_SIZE>,
     Sub: SUB<WORD_SIZE>,
     Mul: MUL<WORD_SIZE>,
+    Ge: GEInstruction<WORD_SIZE>,
     Advice: ADVICEInstruction<WORD_SIZE>,
     VirtualAssertValidSignedRemainder: AssertValidSignedRemainderInstruction<WORD_SIZE>,
     VirtualAssertValidDiv0: AssertValidDiv0Instruction<WORD_SIZE>,
     VirtualAssertEq: BEQInstruction<WORD_SIZE>,
     VirtualMove: MOVEInstruction<WORD_SIZE>,
     VirtualConst: ConstInstruction<WORD_SIZE>,
+    Const: ConstInstruction<WORD_SIZE>,
 );
-
-impl InstructionLookup<WORD_SIZE> for ElementWiseLookup {
-    fn lookup_table(&self) -> Option<LookupTables<WORD_SIZE>> {
-        match self {
-            ElementWiseLookup::Add(add) => add.lookup_table(),
-            ElementWiseLookup::Sub(sub) => sub.lookup_table(),
-            ElementWiseLookup::Mul(mul) => mul.lookup_table(),
-            ElementWiseLookup::Advice(advice) => advice.lookup_table(),
-            ElementWiseLookup::VirtualAssertValidSignedRemainder(assert) => assert.lookup_table(),
-            ElementWiseLookup::VirtualAssertValidDiv0(assert) => assert.lookup_table(),
-            ElementWiseLookup::VirtualAssertEq(beq) => beq.lookup_table(),
-            ElementWiseLookup::VirtualMove(move_instr) => move_instr.lookup_table(),
-            ElementWiseLookup::VirtualConst(const_instr) => const_instr.lookup_table(),
-        }
-    }
-}
 
 impl JoltONNXCycle {
     fn to_instruction_lookups(&self) -> Option<ONNXLookup> {
@@ -854,7 +947,215 @@ impl JoltONNXCycle {
                     .map(|i| ElementWiseLookup::VirtualConst(ConstInstruction(imm[i])))
                     .collect(),
             ),
+            ONNXOpcode::Constant => Some(
+                (0..MAX_TENSOR_SIZE)
+                    .map(|i| ElementWiseLookup::Const(ConstInstruction(imm[i])))
+                    .collect(),
+            ),
+            ONNXOpcode::Gte => Some(
+                (0..MAX_TENSOR_SIZE)
+                    .map(|i| ElementWiseLookup::Ge(GEInstruction(ts1[i], ts2[i])))
+                    .collect(),
+            ),
             _ => None,
+        }
+    }
+}
+
+impl std::fmt::Debug for JoltONNXCycle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let lookup_summary = match self.lookup_kind() {
+            Some(name) => format!("Some({name})"),
+            None => "None".to_string(),
+        };
+
+        f.debug_struct("JoltONNXCycle")
+            .field("address", &self.instr.address)
+            .field("opcode", &self.instr.opcode)
+            .field("instruction", &self.instr)
+            .field("active_flags", &self.active_circuit_flags())
+            .field("lookup", &lookup_summary)
+            .field("ts1_read", &format_memory_op_ranges(&self.ts1_read()))
+            .field("ts2_read", &format_memory_op_ranges(&self.ts2_read()))
+            .field("td_write", &format_write_op_ranges(&self.td_write()))
+            .field("advice", &self.advice_value)
+            .finish()
+    }
+}
+
+impl JoltONNXCycle {
+    // Helper method to get only the active circuit flags
+    fn active_circuit_flags(&self) -> Vec<String> {
+        use onnx_tracer::trace_types::CircuitFlags;
+        let mut active = Vec::new();
+
+        if self.circuit_flags[CircuitFlags::LeftOperandIsTs1Value as usize] {
+            active.push("LeftOperandIsTs1Value".to_string());
+        }
+        if self.circuit_flags[CircuitFlags::RightOperandIsTs2Value as usize] {
+            active.push("RightOperandIsTs2Value".to_string());
+        }
+        if self.circuit_flags[CircuitFlags::RightOperandIsImm as usize] {
+            active.push("RightOperandIsImm".to_string());
+        }
+        if self.circuit_flags[CircuitFlags::AddOperands as usize] {
+            active.push("AddOperands".to_string());
+        }
+        if self.circuit_flags[CircuitFlags::SubtractOperands as usize] {
+            active.push("SubtractOperands".to_string());
+        }
+        if self.circuit_flags[CircuitFlags::MultiplyOperands as usize] {
+            active.push("MultiplyOperands".to_string());
+        }
+        if self.circuit_flags[CircuitFlags::WriteLookupOutputToTD as usize] {
+            active.push("WriteLookupOutputToTD".to_string());
+        }
+        if self.circuit_flags[CircuitFlags::InlineSequenceInstruction as usize] {
+            active.push("InlineSequenceInstruction".to_string());
+        }
+        if self.circuit_flags[CircuitFlags::Assert as usize] {
+            active.push("Assert".to_string());
+        }
+        if self.circuit_flags[CircuitFlags::DoNotUpdateUnexpandedPC as usize] {
+            active.push("DoNotUpdateUnexpandedPC".to_string());
+        }
+        if self.circuit_flags[CircuitFlags::Advice as usize] {
+            active.push("Advice".to_string());
+        }
+        if self.circuit_flags[CircuitFlags::Const as usize] {
+            active.push("Const".to_string());
+        }
+        if self.circuit_flags[CircuitFlags::SumOperands as usize] {
+            active.push("SumOperands".to_string());
+        }
+
+        // Compile-time check that we've handled all flags.
+        // Will error if you add a new flag and forget to update this.
+        const _: () = {
+            let _ = [(); (NUM_CIRCUIT_FLAGS == 13) as usize - 1];
+        };
+
+        if active.is_empty() {
+            active.push("None".to_string());
+        }
+
+        active
+    }
+
+    // Show None or Some(ElementWiseLookupVariant)
+    fn lookup_kind(&self) -> Option<&'static str> {
+        self.instruction_lookups
+            .as_ref()
+            .and_then(|v| v.first())
+            .map(|e| match e {
+                ElementWiseLookup::Add(_) => "Add",
+                ElementWiseLookup::Sub(_) => "Sub",
+                ElementWiseLookup::Mul(_) => "Mul",
+                ElementWiseLookup::Ge(_) => "Ge",
+                ElementWiseLookup::Advice(_) => "Advice",
+                ElementWiseLookup::VirtualAssertValidSignedRemainder(_) => {
+                    "VirtualAssertValidSignedRemainder"
+                }
+                ElementWiseLookup::VirtualAssertValidDiv0(_) => "VirtualAssertValidDiv0",
+                ElementWiseLookup::VirtualAssertEq(_) => "VirtualAssertEq",
+                ElementWiseLookup::VirtualMove(_) => "VirtualMove",
+                ElementWiseLookup::VirtualConst(_) => "VirtualConst",
+                ElementWiseLookup::Const(_) => "Const",
+            })
+    }
+}
+
+// Helper: format tensor memory operations, knowing addresses are always contiguous ranges
+fn format_memory_op_ranges((addresses, values): &(Vec<usize>, Vec<u64>)) -> String {
+    if addresses.is_empty() {
+        return "[]".to_string();
+    }
+    let start_addr = addresses[0];
+    let end_addr = start_addr + values.len();
+
+    format!(
+        "[{}..{}: [{}]]",
+        start_addr,
+        end_addr,
+        values
+            .iter()
+            .map(|&v| (v as u32 as i32).to_string())
+            .join(", ")
+    )
+}
+
+fn format_write_op_ranges(
+    (addresses, pre_vals, post_vals): &(Vec<usize>, Vec<u64>, Vec<u64>),
+) -> String {
+    if addresses.is_empty() {
+        return "[]".to_string();
+    }
+    let start_addr = addresses[0];
+    let end_addr = start_addr + pre_vals.len();
+
+    format!(
+        "[{}..{}: pre=[{}], post=[{}]]",
+        start_addr,
+        end_addr,
+        pre_vals
+            .iter()
+            .map(|&v| (v as u32 as i32).to_string())
+            .join(", "),
+        post_vals
+            .iter()
+            .map(|&v| (v as u32 as i32).to_string())
+            .join(", ")
+    )
+}
+
+#[cfg(test)]
+pub fn check_mcc(execution_trace: &ExecutionTrace) {
+    let tensor_heap_addresses: Vec<usize> = execution_trace
+        .iter()
+        .map(|cycle| cycle.td_write().0.last().unwrap() + 1)
+        .collect();
+    let tensor_heap_K = tensor_heap_addresses
+        .iter()
+        .max()
+        .unwrap()
+        .next_power_of_two();
+    let mut tensor_heap = vec![0u64; tensor_heap_K];
+    for (i, cycle) in execution_trace.iter().enumerate() {
+        // check reads
+
+        // ts1 read
+        let (ts1_read_addresses, ts1_read_values) = cycle.ts1_read();
+        for (addr, value) in itertools::izip!(ts1_read_addresses.iter(), ts1_read_values.iter()) {
+            assert_eq!(
+                tensor_heap[*addr], *value,
+                "TS1 READ error at cycle_{i}: {cycle:#?}; Expected: {}, got: {} at address {addr} ",
+                tensor_heap[*addr], *value
+            );
+        }
+
+        // ts2 read
+        let (ts2_read_addresses, ts2_read_values) = cycle.ts2_read();
+        for (addr, value) in itertools::izip!(ts2_read_addresses.iter(), ts2_read_values.iter()) {
+            assert_eq!(
+                tensor_heap[*addr], *value,
+                "TS2 READ error at cycle_{i}: {cycle:#?}; Expected: {}, got: {} at address {addr} ",
+                tensor_heap[*addr], *value
+            );
+        }
+
+        // check writes
+        let (td_write_addresses, td_pre_values, td_write_values) = cycle.td_write();
+        for (addr, pre_val, post_val) in itertools::izip!(
+            td_write_addresses.iter(),
+            td_pre_values.iter(),
+            td_write_values.iter()
+        ) {
+            assert_eq!(
+                tensor_heap[*addr], *pre_val,
+                "TD WRITE error at cycle_{i}: {cycle:#?}; Expected pre-state: {pre_val}, got: {} at address {addr} ",
+                tensor_heap[*addr]
+            );
+            tensor_heap[*addr] = *post_val;
         }
     }
 }
