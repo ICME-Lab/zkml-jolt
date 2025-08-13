@@ -227,5 +227,3 @@ impl<F: JoltField> R1CSConstraints<F> for JoltONNXConstraints {
         );
     }
 }
-
-pub fn gather(cs: &mut R1CSBuilder) {}
