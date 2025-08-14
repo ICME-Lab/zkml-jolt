@@ -268,6 +268,19 @@ mod e2e_tests {
 
     // TODO: Refactor duplicate code in tests
 
+    #[test]
+    fn test_sentiment_select() {
+        init_logger();
+        let mut input_vector = vec![1, 2, 3, 4, 5];
+
+        let text_classification = ONNXProgram {
+            model_path: "../onnx-tracer/models/sentiment_select/network.onnx".into(),
+            inputs: Tensor::new(Some(&input_vector), &[1, 5]).unwrap(), // Example input
+        };
+        let program_bytecode = text_classification.decode();
+        debug!("Program code: {program_bytecode:#?}",);
+    }
+
     /*
         vocab.json:
         {
