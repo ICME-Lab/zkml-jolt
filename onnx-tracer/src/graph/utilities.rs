@@ -1608,3 +1608,20 @@ pub fn create_div_node(
         num_uses,
     )
 }
+
+pub fn create_iff_node(
+    out_scale: i32,
+    inputs: Vec<(usize, usize)>,
+    out_dims: Vec<usize>,
+    idx: usize,
+    num_uses: usize,
+) -> Node {
+    create_node(
+        SupportedOp::Linear(PolyOp::Iff),
+        out_scale,
+        inputs,
+        out_dims,
+        idx,
+        num_uses,
+    )
+}

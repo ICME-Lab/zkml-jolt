@@ -75,6 +75,7 @@ pub fn jolt_virtual_sequence_test<I: VirtualInstructionSequence>(opcode: ONNXOpc
                 opcode: opcode.clone(),
                 ts1: Some(t_x as usize),
                 ts2: Some(t_y as usize),
+                ts3: None,
                 td: Some(td as usize),
                 imm: Some(Tensor::from(u64_vec_to_i128_iter(&y))),
                 virtual_sequence_remaining: None,
@@ -83,6 +84,7 @@ pub fn jolt_virtual_sequence_test<I: VirtualInstructionSequence>(opcode: ONNXOpc
             memory_state: MemoryState {
                 ts1_val: Some(Tensor::from(u64_vec_to_i128_iter(&x))),
                 ts2_val: Some(Tensor::from(u64_vec_to_i128_iter(&y))),
+                ts3_val: None,
                 td_pre_val: None,
                 td_post_val: Some(Tensor::from(u64_vec_to_i128_iter(&result))),
             },

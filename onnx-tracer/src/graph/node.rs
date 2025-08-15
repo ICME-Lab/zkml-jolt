@@ -457,6 +457,7 @@ impl Node {
             opcode: op.into(),
             ts1: self.inputs.first().map(node_idx),
             ts2: self.inputs.get(1).map(node_idx),
+            ts3: self.inputs.get(2).map(node_idx),
             // The output tensor is always the current node's index.
             td: Some(self.idx),
             imm: self.imm(),

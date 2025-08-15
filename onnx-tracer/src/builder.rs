@@ -4,7 +4,8 @@ use crate::{
         model::Model,
         node::SupportedOp,
         utilities::{
-            create_const_node, create_div_node, create_input_node, create_node, create_polyop_node,
+            create_const_node, create_div_node, create_iff_node, create_input_node, create_node,
+            create_polyop_node,
         },
     },
     tensor::Tensor,
@@ -166,6 +167,40 @@ impl ModelBuilder {
         self.model.insert_node(gte_node);
         (id, O)
     }
+
+    fn iff(
+        &mut self,
+        condition: Wire,
+        if_true: Wire,
+        if_false: Wire,
+        out_dims: Vec<usize>,
+        fanout_hint: usize,
+    ) -> Wire {
+        let id = self.alloc();
+        let iff_node = create_iff_node(
+            self.scale,
+            vec![condition, if_true, if_false],
+            out_dims,
+            id,
+            fanout_hint,
+        );
+        self.model.insert_node(iff_node);
+        (id, O)
+    }
+
+    fn const_tensor_with_scale(
+        &mut self,
+        tensor: Tensor<i128>,
+        scale: i32,
+        out_dims: Vec<usize>,
+        fanout_hint: usize,
+    ) -> Wire {
+        let id = self.alloc();
+        let raw = Tensor::new(Some(&[] as &[f32]), &[0]).unwrap();
+        let n = create_const_node(tensor, raw, scale, out_dims, id, fanout_hint);
+        self.model.insert_node(n);
+        (id, O)
+    }
 }
 
 /* ********************** Testing Model's ********************** */
@@ -257,7 +292,7 @@ pub fn scalar_addsubmul_model() -> Model {
 /// 4. Returns positive sentiment if result >= 0
 ///
 /// # Note all magic values here like -54, or the embedding tensors are from the pre-trained model in /models/sentiment_sum
-pub fn embedding_sentiment_model() -> Model {
+pub fn sentiment0() -> Model {
     const SCALE: i32 = 7;
     let mut b = ModelBuilder::new(SCALE);
 
@@ -308,6 +343,86 @@ pub fn embedding_sentiment_model() -> Model {
     let zero_const = b.const_tensor(zero, vec![1, 1], 1);
 
     // Node 10: Greater than or equal comparison
+    let result = b.greater_equal(added, zero_const, vec![1, 1], 1);
+
+    b.take(vec![input_indices.0], vec![result])
+}
+
+/// Implements a sentiment selection model with embeddings and conditional logic:
+/// 1. Looks up embeddings for input word indices
+/// 2. Filters embeddings based on a threshold (64)
+/// 3. Uses conditional (IFF) to select embeddings or zeros
+/// 4. Sums the selected embeddings
+/// 5. Applies scaling (multiply by 261, then divide by 128)
+/// 6. Adds bias (-142) and compares with zero
+pub fn sentiment_select() -> Model {
+    const SCALE: i32 = 7;
+    let mut b = ModelBuilder::new(SCALE);
+
+    // Node 0: Embedding tensor (shape [14, 1])
+    let mut embedding = Tensor::new(
+        Some(&[
+            0i128, 45, -137, -14, -6, 454, -81, -92, -32, 421, -106, -16, -146, 18,
+        ]),
+        &[14, 1],
+    )
+    .unwrap();
+    embedding.set_scale(SCALE);
+    let embedding_const = b.const_tensor_with_scale(embedding, SCALE, vec![14, 1], 1);
+
+    // Node 1: Input indices (shape [1, 5])
+    let input_indices = b.input(vec![1, 5], 1);
+
+    // Node 2: Gather embeddings
+    let gathered = b.gather(embedding_const, input_indices, 0, vec![1, 5, 1], 1);
+
+    // Node 3: Threshold constant (64)
+    let mut threshold = Tensor::new(Some(&[64i128; 5]), &[1, 5, 1]).unwrap();
+    threshold.set_scale(SCALE);
+    let threshold_const = b.const_tensor_with_scale(threshold, SCALE, vec![1, 5, 1], 1);
+
+    // Node 4: Greater than or equal comparison (embeddings >= threshold)
+    let condition = b.greater_equal(gathered, threshold_const, vec![1, 5, 1], 1);
+
+    // Node 5: Zero tensor for false case
+    let mut zeros = Tensor::new(Some(&[0i128, 0, 0, 0, 0]), &[1, 5, 1]).unwrap();
+    zeros.set_scale(SCALE);
+    let zeros_const = b.const_tensor_with_scale(zeros, SCALE, vec![1, 5, 1], 1);
+
+    // Node 6: IFF (conditional selection)
+    let selected = b.iff(condition, gathered, zeros_const, vec![1, 5, 1], 1);
+
+    // Node 7: Sum the selected embeddings
+    let summed = b.sum(selected, vec![1, 2], vec![1, 1, 1], 1);
+
+    // Node 8: Reshape to [1, 1]
+    let reshaped = b.reshape(summed, vec![1, 1], vec![1, 1], 1);
+
+    // Node 9: Scale factor constant (261)
+    let mut scale_factor = Tensor::new(Some(&[261i128]), &[1, 1]).unwrap();
+    scale_factor.set_scale(SCALE);
+    let scale_const = b.const_tensor_with_scale(scale_factor, SCALE, vec![1, 1], 1);
+
+    // Node 10: Multiply by scale factor (replacing RebaseScale)
+    let multiplied = b.poly(PolyOp::Mult, reshaped, scale_const, vec![1, 1], 1);
+
+    // Node 10.5: Divide by 128 (replacing the rebase scale division)
+    let scaled = b.div(128i128, multiplied, vec![1, 1], 1);
+
+    // Node 11: Bias constant (-142)
+    let mut bias = Tensor::new(Some(&[-142i128]), &[1, 1]).unwrap();
+    bias.set_scale(SCALE);
+    let bias_const = b.const_tensor_with_scale(bias, SCALE, vec![1, 1], 1);
+
+    // Node 12: Add bias
+    let added = b.poly(PolyOp::Add, scaled, bias_const, vec![1, 1], 1);
+
+    // Node 13: Zero constant for final comparison
+    let mut zero = Tensor::new(Some(&[0i128]), &[1, 1]).unwrap();
+    zero.set_scale(SCALE);
+    let zero_const = b.const_tensor_with_scale(zero, SCALE, vec![1, 1], 1);
+
+    // Node 14: Final greater than or equal comparison
     let result = b.greater_equal(added, zero_const, vec![1, 1], 1);
 
     b.take(vec![input_indices.0], vec![result])

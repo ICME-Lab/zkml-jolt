@@ -251,14 +251,17 @@ where
 #[cfg(test)]
 mod e2e_tests {
     use crate::{
-        jolt::{JoltProverPreprocessing, JoltSNARK, execution_trace::jolt_execution_trace},
+        jolt::{
+            JoltProverPreprocessing, JoltSNARK,
+            execution_trace::{check_mcc, jolt_execution_trace},
+        },
         program::ONNXProgram,
     };
     use ark_bn254::Fr;
     use jolt_core::{
         poly::commitment::dory::DoryCommitmentScheme, utils::transcript::KeccakTranscript,
     };
-    use log::debug;
+    use log::{debug, info};
     use onnx_tracer::{builder, logger::init_logger, model, tensor::Tensor};
     use serde_json::Value;
     use serial_test::serial;
@@ -268,17 +271,21 @@ mod e2e_tests {
 
     // TODO: Refactor duplicate code in tests
 
+    #[ignore]
     #[test]
     fn test_sentiment_select() {
-        init_logger();
-        let mut input_vector = vec![1, 2, 3, 4, 5];
+        // TODO: Rebase scale
+        let mut input_vector = I_HATE_THIS;
 
-        let text_classification = ONNXProgram {
+        let sentiment_select = ONNXProgram {
             model_path: "../onnx-tracer/models/sentiment_select/network.onnx".into(),
             inputs: Tensor::new(Some(&input_vector), &[1, 5]).unwrap(), // Example input
         };
-        let program_bytecode = text_classification.decode();
-        debug!("Program code: {program_bytecode:#?}",);
+        let program_bytecode = sentiment_select.decode();
+        info!("Program code: {program_bytecode:#?}");
+
+        let raw_trace = sentiment_select.trace();
+        info!("Raw trace: {raw_trace:#?}");
     }
 
     /*
@@ -326,11 +333,9 @@ mod e2e_tests {
 
     #[test]
     #[serial]
-    fn test_embedding_sentiment() {
-        init_logger();
-
+    fn test_sentiment0() {
         // --- Preprocessing ---
-        let mut sentiment_model = builder::embedding_sentiment_model();
+        let mut sentiment_model = builder::sentiment0();
         let program_bytecode = onnx_tracer::decode_model(sentiment_model.clone());
         debug!("Program code: {program_bytecode:#?}");
         let pp: JoltProverPreprocessing<Fr, PCS, KeccakTranscript> =
@@ -342,7 +347,11 @@ mod e2e_tests {
                 .forward(&[Tensor::new(Some(input), &[1, 5]).unwrap()])
                 .unwrap();
             let output = result.outputs[0].clone();
-            assert_eq!(output.inner[0], EXPECTED_SENTIMENT_OUTPUTS[i]);
+            assert_eq!(
+                output.inner[0], EXPECTED_SENTIMENT_OUTPUTS[i],
+                "Input: {:?}, Output: {}, Expected: {}",
+                input, output.inner[0], EXPECTED_SENTIMENT_OUTPUTS[i]
+            );
         }
         sentiment_model.clear_execution_trace();
 
@@ -358,6 +367,35 @@ mod e2e_tests {
         let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
             JoltSNARK::prove(pp.clone(), execution_trace);
 
+        // --- Verify ---
+        snark.verify((&pp).into()).unwrap();
+    }
+
+    #[test]
+    #[serial]
+    fn test_custom_sentiment_select() {
+        // init_logger();
+
+        // --- Preprocessing ---
+        // acc for model in test.py = 0.83
+        // mainly just using this to test select operator
+        let sentiment_model = builder::sentiment_select();
+        let program_bytecode = onnx_tracer::decode_model(sentiment_model.clone());
+        info!("Program code: {program_bytecode:#?}");
+        let pp: JoltProverPreprocessing<Fr, PCS, KeccakTranscript> =
+            JoltSNARK::prover_preprocess(program_bytecode);
+
+        // --- Prove ---
+        let raw_trace = onnx_tracer::execution_trace(
+            sentiment_model,
+            &Tensor::new(Some(&THIS_IS_GREAT), &[1, 5]).unwrap(),
+        );
+        info!("Raw trace: {raw_trace:#?}");
+        let execution_trace = jolt_execution_trace(raw_trace);
+        debug!("Execution trace: {execution_trace:#?}");
+        check_mcc(&execution_trace);
+        let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
+            JoltSNARK::prove(pp.clone(), execution_trace);
         // --- Verify ---
         snark.verify((&pp).into()).unwrap();
     }
@@ -554,7 +592,6 @@ mod e2e_tests {
 
             // Decode to program bytecode (for EZKL use)
             let program_bytecode = text_classification.decode();
-            debug!("Program code: {program_bytecode:#?}");
 
             // Load model
             let model = model(&text_classification.model_path);

@@ -3724,24 +3724,41 @@ pub mod nonlinearities {
     /// * `b` - Single value
     /// # Examples
     /// ```
-    /// use ezkl::tensor::Tensor;
-    /// use ezkl::tensor::ops::nonlinearities::const_div;
+    /// use onnx_tracer::tensor::Tensor;
+    /// use onnx_tracer::tensor::ops::nonlinearities::const_div;
     /// let x = Tensor::<i128>::new(
     ///     Some(&[2, 1, 2, 7, 1, 1]),
     ///     &[2, 3],
     /// ).unwrap();
     /// let k = 2.0;
     /// let result = const_div(&x, k);
-    /// let expected = Tensor::<i128>::new(Some(&[1, 1, 1, 4, 1, 1]), &[2, 3]).unwrap();
+    /// let expected = Tensor::<i128>::new(Some(&[1, 0, 1, 3, 0, 0]), &[2, 3]).unwrap();
     /// assert_eq!(result, expected);
     /// ```
     pub fn const_div(a: &Tensor<i128>, denom: f64) -> Tensor<i128> {
         a.par_enum_map(|_, a_i| {
             let d_inv_x = (a_i as f64) / (denom);
-            Ok::<_, TensorError>(d_inv_x.round() as i128)
+            Ok::<_, TensorError>(d_inv_x as i128)
         })
         .unwrap()
     }
+
+    /*  Alternative implementation using rounding for division
+
+        This commented-out version applies `.round()` to the division result,
+        which differs from the current implementation that uses truncation.
+        The current version (without rounding) maintains consistency with
+        zkVM division semantics. This reference implementation is preserved
+        for potential debugging if division behavior issues arise in the
+        ezkl runtime.
+    */
+    // pub fn const_div(a: &Tensor<i128>, denom: f64) -> Tensor<i128> {
+    //     a.par_enum_map(|_, a_i| {
+    //         let d_inv_x = (a_i as f64) / (denom);
+    //         Ok::<_, TensorError>(d_inv_x.round() as i128)
+    //     })
+    //     .unwrap()
+    // }
 
     /// Elementwise inverse.
     /// # Arguments

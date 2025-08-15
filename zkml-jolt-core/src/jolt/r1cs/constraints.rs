@@ -171,6 +171,37 @@ impl<F: JoltField> R1CSConstraints<F> for JoltONNXConstraints {
                 1,
             );
 
+            // if Select && Condition (Ts1Value) {
+            //     assert!(TdWriteValue == Ts2Value)
+            // } else if Select && !Condition (Ts1Value) {
+            //     assert!(TdWriteValue == Ts3Value)
+            // }
+            cs.constrain_prod(
+                JoltONNXR1CSInputs::Ts1Value(i),
+                JoltONNXR1CSInputs::OpFlags(CircuitFlags::Select),
+                JoltONNXR1CSInputs::ShouldSelect(i),
+            );
+            cs.constrain_prod(
+                JoltONNXR1CSInputs::TdWriteValue(i),
+                JoltONNXR1CSInputs::OpFlags(CircuitFlags::Select),
+                JoltONNXR1CSInputs::SelectResult(i),
+            );
+            cs.constrain_if_else(
+                JoltONNXR1CSInputs::ShouldSelect(i),
+                JoltONNXR1CSInputs::Ts2Value(i),
+                JoltONNXR1CSInputs::Ts3Value(i),
+                JoltONNXR1CSInputs::SelectResult(i),
+            );
+
+            // if !Select {
+            //     assert!(Ts3Value == 0)
+            // }
+            cs.constrain_eq_conditional(
+                1 - JoltONNXR1CSInputs::OpFlags(CircuitFlags::Select),
+                JoltONNXR1CSInputs::Ts3Value(i),
+                0,
+            );
+
             // if Rd != 0 && WriteLookupOutputToRD && ActiveOutput {
             //     assert!(TdWriteValue == LookupOutput)
             // }
