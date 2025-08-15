@@ -33,7 +33,7 @@ class TinyLinearSentiment(nn.Module):
     def __init__(self, vocab_size, L, t=0.0):
         super().__init__()
         self.S = nn.Embedding(vocab_size + 1, 1)     # -> Gather
-        self.register_buffer("ones_col", torch.ones(L, 1))  # for sum via MatMul
+        self.register_buffer("ones_col", torch.ones(L, 1))  # (L,1) for sum via MatMul
         self.W = nn.Parameter(torch.zeros(1, 1))     # MatMul weight
         self.b = nn.Parameter(torch.zeros(1))        # Add bias
         self.register_buffer("thresh_t", torch.tensor([[float(t)]]))  # for GE
@@ -44,11 +44,10 @@ class TinyLinearSentiment(nn.Module):
 
     def forward(self, x):
         # x: (B,L) int64
-        # scores: (B,L,1) -> (B,L)
-        scores = self.S(x).squeeze(-1)                     # Gather
-        sum_score = torch.matmul(scores, self.ones_col)    # MatMul (B,L) x (L,1) -> (B,1)
-        logit = torch.matmul(sum_score, self.W) + self.b   # MatMul + Add -> (B,1)
-        label_bool = (logit >= self.thresh_t)              # GreaterOrEqual only
+        scores = self.S(x).squeeze(-1)                  # (B,L)
+        sum_score = torch.matmul(scores, self.ones_col) # (B,1)
+        logit = torch.matmul(sum_score, self.W) + self.b  # (B,1)
+        label_bool = (logit >= self.thresh_t)           # (B,1) bool
         return logit, label_bool
 
 model = TinyLinearSentiment(len(vocab), L=max_len, t=0.0)
@@ -73,13 +72,22 @@ for epoch in range(60):
 with open("vocab.json", "w") as f:
     json.dump(vocab, f, ensure_ascii=False, indent=2)
 
-# ----- export ONNX -----
+# ----- export ONNX: ONE OUTPUT (label_bool), fixed batch size = 1 -----
+class ExportOnlyLabel(nn.Module):
+    def __init__(self, inner): 
+        super().__init__(); self.inner = inner
+    def forward(self, x):
+        _, y = self.inner(x)
+        return y  # (B,1) bool; here B will be 1 at export
+
+export_model = ExportOnlyLabel(model).eval()
 dummy = torch.randint(1, len(vocab)+1, (1, max_len), dtype=torch.long)
+
 torch.onnx.export(
-    model, dummy, "network.onnx",
+    export_model, dummy, "network.onnx",
     input_names=["tokens"],
-    output_names=["logit", "label_bool"],  # bool output to avoid Cast (TODO(Forpee)): Do cast in post-processing)
-    dynamic_axes={"tokens": {0: "batch"}, "logit": {0: "batch"}, "label_bool": {0: "batch"}},
-    opset_version=15
+    output_names=["label_bool"],  # single output
+    opset_version=15,
+    # no dynamic_axes -> fixed (1, L) I/O as requested
 )
-print("Exported network.onnx and vocab.json")
+print("Exported network.onnx (one output) and vocab.json")

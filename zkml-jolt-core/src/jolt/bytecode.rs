@@ -204,7 +204,7 @@ where
 
     /// Reed-solomon fingerprint each instr in the program bytecode
     fn bytecode_to_val(program_bytecode: &[ONNXInstr], gamma: &F) -> Vec<F> {
-        const DEGREE: usize = 6 + MAX_TENSOR_SIZE;
+        const DEGREE: usize = 7 + MAX_TENSOR_SIZE;
         let mut gamma_pows = [F::one(); DEGREE];
         for i in 1..DEGREE {
             gamma_pows[i] *= *gamma * gamma_pows[i - 1];
@@ -220,11 +220,13 @@ where
                 linear_combination +=
                     (instr.ts2.unwrap_or_default() as u64).field_mul(gamma_pows[3]);
                 linear_combination +=
-                    (instr.td.unwrap_or_default() as u64).field_mul(gamma_pows[4]);
+                    (instr.ts3.unwrap_or_default() as u64).field_mul(gamma_pows[4]);
                 linear_combination +=
-                    (instr.active_output_elements as u64).field_mul(gamma_pows[5]);
+                    (instr.td.unwrap_or_default() as u64).field_mul(gamma_pows[5]);
+                linear_combination +=
+                    (instr.active_output_elements as u64).field_mul(gamma_pows[6]);
                 (0..MAX_TENSOR_SIZE)
-                    .map(|i| instr.imm()[i].field_mul(gamma_pows[6 + i]))
+                    .map(|i| instr.imm()[i].field_mul(gamma_pows[7 + i]))
                     .fold(linear_combination, |acc, x| acc + x);
                 linear_combination
             })

@@ -59,6 +59,9 @@ impl Tracer {
         if instr.ts2.is_some() {
             cycle.memory_state.ts2_val = Some(inputs[1].clone())
         };
+        if instr.ts3.is_some() {
+            cycle.memory_state.ts3_val = Some(inputs[2].clone())
+        };
         self.execution_trace.borrow_mut().push(cycle);
     }
 

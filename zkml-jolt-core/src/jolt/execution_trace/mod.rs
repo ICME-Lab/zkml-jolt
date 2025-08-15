@@ -1,3 +1,4 @@
+#![allow(unused_assignments)] // for the assign_singles! macro
 use crate::jolt::JoltProverPreprocessing;
 use crate::jolt::instruction::VirtualInstructionSequence;
 use crate::jolt::instruction::div::DIVInstruction;
@@ -61,6 +62,11 @@ impl JoltONNXCycle {
         self.memory_ops.ts2_read.clone()
     }
 
+    /// # Returns: (address, read_value)
+    pub fn ts3_read(&self) -> (Vec<usize>, Vec<u64>) {
+        self.memory_ops.ts3_read.clone()
+    }
+
     /// # Returns: (address, pre_value, post_value)
     pub fn td_write(&self) -> (Vec<usize>, Vec<u64>, Vec<u64>) {
         self.memory_ops.td_write.clone()
@@ -106,11 +112,12 @@ impl JoltONNXCycle {
     // One public entry: builds a fully-initialized, valid cycle.
     pub fn from_raw(raw: &ONNXCycle) -> Self {
         // populate memory ops & advice first (needed by lookups)
-        let (ts1_read, ts2_read, td_write, gather_addresses) = raw.to_memory_ops();
+        let (ts1_read, ts2_read, ts3_read, td_write, gather_addresses) = raw.to_memory_ops();
         let mut cycle = JoltONNXCycle {
             memory_ops: MemoryOps {
                 ts1_read,
                 ts2_read,
+                ts3_read,
                 td_write,
                 gather_addresses,
             },
@@ -204,6 +211,7 @@ pub fn jolt_execution_trace(raw_trace: Vec<ONNXCycle>) -> ExecutionTrace {
 pub struct MemoryOps {
     ts1_read: (Vec<usize>, Vec<u64>),
     ts2_read: (Vec<usize>, Vec<u64>),
+    ts3_read: (Vec<usize>, Vec<u64>),
     td_write: (Vec<usize>, Vec<u64>, Vec<u64>),
     gather_addresses: Vec<usize>,
 }
@@ -213,6 +221,7 @@ impl MemoryOps {
         MemoryOps {
             ts1_read: (vec![0usize; MAX_TENSOR_SIZE], vec![0; MAX_TENSOR_SIZE]),
             ts2_read: (vec![0usize; MAX_TENSOR_SIZE], vec![0; MAX_TENSOR_SIZE]),
+            ts3_read: (vec![0usize; MAX_TENSOR_SIZE], vec![0; MAX_TENSOR_SIZE]),
             td_write: (
                 vec![0usize; MAX_TENSOR_SIZE],
                 vec![0; MAX_TENSOR_SIZE],
@@ -563,10 +572,13 @@ pub enum JoltONNXR1CSInputs {
     ActiveRd(usize), // Td * CircuitFlag::WriteLookupOutputToTD
     Ts1Value(usize), // Virtual (tensor registers rv)
     Ts2Value(usize), // Virtual (tensor registers rv)
+    Ts3Value(usize), // Virtual (tensor registers rv)
     Imm(usize),      // Virtual (bytecode rv)
     GatherAddr(usize),
     GatherReadValue(usize),
     ShouldGather(usize),
+    SelectCondition(usize),
+    SelectResult(usize),
 }
 
 macro_rules! fill_array_r1cs_inputs {
@@ -580,7 +592,25 @@ macro_rules! fill_array_r1cs_inputs {
     }};
 }
 
-const NUM_TENSOR_INPUTS: usize = 19;
+macro_rules! assign_opflags {
+    ($arr:ident, $idx:ident, $($flag:ident),*) => {
+        $(
+            $arr[$idx] = JoltONNXR1CSInputs::OpFlags(CircuitFlags::$flag);
+            $idx += 1;
+        )*
+    };
+}
+
+macro_rules! assign_singles {
+    ($arr:ident, $idx:ident, $($variant:ident),*) => {
+        $(
+            $arr[$idx] = JoltONNXR1CSInputs::$variant;
+            $idx += 1;
+        )*
+    };
+}
+
+const NUM_TENSOR_INPUTS: usize = 22;
 const NUM_SINGLE_INPUTS: usize = NUM_CIRCUIT_FLAGS + 4; // 4 for PC, UnexpandedPC, NextUnexpandedPC, NextPC
 /// This const serves to define a canonical ordering over inputs (and thus indices
 /// for each input). This is needed for sumcheck.
@@ -604,45 +634,35 @@ pub const ALL_R1CS_INPUTS: [JoltONNXR1CSInputs;
     fill_array_r1cs_inputs!(arr, idx, ActiveRd);
     fill_array_r1cs_inputs!(arr, idx, Ts1Value);
     fill_array_r1cs_inputs!(arr, idx, Ts2Value);
+    fill_array_r1cs_inputs!(arr, idx, Ts3Value);
     fill_array_r1cs_inputs!(arr, idx, Imm);
     fill_array_r1cs_inputs!(arr, idx, GatherAddr);
     fill_array_r1cs_inputs!(arr, idx, GatherReadValue);
     fill_array_r1cs_inputs!(arr, idx, ShouldGather);
-    arr[idx] = JoltONNXR1CSInputs::OpFlags(CircuitFlags::AddOperands);
-    idx += 1;
-    arr[idx] = JoltONNXR1CSInputs::OpFlags(CircuitFlags::SubtractOperands);
-    idx += 1;
-    arr[idx] = JoltONNXR1CSInputs::OpFlags(CircuitFlags::MultiplyOperands);
-    idx += 1;
-    arr[idx] = JoltONNXR1CSInputs::OpFlags(CircuitFlags::WriteLookupOutputToTD);
-    idx += 1;
-    arr[idx] = JoltONNXR1CSInputs::OpFlags(CircuitFlags::Assert);
-    idx += 1;
-    arr[idx] = JoltONNXR1CSInputs::OpFlags(CircuitFlags::DoNotUpdateUnexpandedPC);
-    idx += 1;
-    arr[idx] = JoltONNXR1CSInputs::OpFlags(CircuitFlags::InlineSequenceInstruction);
-    idx += 1;
-    arr[idx] = JoltONNXR1CSInputs::OpFlags(CircuitFlags::SumOperands);
-    idx += 1;
-    arr[idx] = JoltONNXR1CSInputs::OpFlags(CircuitFlags::LeftOperandIsTs1Value);
-    idx += 1;
-    arr[idx] = JoltONNXR1CSInputs::OpFlags(CircuitFlags::RightOperandIsTs2Value);
-    idx += 1;
-    arr[idx] = JoltONNXR1CSInputs::OpFlags(CircuitFlags::RightOperandIsImm);
-    idx += 1;
-    arr[idx] = JoltONNXR1CSInputs::OpFlags(CircuitFlags::Const);
-    idx += 1;
-    arr[idx] = JoltONNXR1CSInputs::OpFlags(CircuitFlags::Advice);
-    idx += 1;
-    arr[idx] = JoltONNXR1CSInputs::OpFlags(CircuitFlags::Gather);
-    idx += 1;
-    arr[idx] = JoltONNXR1CSInputs::PC;
-    idx += 1;
-    arr[idx] = JoltONNXR1CSInputs::UnexpandedPC;
-    idx += 1;
-    arr[idx] = JoltONNXR1CSInputs::NextUnexpandedPC;
-    idx += 1;
-    arr[idx] = JoltONNXR1CSInputs::NextPC;
+    fill_array_r1cs_inputs!(arr, idx, SelectCondition);
+    fill_array_r1cs_inputs!(arr, idx, SelectResult);
+    // Assign all OpFlags variants in one macro call
+    assign_opflags!(
+        arr,
+        idx,
+        AddOperands,
+        SubtractOperands,
+        MultiplyOperands,
+        WriteLookupOutputToTD,
+        Assert,
+        DoNotUpdateUnexpandedPC,
+        InlineSequenceInstruction,
+        SumOperands,
+        LeftOperandIsTs1Value,
+        RightOperandIsTs2Value,
+        RightOperandIsImm,
+        Const,
+        Advice,
+        Gather,
+        Select
+    );
+
+    assign_singles!(arr, idx, PC, UnexpandedPC, NextUnexpandedPC, NextPC);
 
     arr
 };
@@ -768,6 +788,13 @@ impl WitnessGenerator for JoltONNXR1CSInputs {
                     .collect();
                 coeffs.into()
             }
+            JoltONNXR1CSInputs::Ts3Value(i) => {
+                let coeffs: Vec<u64> = trace
+                    .par_iter()
+                    .map(|cycle| cycle.ts3_read().1.get(*i).cloned().unwrap())
+                    .collect();
+                coeffs.into()
+            }
             JoltONNXR1CSInputs::GatherAddr(i) => {
                 let coeffs: Vec<u32> = trace
                     .par_iter()
@@ -790,6 +817,29 @@ impl WitnessGenerator for JoltONNXR1CSInputs {
                         let is_gather =
                             cycle.instr().to_circuit_flags()[CircuitFlags::Gather as usize];
                         (*i < cycle.instr.active_output_elements) as u8 * (is_gather as u8)
+                    })
+                    .collect();
+                coeffs.into()
+            }
+            // TODO: Move witness gen to committed polynomials
+            JoltONNXR1CSInputs::SelectCondition(i) => {
+                let coeffs: Vec<u8> = trace
+                    .par_iter()
+                    .map(|cycle| {
+                        let is_select =
+                            cycle.instr().to_circuit_flags()[CircuitFlags::Select as usize];
+                        (cycle.ts1_read().1.get(*i).cloned().unwrap()) as u8 * (is_select as u8)
+                    })
+                    .collect();
+                coeffs.into()
+            }
+            JoltONNXR1CSInputs::SelectResult(i) => {
+                let coeffs: Vec<u64> = trace
+                    .par_iter()
+                    .map(|cycle| {
+                        let is_select =
+                            cycle.instr().to_circuit_flags()[CircuitFlags::Select as usize];
+                        (cycle.td_write().2.get(*i).cloned().unwrap()) * (is_select as u8 as u64)
                     })
                     .collect();
                 coeffs.into()
@@ -1043,6 +1093,7 @@ impl std::fmt::Debug for JoltONNXCycle {
             .field("lookup", &lookup_summary)
             .field("ts1_read", &format_memory_op_ranges(&self.ts1_read()))
             .field("ts2_read", &format_memory_op_ranges(&self.ts2_read()))
+            .field("ts3_read", &format_memory_op_ranges(&self.ts3_read()))
             .field("td_write", &format_write_op_ranges(&self.td_write()))
             .field("advice", &self.advice_value)
             .finish()
@@ -1097,11 +1148,14 @@ impl JoltONNXCycle {
         if self.circuit_flags[CircuitFlags::Gather as usize] {
             active.push("Gather".to_string());
         }
+        if self.circuit_flags[CircuitFlags::Select as usize] {
+            active.push("Select".to_string());
+        }
 
         // Compile-time check that we've handled all flags.
         // Will error if you add a new flag and forget to update this.
         const _: () = {
-            let _ = [(); (NUM_CIRCUIT_FLAGS == 14) as usize - 1];
+            let _ = [(); (NUM_CIRCUIT_FLAGS == 15) as usize - 1];
         };
 
         if active.is_empty() {
@@ -1177,8 +1231,11 @@ fn format_write_op_ranges(
     )
 }
 
+/// This is only needed because runtime sometimes converts operands to
+/// floating point for intermediate calculations, which can cause mismatches between
+/// expected outputs and actual trace values.
 #[cfg(test)]
-pub fn check_mcc(execution_trace: &ExecutionTrace) {
+pub fn check_mcc(execution_trace: &[JoltONNXCycle]) {
     let tensor_heap_addresses: Vec<usize> = execution_trace
         .iter()
         .map(|cycle| cycle.td_write().0.last().unwrap() + 1)
@@ -1208,6 +1265,16 @@ pub fn check_mcc(execution_trace: &ExecutionTrace) {
             assert_eq!(
                 tensor_heap[*addr], *value,
                 "TS2 READ error at cycle_{i}: {cycle:#?}; Expected: {}, got: {} at address {addr} ",
+                tensor_heap[*addr], *value
+            );
+        }
+
+        // ts3 read
+        let (ts3_read_addresses, ts3_read_values) = cycle.ts3_read();
+        for (addr, value) in itertools::izip!(ts3_read_addresses.iter(), ts3_read_values.iter()) {
+            assert_eq!(
+                tensor_heap[*addr], *value,
+                "TS3 READ error at cycle_{i}: {cycle:#?}; Expected: {}, got: {} at address {addr} ",
                 tensor_heap[*addr], *value
             );
         }

@@ -56,12 +56,18 @@ impl ONNXCycle {
     pub fn ts2(&self) -> usize {
         self.instr.ts2.map_or(0, |ts2| ts2 + ZERO_ADDR_PREPEND)
     }
+
+    // # NOTE: Adds [ZERO_ADDR_PREPEND] to the orignal traced value
+    pub fn ts3(&self) -> usize {
+        self.instr.ts3.map_or(0, |ts3| ts3 + ZERO_ADDR_PREPEND)
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Default, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct MemoryState {
     pub ts1_val: Option<Tensor<i128>>,
     pub ts2_val: Option<Tensor<i128>>,
+    pub ts3_val: Option<Tensor<i128>>,
     pub td_pre_val: Option<Tensor<i128>>,
     pub td_post_val: Option<Tensor<i128>>,
 }
@@ -73,6 +79,9 @@ impl MemoryState {
                 Tensor::new(Some(&[rng.next_u64() as u32 as i32 as i128]), &[1]).unwrap(),
             ),
             ts2_val: Some(
+                Tensor::new(Some(&[rng.next_u64() as u32 as i32 as i128]), &[1]).unwrap(),
+            ),
+            ts3_val: Some(
                 Tensor::new(Some(&[rng.next_u64() as u32 as i32 as i128]), &[1]).unwrap(),
             ),
             td_pre_val: Some(
@@ -120,6 +129,8 @@ pub struct ONNXInstr {
     /// This field is analogous to the `rs2` register specifier in RISC-V,
     /// serving to specify the address or index of the second operand.
     pub ts2: Option<usize>,
+    /// Special opcodes like IFF/Where/Select may use a third operand, which is the index of the condition tensor.
+    pub ts3: Option<usize>,
     /// The destination tensor index, which is the index of the node in the computation graph
     /// where the result of this instruction will be stored.
     /// This is analogous to the `rd` register specifier in RISC-V, indicating
@@ -159,6 +170,14 @@ impl MemoryOp {
     }
 }
 
+type ONNXCycleMemoryOps = (
+    (Vec<usize>, Vec<u64>),           // ts1 read
+    (Vec<usize>, Vec<u64>),           // ts2 read
+    (Vec<usize>, Vec<u64>),           // ts3 read
+    (Vec<usize>, Vec<u64>, Vec<u64>), // td write (address, pre_value, post_value)
+    Vec<usize>,                       // gather addresses
+);
+
 impl ONNXCycle {
     #[allow(clippy::type_complexity)]
     /// Converts the cycle's tensor state into memory operation tuples for ts1, ts2, and td.
@@ -169,16 +188,10 @@ impl ONNXCycle {
     /// - A special tensor for gather operations, which is a vector of the addresses it reads.
     ///
     /// Panics if any underlying tensor's length exceeds `MAX_TENSOR_SIZE`.
-    pub fn to_memory_ops(
-        &self,
-    ) -> (
-        (Vec<usize>, Vec<u64>),
-        (Vec<usize>, Vec<u64>),
-        (Vec<usize>, Vec<u64>, Vec<u64>),
-        Vec<usize>,
-    ) {
+    pub fn to_memory_ops(&self) -> ONNXCycleMemoryOps {
         let ts1 = (get_tensor_addresses(self.ts1()), self.ts1_vals());
         let ts2 = (get_tensor_addresses(self.ts2()), self.ts2_vals());
+        let ts3 = (get_tensor_addresses(self.ts3()), self.ts3_vals());
         let td = (
             get_tensor_addresses(self.td()),
             self.td_pre_vals(),
@@ -199,7 +212,7 @@ impl ONNXCycle {
                 vec![0usize; MAX_TENSOR_SIZE]
             }
         };
-        (ts1, ts2, td, gather_addresses)
+        (ts1, ts2, ts3, td, gather_addresses)
     }
 
     /// Returns normalized and padded values for ts1.
@@ -220,6 +233,13 @@ impl ONNXCycle {
     /// Behaves like `ts1_vals`, but for `ts2_val`.
     pub fn ts2_vals(&self) -> Vec<u64> {
         self.build_vals(self.memory_state.ts2_val.as_ref(), "ts2_val")
+    }
+
+    /// Returns normalized and padded values for ts3.
+    ///
+    /// Behaves like `ts1_vals`, but for `ts3_val`.
+    pub fn ts3_vals(&self) -> Vec<u64> {
+        self.build_vals(self.memory_state.ts3_val.as_ref(), "ts3_val")
     }
 
     /// Returns normalized and padded post-execution values for td.
@@ -277,6 +297,11 @@ impl ONNXCycle {
     /// Returns the optional tensor for ts2 (unmodified).
     pub fn ts2_val_raw(&self) -> Option<&Tensor<i128>> {
         self.memory_state.ts2_val.as_ref()
+    }
+
+    /// Returns the optional tensor for ts3 (unmodified).
+    pub fn ts3_val_raw(&self) -> Option<&Tensor<i128>> {
+        self.memory_state.ts3_val.as_ref()
     }
 
     /// Returns the optional tensor for td_post (unmodified).
@@ -355,12 +380,14 @@ pub enum CircuitFlags {
     DoNotUpdateUnexpandedPC,
     /// Is (virtual) advice instruction
     Advice,
-    /// Is constant instruction
+    /// 1 if this is constant instruction; 0 otherwise.
     Const,
-    /// Is this a sum operator
+    /// 1 if this is a sum operator; 0 otherwise.
     SumOperands,
-    /// Is this a gather operation
+    /// 1 if this is a gather operation; 0 otherwise.
     Gather,
+    /// 1 if this is a select operation; 0 otherwise.
+    Select,
 }
 
 pub const NUM_CIRCUIT_FLAGS: usize = CircuitFlags::COUNT;
@@ -458,6 +485,10 @@ impl ONNXInstr {
             self.opcode,
             ONNXOpcode::Gather
         );
+        flags[CircuitFlags::Select as usize] = matches!(
+            self.opcode,
+            ONNXOpcode::Select
+        );
 
         flags
     }
@@ -498,6 +529,7 @@ impl ONNXInstr {
             opcode: ONNXOpcode::Noop,
             ts1: None,
             ts2: None,
+            ts3: None,
             td: None,
             imm: None,
             virtual_sequence_remaining: None,
@@ -511,6 +543,7 @@ impl ONNXInstr {
             opcode,
             ts1: None,
             ts2: None,
+            ts3: None,
             td: None,
             imm: None,
             virtual_sequence_remaining: None,
@@ -565,6 +598,7 @@ pub enum ONNXOpcode {
     Gte,
     Reshape,
     ArgMax,
+    Select,
 
     // Virtual instructions
     VirtualAdvice,
@@ -610,6 +644,7 @@ impl ONNXOpcode {
             ONNXOpcode::Gte => 1u64 << 23,
             ONNXOpcode::Reshape => 1u64 << 24,
             ONNXOpcode::ArgMax => 1u64 << 25,
+            ONNXOpcode::Select => 1u64 << 26,
             _ => panic!("ONNXOpcode {self:#?} not implemented in into_bitflag"),
         }
     }

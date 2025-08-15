@@ -13,8 +13,10 @@ with VOCAB_PATH.open() as f:
     vocab = json.load(f)
 
 def tok(text): return [vocab.get(t, PAD_ID) for t in text.lower().split()]
-def pad(ids, L): 
-    a = np.full((L,), PAD_ID, dtype=np.int64); a[:min(len(ids), L)] = ids[:L]; return a
+def pad1(ids, L):
+    a = np.full((1, L), PAD_ID, dtype=np.int64)  # (1,L) fixed batch=1
+    a[0, :min(len(ids), L)] = ids[:L]
+    return a
 
 texts = [
     "I love this", "This is great", "Happy with the result",
@@ -22,15 +24,16 @@ texts = [
 ]
 expected = np.array([1,1,1,0,0,0], dtype=np.int64)
 
-tokens = np.stack([pad(tok(t), MAX_LEN) for t in texts], axis=0)  # (N,L)
 sess = ort.InferenceSession(MODEL_PATH, providers=["CPUExecutionProvider"])
-outs = sess.run(None, {"tokens": tokens})
-names = [o.name for o in sess.get_outputs()]
-name2 = {names[i]: outs[i] for i in range(len(names))}
-logit = np.asarray(name2.get("logit", outs[0])).reshape(-1)
-label = np.asarray(name2.get("label_bool", outs[1])).reshape(-1)  # bool array
 
-pred = label.astype(np.int64)
-acc = (pred == expected).mean()
-print("logit:", logit)
-print("pred:", pred.tolist(), "acc:", round(float(acc), 2))
+preds = []
+for t in texts:
+    tokens = pad1(tok(t), MAX_LEN)          # (1,L)
+    out = sess.run(None, {"tokens": tokens})  # single output
+    y_bool = out[0].ravel()[0]              # bool
+    y = int(bool(y_bool))                   # post-process cast (outside ONNX)
+    preds.append(y)
+
+preds = np.array(preds, dtype=np.int64)
+acc = (preds == expected).mean()
+print("pred:", preds.tolist(), "acc:", round(float(acc), 2))

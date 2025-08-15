@@ -185,7 +185,7 @@ impl R1CSBuilder {
         let result_false: LC = result_false.into();
         let alleged_result: LC = alleged_result.into();
 
-        // result == condition * true_coutcome + (1 - condition) * false_outcome
+        // result == condition * true_outcome + (1 - condition) * false_outcome
         // simplify to single mul, single constraint => condition * (true_outcome - false_outcome) == (result - false_outcome)
 
         let constraint = Constraint {
