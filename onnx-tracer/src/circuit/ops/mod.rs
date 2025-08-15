@@ -285,7 +285,10 @@ impl<F: TensorType + PartialOrd + Send + Sync> Op<F> for Constant<F> {
     }
 
     fn as_string(&self) -> String {
-        format!("CONST (scale={})", self.quantized_values.scale().unwrap())
+        format!(
+            "CONST (scale={})",
+            self.quantized_values.scale().unwrap_or(1)
+        )
     }
 
     fn clone_dyn(&self) -> Box<dyn Op<F>> {

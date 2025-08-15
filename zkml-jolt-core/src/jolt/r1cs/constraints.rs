@@ -130,6 +130,29 @@ impl<F: JoltField> R1CSConstraints<F> for JoltONNXConstraints {
                 JoltONNXR1CSInputs::RightInstructionInput(i),
             );
 
+            // if Gather && ActiveOutput {
+            //    assert!(GatherAddr == Ts1Addr(0) + Ts2Value(i))
+            // }
+            cs.constrain_prod(
+                JoltONNXR1CSInputs::OpFlags(CircuitFlags::Gather),
+                JoltONNXR1CSInputs::ActiveOutput(i),
+                JoltONNXR1CSInputs::ShouldGather(i),
+            );
+            cs.constrain_eq_conditional(
+                JoltONNXR1CSInputs::ShouldGather(i),
+                JoltONNXR1CSInputs::GatherAddr(i),
+                JoltONNXR1CSInputs::Ts1(0) + JoltONNXR1CSInputs::Ts2Value(i),
+            );
+
+            // if Gather && ActiveOutput {
+            //    assert!(GatherReadValue == TdWriteValue)
+            // }
+            cs.constrain_eq_conditional(
+                JoltONNXR1CSInputs::ShouldGather(i),
+                JoltONNXR1CSInputs::GatherReadValue(i),
+                JoltONNXR1CSInputs::TdWriteValue(i),
+            );
+
             // if CircuitFlag::Const {
             //     assert!(TdWriteValue == Const)
             // }
@@ -153,12 +176,12 @@ impl<F: JoltField> R1CSConstraints<F> for JoltONNXConstraints {
             // }
             cs.constrain_prod(
                 JoltONNXR1CSInputs::Td(i),
-                JoltONNXR1CSInputs::OpFlags(CircuitFlags::WriteLookupOutputToTD),
-                JoltONNXR1CSInputs::TdProdFlag(i),
+                JoltONNXR1CSInputs::ActiveOutput(i),
+                JoltONNXR1CSInputs::ActiveRd(i),
             );
             cs.constrain_prod(
-                JoltONNXR1CSInputs::TdProdFlag(i),
-                JoltONNXR1CSInputs::ActiveOutput(i),
+                JoltONNXR1CSInputs::ActiveRd(i),
+                JoltONNXR1CSInputs::OpFlags(CircuitFlags::WriteLookupOutputToTD),
                 JoltONNXR1CSInputs::WriteLookupOutputToTD(i),
             );
             cs.constrain_eq_conditional(

@@ -166,6 +166,7 @@ impl ONNXCycle {
     /// Each returned tuple contains:
     /// - A vector of memory addresses, obtained via `get_tensor_addresses`.
     /// - A vector of normalized values (u64), padded with zeros up to `MAX_TENSOR_SIZE`.
+    /// - A special tensor for gather operations, which is a vector of the addresses it reads.
     ///
     /// Panics if any underlying tensor's length exceeds `MAX_TENSOR_SIZE`.
     pub fn to_memory_ops(
@@ -174,6 +175,7 @@ impl ONNXCycle {
         (Vec<usize>, Vec<u64>),
         (Vec<usize>, Vec<u64>),
         (Vec<usize>, Vec<u64>, Vec<u64>),
+        Vec<usize>,
     ) {
         let ts1 = (get_tensor_addresses(self.ts1()), self.ts1_vals());
         let ts2 = (get_tensor_addresses(self.ts2()), self.ts2_vals());
@@ -182,7 +184,22 @@ impl ONNXCycle {
             self.td_pre_vals(),
             self.td_post_vals(),
         );
-        (ts1, ts2, td)
+        let gather_addresses = {
+            if let ONNXOpcode::Gather = self.instr.opcode {
+                let mut address = vec![0usize; MAX_TENSOR_SIZE];
+                for (i, addr) in address
+                    .iter_mut()
+                    .enumerate()
+                    .take(self.instr.active_output_elements)
+                {
+                    *addr = ts1.0[ts2.1[i] as usize];
+                }
+                address
+            } else {
+                vec![0usize; MAX_TENSOR_SIZE]
+            }
+        };
+        (ts1, ts2, td, gather_addresses)
     }
 
     /// Returns normalized and padded values for ts1.
@@ -342,6 +359,8 @@ pub enum CircuitFlags {
     Const,
     /// Is this a sum operator
     SumOperands,
+    /// Is this a gather operation
+    Gather,
 }
 
 pub const NUM_CIRCUIT_FLAGS: usize = CircuitFlags::COUNT;
@@ -434,6 +453,10 @@ impl ONNXInstr {
         flags[CircuitFlags::SumOperands as usize] = matches!(
             self.opcode,
             ONNXOpcode::Sum
+        );
+        flags[CircuitFlags::Gather as usize] = matches!(
+            self.opcode,
+            ONNXOpcode::Gather
         );
 
         flags
@@ -541,6 +564,7 @@ pub enum ONNXOpcode {
     RebaseScale(Box<ONNXOpcode>),
     Gte,
     Reshape,
+    ArgMax,
 
     // Virtual instructions
     VirtualAdvice,
@@ -585,6 +609,7 @@ impl ONNXOpcode {
 
             ONNXOpcode::Gte => 1u64 << 23,
             ONNXOpcode::Reshape => 1u64 << 24,
+            ONNXOpcode::ArgMax => 1u64 << 25,
             _ => panic!("ONNXOpcode {self:#?} not implemented in into_bitflag"),
         }
     }

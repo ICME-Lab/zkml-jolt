@@ -78,6 +78,18 @@ impl JoltONNXCycle {
         &self.instr
     }
 
+    pub fn gather_addresses(&self) -> Vec<usize> {
+        self.memory_ops.gather_addresses.clone()
+    }
+
+    pub fn gather_read_values(&self) -> Vec<u64> {
+        if self.instr().opcode == ONNXOpcode::Gather {
+            self.td_write().2
+        } else {
+            vec![0; MAX_TENSOR_SIZE]
+        }
+    }
+
     pub fn no_op() -> Self {
         JoltONNXCycle {
             instruction_lookups: None,
@@ -94,12 +106,13 @@ impl JoltONNXCycle {
     // One public entry: builds a fully-initialized, valid cycle.
     pub fn from_raw(raw: &ONNXCycle) -> Self {
         // populate memory ops & advice first (needed by lookups)
-        let (ts1_read, ts2_read, td_write) = raw.to_memory_ops();
+        let (ts1_read, ts2_read, td_write, gather_addresses) = raw.to_memory_ops();
         let mut cycle = JoltONNXCycle {
             memory_ops: MemoryOps {
                 ts1_read,
                 ts2_read,
                 td_write,
+                gather_addresses,
             },
             circuit_flags: raw.instr.to_circuit_flags(),
             instr: raw.instr.clone(),
@@ -192,6 +205,7 @@ pub struct MemoryOps {
     ts1_read: (Vec<usize>, Vec<u64>),
     ts2_read: (Vec<usize>, Vec<u64>),
     td_write: (Vec<usize>, Vec<u64>, Vec<u64>),
+    gather_addresses: Vec<usize>,
 }
 
 impl MemoryOps {
@@ -204,6 +218,7 @@ impl MemoryOps {
                 vec![0; MAX_TENSOR_SIZE],
                 vec![0; MAX_TENSOR_SIZE],
             ),
+            gather_addresses: vec![0usize; MAX_TENSOR_SIZE],
         }
     }
 }
@@ -363,8 +378,8 @@ pub enum CommittedPolynomials {
     RightInstructionInput(usize),
     /// Product of `LeftInstructionInput` and `RightInstructionInput`
     Product(usize),
-    /// Td * CircuitFlag::WriteLookupOutputToTD
-    TdProdFlag(usize),
+    /// Td * IsActive
+    ActiveRd(usize),
     // /// Whether the current instruction should write the lookup output to
     // /// the destination register
     WriteLookupOutputToTD(usize),
@@ -392,7 +407,7 @@ pub const ALL_COMMITTED_POLYNOMIALS: [CommittedPolynomials; 5 * MAX_TENSOR_SIZE 
     fill_array_committed!(arr, idx, LeftInstructionInput);
     fill_array_committed!(arr, idx, RightInstructionInput);
     fill_array_committed!(arr, idx, Product);
-    fill_array_committed!(arr, idx, TdProdFlag);
+    fill_array_committed!(arr, idx, ActiveRd);
     fill_array_committed!(arr, idx, WriteLookupOutputToTD);
     arr[idx] = CommittedPolynomials::InstructionRa(0);
     arr[idx + 1] = CommittedPolynomials::InstructionRa(1);
@@ -450,13 +465,12 @@ impl WitnessGenerator for CommittedPolynomials {
                     .collect();
                 coeffs.into()
             }
-            CommittedPolynomials::TdProdFlag(i) => {
+            CommittedPolynomials::ActiveRd(i) => {
                 let coeffs: Vec<u32> = trace
                     .par_iter()
                     .map(|cycle| {
-                        let flag = cycle.instr.to_circuit_flags()
-                            [CircuitFlags::WriteLookupOutputToTD as usize];
-                        (cycle.td_write().0[*i] as u32) * (flag as u8 as u32)
+                        (cycle.td_write().0[*i] as u32)
+                            * ((*i < cycle.instr.active_output_elements) as u8 as u32)
                     })
                     .collect();
                 coeffs.into()
@@ -529,7 +543,9 @@ impl WitnessGenerator for CommittedPolynomials {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum JoltONNXR1CSInputs {
-    Td(usize), // Virtual (bytecode rv)
+    Ts1(usize), // Virtual (bytecode rv)
+    Ts2(usize), // Virtual (bytecode rv)
+    Td(usize),  // Virtual (bytecode rv)
     TdWriteValue(usize),
     LeftInstructionInput(usize), // to_lookup_query -> to_instruction_operands
     RightInstructionInput(usize), // to_lookup_query -> to_instruction_operands
@@ -544,10 +560,13 @@ pub enum JoltONNXR1CSInputs {
     NextUnexpandedPC, // Virtual (spartan shift sumcheck)
     NextPC,           // Virtual (spartan shift sumcheck)
     ActiveOutput(usize),
-    TdProdFlag(usize), // Td * CircuitFlag::WriteLookupOutputToTD
-    Ts1Value(usize),   // Virtual (tensor registers rv)
-    Ts2Value(usize),   // Virtual (tensor registers rv)
-    Imm(usize),        // Virtual (bytecode rv)
+    ActiveRd(usize), // Td * CircuitFlag::WriteLookupOutputToTD
+    Ts1Value(usize), // Virtual (tensor registers rv)
+    Ts2Value(usize), // Virtual (tensor registers rv)
+    Imm(usize),      // Virtual (bytecode rv)
+    GatherAddr(usize),
+    GatherReadValue(usize),
+    ShouldGather(usize),
 }
 
 macro_rules! fill_array_r1cs_inputs {
@@ -561,7 +580,7 @@ macro_rules! fill_array_r1cs_inputs {
     }};
 }
 
-const NUM_TENSOR_INPUTS: usize = 14;
+const NUM_TENSOR_INPUTS: usize = 19;
 const NUM_SINGLE_INPUTS: usize = NUM_CIRCUIT_FLAGS + 4; // 4 for PC, UnexpandedPC, NextUnexpandedPC, NextPC
 /// This const serves to define a canonical ordering over inputs (and thus indices
 /// for each input). This is needed for sumcheck.
@@ -570,6 +589,8 @@ pub const ALL_R1CS_INPUTS: [JoltONNXR1CSInputs;
     let mut arr =
         [JoltONNXR1CSInputs::Td(0); NUM_TENSOR_INPUTS * MAX_TENSOR_SIZE + NUM_SINGLE_INPUTS];
     let mut idx = 0;
+    fill_array_r1cs_inputs!(arr, idx, Ts1);
+    fill_array_r1cs_inputs!(arr, idx, Ts2);
     fill_array_r1cs_inputs!(arr, idx, Td);
     fill_array_r1cs_inputs!(arr, idx, TdWriteValue);
     fill_array_r1cs_inputs!(arr, idx, LeftInstructionInput);
@@ -580,10 +601,13 @@ pub const ALL_R1CS_INPUTS: [JoltONNXR1CSInputs;
     fill_array_r1cs_inputs!(arr, idx, LookupOutput);
     fill_array_r1cs_inputs!(arr, idx, WriteLookupOutputToTD);
     fill_array_r1cs_inputs!(arr, idx, ActiveOutput);
-    fill_array_r1cs_inputs!(arr, idx, TdProdFlag);
+    fill_array_r1cs_inputs!(arr, idx, ActiveRd);
     fill_array_r1cs_inputs!(arr, idx, Ts1Value);
     fill_array_r1cs_inputs!(arr, idx, Ts2Value);
     fill_array_r1cs_inputs!(arr, idx, Imm);
+    fill_array_r1cs_inputs!(arr, idx, GatherAddr);
+    fill_array_r1cs_inputs!(arr, idx, GatherReadValue);
+    fill_array_r1cs_inputs!(arr, idx, ShouldGather);
     arr[idx] = JoltONNXR1CSInputs::OpFlags(CircuitFlags::AddOperands);
     idx += 1;
     arr[idx] = JoltONNXR1CSInputs::OpFlags(CircuitFlags::SubtractOperands);
@@ -609,6 +633,8 @@ pub const ALL_R1CS_INPUTS: [JoltONNXR1CSInputs;
     arr[idx] = JoltONNXR1CSInputs::OpFlags(CircuitFlags::Const);
     idx += 1;
     arr[idx] = JoltONNXR1CSInputs::OpFlags(CircuitFlags::Advice);
+    idx += 1;
+    arr[idx] = JoltONNXR1CSInputs::OpFlags(CircuitFlags::Gather);
     idx += 1;
     arr[idx] = JoltONNXR1CSInputs::PC;
     idx += 1;
@@ -707,6 +733,20 @@ impl WitnessGenerator for JoltONNXR1CSInputs {
                     .collect();
                 coeffs.into()
             }
+            JoltONNXR1CSInputs::Ts1(i) => {
+                let coeffs: Vec<u32> = trace
+                    .par_iter()
+                    .map(|cycle| cycle.ts1_read().0.get(*i).cloned().unwrap() as u32)
+                    .collect();
+                coeffs.into()
+            }
+            JoltONNXR1CSInputs::Ts2(i) => {
+                let coeffs: Vec<u32> = trace
+                    .par_iter()
+                    .map(|cycle| cycle.ts2_read().0.get(*i).cloned().unwrap() as u32)
+                    .collect();
+                coeffs.into()
+            }
             JoltONNXR1CSInputs::TdWriteValue(i) => {
                 let coeffs: Vec<u64> = trace
                     .par_iter()
@@ -725,6 +765,32 @@ impl WitnessGenerator for JoltONNXR1CSInputs {
                 let coeffs: Vec<u64> = trace
                     .par_iter()
                     .map(|cycle| cycle.ts2_read().1.get(*i).cloned().unwrap())
+                    .collect();
+                coeffs.into()
+            }
+            JoltONNXR1CSInputs::GatherAddr(i) => {
+                let coeffs: Vec<u32> = trace
+                    .par_iter()
+                    .map(|cycle| cycle.gather_addresses().get(*i).cloned().unwrap() as u32)
+                    .collect();
+                coeffs.into()
+            }
+            JoltONNXR1CSInputs::GatherReadValue(i) => {
+                let coeffs: Vec<u32> = trace
+                    .par_iter()
+                    .map(|cycle| cycle.gather_read_values().get(*i).cloned().unwrap() as u32)
+                    .collect();
+                coeffs.into()
+            }
+            // TODO: Move witness gen to committed polynomials
+            JoltONNXR1CSInputs::ShouldGather(i) => {
+                let coeffs: Vec<u8> = trace
+                    .par_iter()
+                    .map(|cycle| {
+                        let is_gather =
+                            cycle.instr().to_circuit_flags()[CircuitFlags::Gather as usize];
+                        (*i < cycle.instr.active_output_elements) as u8 * (is_gather as u8)
+                    })
                     .collect();
                 coeffs.into()
             }
@@ -776,6 +842,16 @@ impl WitnessGenerator for JoltONNXR1CSInputs {
                 CommittedPolynomials::WriteLookupOutputToTD(*i)
                     .generate_witness(trace, preprocessing)
             }
+            JoltONNXR1CSInputs::ActiveRd(i) => {
+                CommittedPolynomials::ActiveRd(*i).generate_witness(trace, preprocessing)
+            }
+            JoltONNXR1CSInputs::ActiveOutput(i) => {
+                let coeffs: Vec<u8> = trace
+                    .par_iter()
+                    .map(|cycle| (*i < cycle.instr.active_output_elements) as u8)
+                    .collect();
+                coeffs.into()
+            }
             JoltONNXR1CSInputs::LookupOutput(i) => {
                 let coeffs: Vec<u64> = trace
                     .par_iter()
@@ -792,16 +868,6 @@ impl WitnessGenerator for JoltONNXR1CSInputs {
                 let coeffs: Vec<u8> = trace
                     .par_iter()
                     .map(|cycle| cycle.instr.to_circuit_flags()[*flag as usize] as u8)
-                    .collect();
-                coeffs.into()
-            }
-            JoltONNXR1CSInputs::TdProdFlag(i) => {
-                CommittedPolynomials::TdProdFlag(*i).generate_witness(trace, preprocessing)
-            }
-            JoltONNXR1CSInputs::ActiveOutput(i) => {
-                let coeffs: Vec<u8> = trace
-                    .par_iter()
-                    .map(|cycle| (*i < cycle.instr.active_output_elements) as u8)
                     .collect();
                 coeffs.into()
             }
@@ -1028,11 +1094,14 @@ impl JoltONNXCycle {
         if self.circuit_flags[CircuitFlags::SumOperands as usize] {
             active.push("SumOperands".to_string());
         }
+        if self.circuit_flags[CircuitFlags::Gather as usize] {
+            active.push("Gather".to_string());
+        }
 
         // Compile-time check that we've handled all flags.
         // Will error if you add a new flag and forget to update this.
         const _: () = {
-            let _ = [(); (NUM_CIRCUIT_FLAGS == 13) as usize - 1];
+            let _ = [(); (NUM_CIRCUIT_FLAGS == 14) as usize - 1];
         };
 
         if active.is_empty() {
@@ -1139,6 +1208,19 @@ pub fn check_mcc(execution_trace: &ExecutionTrace) {
             assert_eq!(
                 tensor_heap[*addr], *value,
                 "TS2 READ error at cycle_{i}: {cycle:#?}; Expected: {}, got: {} at address {addr} ",
+                tensor_heap[*addr], *value
+            );
+        }
+
+        // gather reads
+        let (gather_read_addresses, gather_read_values) =
+            (cycle.gather_addresses(), cycle.gather_read_values());
+        for (addr, value) in
+            itertools::izip!(gather_read_addresses.iter(), gather_read_values.iter())
+        {
+            assert_eq!(
+                tensor_heap[*addr], *value,
+                "GATHER READ error at cycle_{i}: {cycle:#?}; Expected: {}, got: {} at address {addr} ",
                 tensor_heap[*addr], *value
             );
         }
