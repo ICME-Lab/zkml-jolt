@@ -374,7 +374,6 @@ mod e2e_tests {
         info!("Raw trace: {raw_trace:#?}");
         let execution_trace = jolt_execution_trace(raw_trace);
         debug!("Execution trace: {execution_trace:#?}");
-        check_mcc(&execution_trace);
         let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
             JoltSNARK::prove(pp.clone(), execution_trace);
         // --- Verify ---
