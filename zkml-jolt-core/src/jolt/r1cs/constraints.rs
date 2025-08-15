@@ -175,6 +175,8 @@ impl<F: JoltField> R1CSConstraints<F> for JoltONNXConstraints {
             //     assert!(TdWriteValue == Ts2Value)
             // } else if Select && !Condition (Ts1Value) {
             //     assert!(TdWriteValue == Ts3Value)
+            // } else {
+            //     assert!(TdWriteValue == /* Further assertions down below */)
             // }
             cs.constrain_prod(
                 JoltONNXR1CSInputs::Ts1Value(i),
