@@ -577,7 +577,7 @@ pub enum JoltONNXR1CSInputs {
     GatherAddr(usize),
     GatherReadValue(usize),
     ShouldGather(usize),
-    ShouldSelect(usize),
+    SelectCondition(usize),
     SelectResult(usize),
 }
 
@@ -639,7 +639,7 @@ pub const ALL_R1CS_INPUTS: [JoltONNXR1CSInputs;
     fill_array_r1cs_inputs!(arr, idx, GatherAddr);
     fill_array_r1cs_inputs!(arr, idx, GatherReadValue);
     fill_array_r1cs_inputs!(arr, idx, ShouldGather);
-    fill_array_r1cs_inputs!(arr, idx, ShouldSelect);
+    fill_array_r1cs_inputs!(arr, idx, SelectCondition);
     fill_array_r1cs_inputs!(arr, idx, SelectResult);
     // Assign all OpFlags variants in one macro call
     assign_opflags!(
@@ -822,7 +822,7 @@ impl WitnessGenerator for JoltONNXR1CSInputs {
                 coeffs.into()
             }
             // TODO: Move witness gen to committed polynomials
-            JoltONNXR1CSInputs::ShouldSelect(i) => {
+            JoltONNXR1CSInputs::SelectCondition(i) => {
                 let coeffs: Vec<u8> = trace
                     .par_iter()
                     .map(|cycle| {

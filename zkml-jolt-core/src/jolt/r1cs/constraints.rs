@@ -181,7 +181,7 @@ impl<F: JoltField> R1CSConstraints<F> for JoltONNXConstraints {
             cs.constrain_prod(
                 JoltONNXR1CSInputs::Ts1Value(i),
                 JoltONNXR1CSInputs::OpFlags(CircuitFlags::Select),
-                JoltONNXR1CSInputs::ShouldSelect(i),
+                JoltONNXR1CSInputs::SelectCondition(i),
             );
             cs.constrain_prod(
                 JoltONNXR1CSInputs::TdWriteValue(i),
@@ -189,7 +189,7 @@ impl<F: JoltField> R1CSConstraints<F> for JoltONNXConstraints {
                 JoltONNXR1CSInputs::SelectResult(i),
             );
             cs.constrain_if_else(
-                JoltONNXR1CSInputs::ShouldSelect(i),
+                JoltONNXR1CSInputs::SelectCondition(i),
                 JoltONNXR1CSInputs::Ts2Value(i),
                 JoltONNXR1CSInputs::Ts3Value(i),
                 JoltONNXR1CSInputs::SelectResult(i),
