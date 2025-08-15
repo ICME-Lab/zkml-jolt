@@ -262,7 +262,7 @@ mod e2e_tests {
         poly::commitment::dory::DoryCommitmentScheme, utils::transcript::KeccakTranscript,
     };
     use log::{debug, info};
-    use onnx_tracer::{builder, logger::init_logger, model, tensor::Tensor};
+    use onnx_tracer::{builder, model, tensor::Tensor};
     use serde_json::Value;
     use serial_test::serial;
     use std::{collections::HashMap, fs::File, io::Read};
@@ -270,23 +270,6 @@ mod e2e_tests {
     type PCS = DoryCommitmentScheme<KeccakTranscript>;
 
     // TODO: Refactor duplicate code in tests
-
-    #[ignore]
-    #[test]
-    fn test_sentiment_select() {
-        // TODO: Rebase scale
-        let mut input_vector = I_HATE_THIS;
-
-        let sentiment_select = ONNXProgram {
-            model_path: "../onnx-tracer/models/sentiment_select/network.onnx".into(),
-            inputs: Tensor::new(Some(&input_vector), &[1, 5]).unwrap(), // Example input
-        };
-        let program_bytecode = sentiment_select.decode();
-        info!("Program code: {program_bytecode:#?}");
-
-        let raw_trace = sentiment_select.trace();
-        info!("Raw trace: {raw_trace:#?}");
-    }
 
     /*
         vocab.json:
@@ -373,9 +356,7 @@ mod e2e_tests {
 
     #[test]
     #[serial]
-    fn test_custom_sentiment_select() {
-        // init_logger();
-
+    fn test_custom_select() {
         // --- Preprocessing ---
         // acc for model in test.py = 0.83
         // mainly just using this to test select operator
@@ -591,7 +572,7 @@ mod e2e_tests {
             };
 
             // Decode to program bytecode (for EZKL use)
-            let program_bytecode = text_classification.decode();
+            let _program_bytecode = text_classification.decode();
 
             // Load model
             let model = model(&text_classification.model_path);
@@ -675,5 +656,22 @@ mod e2e_tests {
         }
 
         subgraph_program.trace();
+    }
+
+    #[ignore]
+    #[test]
+    fn test_sentiment_select() {
+        // TODO: Rebase scale
+        let input_vector = I_HATE_THIS;
+
+        let sentiment_select = ONNXProgram {
+            model_path: "../onnx-tracer/models/sentiment_select/network.onnx".into(),
+            inputs: Tensor::new(Some(&input_vector), &[1, 5]).unwrap(), // Example input
+        };
+        let program_bytecode = sentiment_select.decode();
+        info!("Program code: {program_bytecode:#?}");
+
+        let raw_trace = sentiment_select.trace();
+        info!("Raw trace: {raw_trace:#?}");
     }
 }
