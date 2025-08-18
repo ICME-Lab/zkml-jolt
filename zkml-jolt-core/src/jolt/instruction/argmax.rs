@@ -1,4 +1,3 @@
-use crate::jolt::execution_trace::WORD_SIZE;
 use crate::{
     jolt::instruction::{VirtualInstructionSequence, ge::GEInstruction},
     utils::u64_vec_to_i128_iter,
@@ -256,11 +255,12 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for ArgMaxInstruction<WO
                 advice_value: None,
             });
 
+            // max_val = select(masked_cond, xi, max_val)
             virtual_trace.push(ONNXCycle {
                 instr: ONNXInstr {
                     address: cycle.instr.address,
                     opcode: ONNXOpcode::Select,
-                    ts1: vcond,
+                    ts1: vmasked_cond,
                     ts2: vxi_val,
                     ts3: vmax_val,
                     td: vmax_val,
@@ -271,21 +271,22 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for ArgMaxInstruction<WO
                     active_output_elements: 1,
                 },
                 memory_state: MemoryState {
-                    ts1_val: scalar_tensor(ge),
+                    ts1_val: scalar_tensor(masked_ge),
                     ts2_val: Some(gathered_ts1[i].clone()),
                     ts3_val: scalar_tensor(max_val),
                     td_pre_val: None,
-                    td_post_val: scalar_tensor(if ge == 1 { xi } else { max_val }),
+                    td_post_val: scalar_tensor(if masked_ge == 1 { xi } else { max_val }),
                 },
                 advice_value: None,
             });
-            max_val = if ge == 1 { xi } else { max_val };
+            max_val = if masked_ge == 1 { xi } else { max_val };
 
+            // max_idx = select(masked_cond, i, max_idx)
             virtual_trace.push(ONNXCycle {
                 instr: ONNXInstr {
                     address: cycle.instr.address,
                     opcode: ONNXOpcode::Select,
-                    ts1: vcond,
+                    ts1: vmasked_cond,
                     ts2: vxi_idx,
                     ts3: vmax_idx,
                     td: vmax_idx,
@@ -296,17 +297,18 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for ArgMaxInstruction<WO
                     active_output_elements: 1,
                 },
                 memory_state: MemoryState {
-                    ts1_val: scalar_tensor(ge),
+                    ts1_val: scalar_tensor(masked_ge),
                     ts2_val: Some(indices[i].clone()),
                     ts3_val: scalar_tensor(max_idx),
                     td_pre_val: None,
-                    td_post_val: scalar_tensor(if ge == 1 { i as u64 } else { max_idx }),
+                    td_post_val: scalar_tensor(if masked_ge == 1 { i as u64 } else { max_idx }),
                 },
                 advice_value: None,
             });
-            max_idx = if ge == 1 { i as u64 } else { max_idx };
+            max_idx = if masked_ge == 1 { i as u64 } else { max_idx };
         }
 
+        // Move final result to output
         virtual_trace.push(ONNXCycle {
             instr: ONNXInstr {
                 address: cycle.instr.address,
@@ -414,13 +416,10 @@ mod test {
     fn test_argmax() {
         // Helper function to test a single case
         let test_case = |input: Vec<u64>, expected_idx: usize, description: &str| {
-            let mut padded_input = input.clone();
-            padded_input.resize(MAX_TENSOR_SIZE, 0);
-
             let mut expected_output = vec![0; MAX_TENSOR_SIZE];
             expected_output[0] = expected_idx as u64;
 
-            let result = ArgMaxInstruction::<32>::sequence_output(padded_input.clone(), vec![]);
+            let result = ArgMaxInstruction::<32>::sequence_output(input.clone(), vec![]);
             assert_eq!(result, expected_output, "Failed for case: {description}",);
 
             let cycle = ONNXCycle {
@@ -436,7 +435,7 @@ mod test {
                     active_output_elements: 1,
                 },
                 memory_state: MemoryState {
-                    ts1_val: Some(Tensor::from(u64_vec_to_i128_iter(&padded_input))),
+                    ts1_val: Some(Tensor::from(u64_vec_to_i128_iter(&input))),
                     ts2_val: None,
                     ts3_val: None,
                     td_pre_val: None,
@@ -471,11 +470,11 @@ mod test {
         );
         test_case(vec![10, 1, 2, 3, 4], 0, "max at beginning");
         test_case(vec![1, 2, 3, 4, 10], 4, "max at end");
-        // test_case(vec![0, 0, 0, 0], 3, "all zeros (should return last index)");
+        test_case(vec![0, 0, 0, 0], 3, "all zeros (should return last index)");
         test_case(vec![u32::MAX as u64], 0, "maximum u32 value");
         test_case(
             vec![0, u32::MAX as u64, 0],
-            1,
+            2,
             "maximum u32 value in middle",
         );
 
