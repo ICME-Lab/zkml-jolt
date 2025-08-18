@@ -1673,8 +1673,8 @@ pub fn argmax_axes<T: TensorType + Add<Output = T> + std::cmp::Ord + From<u64> +
         .clone()
         .into_iter()
         .enumerate()
-        // we value the first index in the case of a tie
-        .max_by_key(|(idx, value)| (value.clone(), -(*idx as i64)))
+        // we value the last index in the case of a tie
+        .max_by_key(|(idx, value)| (value.clone(), *idx as i64))
         .map(|(idx, _)| T::from(idx as u64))
         .unwrap()]
         .into_iter()

@@ -1,4 +1,6 @@
-#![allow(unused_assignments)] // for the assign_singles! macro
+#![allow(unused_assignments)]
+use crate::jolt::instruction::argmax::ArgMaxInstruction;
+// for the assign_singles! macro
 use crate::jolt::JoltProverPreprocessing;
 use crate::jolt::instruction::VirtualInstructionSequence;
 use crate::jolt::instruction::div::DIVInstruction;
@@ -177,6 +179,7 @@ pub fn jolt_execution_trace(raw_trace: Vec<ONNXCycle>) -> ExecutionTrace {
         // Expand (virtualize) if needed
         let expanded: Vec<ONNXCycle> = match raw.instr.opcode {
             ONNXOpcode::Div => DIVInstruction::<32>::virtual_trace(raw),
+            ONNXOpcode::ArgMax => ArgMaxInstruction::<32>::virtual_trace(raw),
             _ => vec![raw],
         };
 

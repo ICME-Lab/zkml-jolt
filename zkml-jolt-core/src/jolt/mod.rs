@@ -8,7 +8,7 @@ pub mod tensor_heap;
 use crate::jolt::{
     bytecode::{BytecodePreprocessing, BytecodeProof},
     execution_trace::JoltONNXCycle,
-    instruction::{VirtualInstructionSequence, div::DIVInstruction},
+    instruction::{VirtualInstructionSequence, argmax::ArgMaxInstruction, div::DIVInstruction},
     instruction_lookups::LookupsProof,
     r1cs::{
         constraints::{JoltONNXConstraints, R1CSConstraints},
@@ -101,6 +101,7 @@ where
             .into_iter()
             .flat_map(|instr| match instr.opcode {
                 ONNXOpcode::Div => DIVInstruction::<32>::virtual_sequence(instr),
+                ONNXOpcode::ArgMax => ArgMaxInstruction::<32>::virtual_sequence(instr),
                 _ => vec![instr],
             })
             .collect();
@@ -251,7 +252,10 @@ where
 #[cfg(test)]
 mod e2e_tests {
     use crate::{
-        jolt::{JoltProverPreprocessing, JoltSNARK, execution_trace::jolt_execution_trace},
+        jolt::{
+            JoltProverPreprocessing, JoltSNARK,
+            execution_trace::{check_mcc, jolt_execution_trace},
+        },
         program::ONNXProgram,
     };
     use ark_bn254::Fr;
@@ -374,6 +378,31 @@ mod e2e_tests {
         let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
             JoltSNARK::prove(pp.clone(), execution_trace);
         // --- Verify ---
+        snark.verify((&pp).into()).unwrap();
+    }
+
+    #[serial]
+    #[test]
+    fn test_argmax() {
+        // --- Preprocessing ---
+        let custom_argmax_model = builder::argmax_model();
+        // let res = custom_argmax_model.forward(&[input]).unwrap();
+        // println!("Result: {res:#?}");
+        let program_bytecode = onnx_tracer::decode_model(custom_argmax_model.clone());
+        debug!("Program code: {program_bytecode:#?}");
+        let pp: JoltProverPreprocessing<Fr, PCS, KeccakTranscript> =
+            JoltSNARK::prover_preprocess(program_bytecode);
+
+        // --- Proving ---
+        // Get execution trace
+        let input = Tensor::new(Some(&[10, 20, 30, 50, 50]), &[5]).unwrap();
+        let raw_trace = onnx_tracer::execution_trace(custom_argmax_model, &input);
+        debug!("raw trace: {raw_trace:#?}");
+        let execution_trace = jolt_execution_trace(raw_trace);
+        let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
+            JoltSNARK::prove(pp.clone(), execution_trace);
+
+        // --- Verification ---
         snark.verify((&pp).into()).unwrap();
     }
 

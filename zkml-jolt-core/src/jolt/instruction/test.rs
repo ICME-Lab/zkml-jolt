@@ -1,11 +1,3 @@
-use ark_std::test_rng;
-use onnx_tracer::{
-    constants::{MAX_TENSOR_SIZE, TENSOR_REGISTER_COUNT},
-    tensor::Tensor,
-    trace_types::{MemoryState, ONNXCycle, ONNXInstr, ONNXOpcode},
-};
-use rand::RngCore;
-
 use crate::jolt::execution_trace::WORD_SIZE;
 use crate::{
     jolt::{
@@ -14,6 +6,13 @@ use crate::{
     },
     utils::u64_vec_to_i128_iter,
 };
+use ark_std::test_rng;
+use onnx_tracer::{
+    constants::{MAX_TENSOR_SIZE, TENSOR_REGISTER_COUNT},
+    tensor::Tensor,
+    trace_types::{MemoryState, ONNXCycle, ONNXInstr, ONNXOpcode},
+};
+use rand::RngCore;
 
 /// Tests the consistency and correctness of a virtual instruction sequence.
 /// In detail:
@@ -103,10 +102,19 @@ pub fn jolt_virtual_sequence_test<I: VirtualInstructionSequence>(opcode: ONNXOpc
                 assert_eq!(tensor_registers[ts2_addr], cycle.ts2_vals(), "{cycle:#?}");
             }
 
-            let output =
-                ONNXLookupQuery::<WORD_SIZE>::to_lookup_output(&JoltONNXCycle::from(&cycle));
+            let output = match cycle.instr.opcode {
+                ONNXOpcode::Gather => gather_output(&cycle),
+                ONNXOpcode::Select => select_output(&cycle),
+                _ => ONNXLookupQuery::<WORD_SIZE>::to_lookup_output(&JoltONNXCycle::from(&cycle)),
+            };
+
             if let Some(td_addr) = cycle.instr.td {
-                tensor_registers[td_addr] = output;
+                // Only write active output elements, rest should be zero
+                let mut td_output = vec![0u64; MAX_TENSOR_SIZE];
+                for i in 0..cycle.instr.active_output_elements.min(output.len()) {
+                    td_output[i] = output[i];
+                }
+                tensor_registers[td_addr] = td_output;
                 assert_eq!(
                     tensor_registers[td_addr],
                     cycle.td_post_vals(),
@@ -144,4 +152,50 @@ pub fn jolt_virtual_sequence_test<I: VirtualInstructionSequence>(opcode: ONNXOpc
             }
         }
     }
+}
+
+/// Helper function to compute gather operation output
+/// Takes ts1_val (data) and ts2_val (indices) and performs gather operation
+fn gather_output(cycle: &ONNXCycle) -> Vec<u64> {
+    assert_eq!(cycle.instr.opcode, ONNXOpcode::Gather);
+
+    let data = cycle.ts1_vals();
+    let indices = cycle.ts2_vals();
+
+    let mut output = vec![0u64; MAX_TENSOR_SIZE];
+
+    // For each active output element, gather from data using indices
+    for i in 0..cycle.instr.active_output_elements {
+        let index = indices[i] as usize;
+        if index < data.len() {
+            output[i] = data[index];
+        }
+        // If index is out of bounds, output remains 0
+    }
+
+    output
+}
+
+/// Helper function to compute select operation output  
+/// Takes ts1_val (condition), ts2_val (true_value), ts3_val (false_value)
+/// Returns true_value where condition != 0, false_value otherwise
+fn select_output(cycle: &ONNXCycle) -> Vec<u64> {
+    assert_eq!(cycle.instr.opcode, ONNXOpcode::Select);
+
+    let condition = cycle.ts1_vals();
+    let true_values = cycle.ts2_vals();
+    let false_values = cycle.ts3_vals();
+
+    let mut output = vec![0u64; MAX_TENSOR_SIZE];
+
+    // For each active output element, select based on condition
+    for i in 0..cycle.instr.active_output_elements {
+        output[i] = if condition[i] != 0 {
+            true_values[i]
+        } else {
+            false_values[i]
+        };
+    }
+
+    output
 }

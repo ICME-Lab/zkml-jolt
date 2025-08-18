@@ -78,6 +78,7 @@ impl From<&HybridOp> for ONNXOpcode {
             HybridOp::Softmax { .. } => ONNXOpcode::Softmax,
             HybridOp::Gather { .. } => ONNXOpcode::Gather,
             HybridOp::GreaterEqual => ONNXOpcode::Gte,
+            HybridOp::ReduceArgMax { .. } => ONNXOpcode::ArgMax,
             _ => {
                 panic!("HybridOp {value:?} cannot be converted to ONNXOpcode",);
             }
@@ -344,99 +345,6 @@ where
             }
         }
     }
-
-    //   fn layout(
-    //     &self,
-    //     config: &mut crate::circuit::BaseConfig<F>,
-    //     region: &mut RegionCtx<F>,
-    //     values: &[ValTensor<F>],
-    //   ) -> Result<Option<ValTensor<F>>, Box<dyn std::error::Error>> {
-    //     Ok(Some(match self {
-    //       HybridOp::SumPool {
-    //         padding,
-    //         stride,
-    //         kernel_shape,
-    //         normalized,
-    //       } => layouts::sumpool(
-    //         config,
-    //         region,
-    //         values[..].try_into()?,
-    //         *padding,
-    //         *stride,
-    //         *kernel_shape,
-    //         *normalized,
-    //       )?,
-    //       HybridOp::Gather { dim, constant_idx } => {
-    //         if let Some(idx) = constant_idx {
-    //           tensor::ops::gather(values[0].get_inner_tensor()?, idx, *dim)?.into()
-    //         } else {
-    //           layouts::gather(config, region, values[..].try_into()?, *dim)?
-    //         }
-    //       }
-    //       HybridOp::GatherElements { dim, constant_idx } => {
-    //         if let Some(idx) = constant_idx {
-    //           tensor::ops::gather_elements(values[0].get_inner_tensor()?, idx,
-    // *dim)?.into()         } else {
-    //           layouts::gather_elements(config, region, values[..].try_into()?, *dim)?
-    //         }
-    //       }
-    //       HybridOp::ScatterElements { dim, constant_idx } => {
-    //         if let Some(idx) = constant_idx {
-    //           tensor::ops::scatter(
-    //             values[0].get_inner_tensor()?,
-    //             idx,
-    //             values[1].get_inner_tensor()?,
-    //             *dim,
-    //           )?
-    //           .into()
-    //         } else {
-    //           layouts::scatter_elements(config, region, values[..].try_into()?, *dim)?
-    //         }
-    //       }
-    //       HybridOp::MaxPool2d {
-    //         padding,
-    //         stride,
-    //         pool_dims,
-    //       } => layouts::max_pool2d(
-    //         config,
-    //         region,
-    //         values[..].try_into()?,
-    //         *padding,
-    //         *stride,
-    //         *pool_dims,
-    //       )?,
-    //       HybridOp::ReduceMax { axes } => {
-    //         layouts::max_axes(config, region, values[..].try_into()?, axes)?
-    //       }
-    //       HybridOp::ReduceArgMax { dim } => {
-    //         layouts::argmax_axes(config, region, values[..].try_into()?, *dim)?
-    //       }
-    //       HybridOp::ReduceMin { axes } => {
-    //         layouts::min_axes(config, region, values[..].try_into()?, axes)?
-    //       }
-    //       HybridOp::ReduceArgMin { dim } => {
-    //         layouts::argmin_axes(config, region, values[..].try_into()?, *dim)?
-    //       }
-    //       HybridOp::Softmax { scale, axes } => {
-    //         layouts::softmax_axes(config, region, values[..].try_into()?, *scale,
-    // axes)?       }
-    //       HybridOp::RangeCheck(tol) => {
-    //         layouts::range_check_percent(config, region, values[..].try_into()?,
-    // tol.scale, tol.val)?       }
-    //       HybridOp::Greater => layouts::greater(config, region,
-    // values[..].try_into()?)?,       HybridOp::GreaterEqual =>
-    // layouts::greater_equal(config, region, values[..].try_into()?)?,
-    //       HybridOp::Less => layouts::less(config, region, values[..].try_into()?)?,
-    //       HybridOp::LessEqual => layouts::less_equal(config, region,
-    // values[..].try_into()?)?,       HybridOp::Equals => layouts::equals(config,
-    // region, values[..].try_into()?)?,       HybridOp::TopK { dim, k, largest } => {
-    //         layouts::topk_axes(config, region, values[..].try_into()?, *k, *dim,
-    // *largest)?       }
-    //       HybridOp::OneHot { dim, num_classes } => {
-    //         layouts::one_hot_axis(config, region, values[..].try_into()?,
-    // *num_classes, *dim)?       }
-    //     }))
-    //   }
 
     fn out_scale(&self, in_scales: Vec<crate::Scale>) -> Result<crate::Scale, Box<dyn Error>> {
         let scale = match self {

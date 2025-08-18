@@ -201,6 +201,26 @@ impl ModelBuilder {
         self.model.insert_node(n);
         (id, O)
     }
+
+    fn argmax(
+        &mut self,
+        input: Wire,
+        dim: usize,
+        out_dims: Vec<usize>,
+        fanout_hint: usize,
+    ) -> Wire {
+        let id = self.alloc();
+        let argmax_node = create_node(
+            SupportedOp::Hybrid(HybridOp::ReduceArgMax { dim }),
+            0, // ArgMax output has scale 0 (returns indices)
+            vec![input],
+            out_dims,
+            id,
+            fanout_hint,
+        );
+        self.model.insert_node(argmax_node);
+        (id, O)
+    }
 }
 
 /* ********************** Testing Model's ********************** */
@@ -426,4 +446,20 @@ pub fn sentiment_select() -> Model {
     let result = b.greater_equal(added, zero_const, vec![1, 1], 1);
 
     b.take(vec![input_indices.0], vec![result])
+}
+
+/// Simple ArgMax model:
+/// 1. Takes a 1D vector input
+/// 2. Returns the index of the maximum element
+pub fn argmax_model() -> Model {
+    const SCALE: i32 = 7;
+    let mut b = ModelBuilder::new(SCALE);
+
+    // Node 0: Input vector (1D)
+    let input = b.input(vec![5], 1); // Example: vector of length 5
+
+    // Node 1: ArgMax operation along dimension 0
+    let argmax_result = b.argmax(input, 0, vec![1], 1); // Returns a scalar index
+
+    b.take(vec![input.0], vec![argmax_result])
 }

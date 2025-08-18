@@ -1,3 +1,4 @@
+use crate::jolt::execution_trace::WORD_SIZE;
 use crate::{
     jolt::instruction::{VirtualInstructionSequence, ge::GEInstruction},
     utils::u64_vec_to_i128_iter,
@@ -12,7 +13,7 @@ use onnx_tracer::{
 pub struct ArgMaxInstruction<const WORD_SIZE: usize>;
 
 impl<const WORD_SIZE: usize> VirtualInstructionSequence for ArgMaxInstruction<WORD_SIZE> {
-    const SEQUENCE_LENGTH: usize = (MAX_TENSOR_SIZE - 1) * 5 + 3;
+    const SEQUENCE_LENGTH: usize = (MAX_TENSOR_SIZE - 1) * 7 + 3;
 
     fn virtual_trace(cycle: ONNXCycle) -> Vec<ONNXCycle> {
         assert_eq!(cycle.instr.opcode, ONNXOpcode::ArgMax);
@@ -23,13 +24,21 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for ArgMaxInstruction<WO
             Some(Tensor::from(u64_vec_to_i128_iter(&value)))
         };
 
+        // Get the active output elements from the input tensor (ts1)
+        let active_elements = cycle
+            .memory_state
+            .ts1_val
+            .as_ref()
+            .map(|t| t.dims().iter().product::<usize>().min(MAX_TENSOR_SIZE))
+            .unwrap_or(cycle.instr.active_output_elements);
+
         // Create tensors for each value in the input array
         // For each index i, create a tensor with v[i] as the first element and zeros elsewhere
         // This prepares individual input values for element-wise comparison operations
         let gathered_ts1 = (0..MAX_TENSOR_SIZE)
             .map(|i| {
                 let mut tensor = zero_tensor();
-                tensor[0] = cycle.memory_state.ts1_val.as_ref().unwrap()[i];
+                tensor[0] = cycle.ts1_vals()[i] as u32 as i32 as i64 as i128;
                 tensor
             })
             .collect::<Vec<_>>();
@@ -45,12 +54,23 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for ArgMaxInstruction<WO
             })
             .collect::<Vec<_>>();
 
+        // Create validity mask tensors: 1 for valid indices (< active_elements), 0 for padded
+        let validity_masks = (0..MAX_TENSOR_SIZE)
+            .map(|i| {
+                let mut tensor = zero_tensor();
+                tensor[0] = if i < active_elements { 1i128 } else { 0i128 };
+                tensor
+            })
+            .collect::<Vec<_>>();
+
         // Virtual registers used in sequence
         let vmax_idx = Some(virtual_tensor_index(0));
         let vmax_val = Some(virtual_tensor_index(1));
         let vxi_val = Some(virtual_tensor_index(2));
-        let vxi_idx = Some(virtual_tensor_index(2));
-        let vcond = Some(virtual_tensor_index(3));
+        let vxi_idx = Some(virtual_tensor_index(3));
+        let vcond = Some(virtual_tensor_index(4));
+        let vmask = Some(virtual_tensor_index(5));
+        let vmasked_cond = Some(virtual_tensor_index(6));
 
         // ArgMax operands
         let x = cycle.ts1_vals();
@@ -127,7 +147,7 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for ArgMaxInstruction<WO
                     ts1_val: None,
                     ts2_val: None,
                     ts3_val: None,
-                    td_pre_val: None,
+                    td_pre_val: None, // These values will get filled in when we get the execution trace.
                     td_post_val: Some(indices[i].clone()),
                 },
                 advice_value: None,
@@ -154,8 +174,33 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for ArgMaxInstruction<WO
                     ts1_val: cycle.memory_state.ts1_val.clone(),
                     ts2_val: Some(indices[i].clone()),
                     ts3_val: None,
-                    td_pre_val: None, // TODO(Forpee): I do not think I have to populate this. I will double check
+                    td_pre_val: None,
                     td_post_val: Some(gathered_ts1[i].clone()),
+                },
+                advice_value: None,
+            });
+
+            // Create validity mask constant for this index
+            virtual_trace.push(ONNXCycle {
+                instr: ONNXInstr {
+                    address: cycle.instr.address,
+                    opcode: ONNXOpcode::VirtualConst,
+                    ts1: None,
+                    ts2: None,
+                    ts3: None,
+                    td: vmask,
+                    imm: Some(validity_masks[i].clone()),
+                    virtual_sequence_remaining: Some(
+                        Self::SEQUENCE_LENGTH - virtual_trace.len() - 1,
+                    ),
+                    active_output_elements: 1,
+                },
+                memory_state: MemoryState {
+                    ts1_val: None,
+                    ts2_val: None,
+                    ts3_val: None,
+                    td_pre_val: None,
+                    td_post_val: Some(validity_masks[i].clone()),
                 },
                 advice_value: None,
             });
@@ -185,6 +230,32 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for ArgMaxInstruction<WO
                 advice_value: None,
             });
 
+            // masked_cond = ge * validity_mask (constrains padded elements to have ge=0)
+            let masked_ge = if i < active_elements { ge } else { 0 };
+            virtual_trace.push(ONNXCycle {
+                instr: ONNXInstr {
+                    address: cycle.instr.address,
+                    opcode: ONNXOpcode::Mul,
+                    ts1: vcond,
+                    ts2: vmask,
+                    ts3: None,
+                    td: vmasked_cond,
+                    imm: None,
+                    virtual_sequence_remaining: Some(
+                        Self::SEQUENCE_LENGTH - virtual_trace.len() - 1,
+                    ),
+                    active_output_elements: 1,
+                },
+                memory_state: MemoryState {
+                    ts1_val: scalar_tensor(ge),
+                    ts2_val: Some(validity_masks[i].clone()),
+                    ts3_val: None,
+                    td_pre_val: None,
+                    td_post_val: scalar_tensor(masked_ge),
+                },
+                advice_value: None,
+            });
+
             virtual_trace.push(ONNXCycle {
                 instr: ONNXInstr {
                     address: cycle.instr.address,
@@ -200,7 +271,7 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for ArgMaxInstruction<WO
                     active_output_elements: 1,
                 },
                 memory_state: MemoryState {
-                    ts1_val: scalar_tensor(ge), // TODO: I should probably precompute these values before the loop
+                    ts1_val: scalar_tensor(ge),
                     ts2_val: Some(gathered_ts1[i].clone()),
                     ts3_val: scalar_tensor(max_val),
                     td_pre_val: None,
@@ -225,7 +296,7 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for ArgMaxInstruction<WO
                     active_output_elements: 1,
                 },
                 memory_state: MemoryState {
-                    ts1_val: scalar_tensor(ge), // TODO: I should probably precompute these values before the loop
+                    ts1_val: scalar_tensor(ge),
                     ts2_val: Some(indices[i].clone()),
                     ts3_val: scalar_tensor(max_idx),
                     td_pre_val: None,
@@ -329,11 +400,105 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for ArgMaxInstruction<WO
 
 #[cfg(test)]
 mod test {
+
     use super::*;
     use crate::jolt::instruction::test::jolt_virtual_sequence_test;
+    use rand::Rng;
 
     #[test]
     fn argmax_virtual_sequence_32() {
         jolt_virtual_sequence_test::<ArgMaxInstruction<32>>(ONNXOpcode::ArgMax);
+    }
+
+    #[test]
+    fn test_argmax() {
+        // Helper function to test a single case
+        let test_case = |input: Vec<u64>, expected_idx: usize, description: &str| {
+            let mut padded_input = input.clone();
+            padded_input.resize(MAX_TENSOR_SIZE, 0);
+
+            let mut expected_output = vec![0; MAX_TENSOR_SIZE];
+            expected_output[0] = expected_idx as u64;
+
+            let result = ArgMaxInstruction::<32>::sequence_output(padded_input.clone(), vec![]);
+            assert_eq!(result, expected_output, "Failed for case: {description}",);
+
+            let cycle = ONNXCycle {
+                instr: ONNXInstr {
+                    address: 1,
+                    opcode: ONNXOpcode::ArgMax,
+                    ts1: Some(0),
+                    ts2: None,
+                    ts3: None,
+                    td: Some(1),
+                    imm: None,
+                    virtual_sequence_remaining: None,
+                    active_output_elements: 1,
+                },
+                memory_state: MemoryState {
+                    ts1_val: Some(Tensor::from(u64_vec_to_i128_iter(&padded_input))),
+                    ts2_val: None,
+                    ts3_val: None,
+                    td_pre_val: None,
+                    td_post_val: Some(Tensor::from(u64_vec_to_i128_iter(&expected_output))),
+                },
+                advice_value: None,
+            };
+
+            let argmax_trace = ArgMaxInstruction::<32>::virtual_trace(cycle);
+            assert_eq!(argmax_trace.len(), ArgMaxInstruction::<32>::SEQUENCE_LENGTH);
+            let output_cycle = argmax_trace.last().unwrap();
+            assert_eq!(
+                output_cycle.td_post_vals(),
+                expected_output,
+                "Virtual trace failed for case: {description}",
+            );
+        };
+
+        // Edge cases
+        test_case(vec![5], 0, "single element");
+        test_case(vec![1, 2], 1, "two elements, max at end");
+        test_case(vec![2, 1], 0, "two elements, max at start");
+        test_case(
+            vec![5, 5, 5],
+            2,
+            "all elements equal (should return last index)",
+        );
+        test_case(
+            vec![1, 5, 3, 5, 2],
+            3,
+            "duplicate max values (should return last occurrence)",
+        );
+        test_case(vec![10, 1, 2, 3, 4], 0, "max at beginning");
+        test_case(vec![1, 2, 3, 4, 10], 4, "max at end");
+        // test_case(vec![0, 0, 0, 0], 3, "all zeros (should return last index)");
+        test_case(vec![u32::MAX as u64], 0, "maximum u32 value");
+        test_case(
+            vec![0, u32::MAX as u64, 0],
+            1,
+            "maximum u32 value in middle",
+        );
+
+        // Random test cases
+        let mut rng = rand::thread_rng();
+        for i in 0..1000 {
+            // Generate random input size between 1 and min(50, MAX_TENSOR_SIZE)
+            let size = rng.gen_range(1..=std::cmp::min(50, MAX_TENSOR_SIZE));
+            let input: Vec<u64> = (0..size).map(|_| rng.gen_range(0..=1000)).collect();
+
+            // Find expected argmax (last occurrence in case of ties)
+            let max_val = *input.iter().max().unwrap();
+            let expected_idx = input
+                .iter()
+                .enumerate()
+                .rev()
+                .find(|(_, val)| **val == max_val)
+                .map(|(idx, _)| idx)
+                .unwrap();
+
+            test_case(input, expected_idx, &format!("random case {i}"));
+        }
+
+        println!("All argmax tests passed!");
     }
 }
