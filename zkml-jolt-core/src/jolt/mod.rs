@@ -252,10 +252,7 @@ where
 #[cfg(test)]
 mod e2e_tests {
     use crate::{
-        jolt::{
-            JoltProverPreprocessing, JoltSNARK,
-            execution_trace::{check_mcc, jolt_execution_trace},
-        },
+        jolt::{JoltProverPreprocessing, JoltSNARK, execution_trace::jolt_execution_trace},
         program::ONNXProgram,
     };
     use ark_bn254::Fr;
