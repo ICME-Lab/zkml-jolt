@@ -1,6 +1,6 @@
 #![allow(clippy::needless_range_loop)]
 #[cfg(test)]
-use crate::jolt::execution_trace::check_mcc;
+use crate::jolt::execution_trace::sanity_check_mcc;
 use crate::jolt::{JoltProverPreprocessing, execution_trace::JoltONNXCycle};
 use jolt_core::{
     field::{JoltField, OptimizedMul},
@@ -44,7 +44,7 @@ impl<F: JoltField, ProofTranscript: Transcript> TensorHeapTwistProof<F, ProofTra
         transcript: &mut ProofTranscript,
     ) -> TensorHeapTwistProof<F, ProofTranscript> {
         #[cfg(test)]
-        check_mcc(trace);
+        sanity_check_mcc(trace);
         let log_T = (trace.len() * MAX_TENSOR_SIZE).log_2();
 
         let r: Vec<F> = transcript.challenge_vector(K.log_2());

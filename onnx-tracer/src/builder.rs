@@ -201,6 +201,48 @@ impl ModelBuilder {
         self.model.insert_node(n);
         (id, O)
     }
+
+    fn argmax(
+        &mut self,
+        input: Wire,
+        dim: usize,
+        out_dims: Vec<usize>,
+        fanout_hint: usize,
+    ) -> Wire {
+        let id = self.alloc();
+        let argmax_node = create_node(
+            SupportedOp::Hybrid(HybridOp::ReduceArgMax { dim }),
+            0, // ArgMax output has scale 0 (returns indices)
+            vec![input],
+            out_dims,
+            id,
+            fanout_hint,
+        );
+        self.model.insert_node(argmax_node);
+        (id, O)
+    }
+
+    fn broadcast(
+        &mut self,
+        input: Wire,
+        target_shape: Vec<usize>,
+        out_dims: Vec<usize>,
+        fanout_hint: usize,
+    ) -> Wire {
+        let id = self.alloc();
+        let broadcast_node = create_node(
+            SupportedOp::Linear(PolyOp::MultiBroadcastTo {
+                shape: target_shape,
+            }),
+            self.scale,
+            vec![input],
+            out_dims,
+            id,
+            fanout_hint,
+        );
+        self.model.insert_node(broadcast_node);
+        (id, O)
+    }
 }
 
 /* ********************** Testing Model's ********************** */
@@ -426,4 +468,102 @@ pub fn sentiment_select() -> Model {
     let result = b.greater_equal(added, zero_const, vec![1, 1], 1);
 
     b.take(vec![input_indices.0], vec![result])
+}
+
+/// Simple ArgMax model:
+/// 1. Takes a 1D vector input
+/// 2. Returns the index of the maximum element
+pub fn argmax_model() -> Model {
+    const SCALE: i32 = 7;
+    let mut b = ModelBuilder::new(SCALE);
+
+    // Node 0: Input vector (1D)
+    let input = b.input(vec![5], 1); // Example: vector of length 5
+
+    // Node 1: ArgMax operation along dimension 0
+    let argmax_result = b.argmax(input, 0, vec![1], 1); // Returns a scalar index
+
+    b.take(vec![input.0], vec![argmax_result])
+}
+
+/// Multiclass classification model that:
+/// 1. Takes embedding tensor and input indices
+/// 2. Gathers embeddings based on input indices  
+/// 3. Sums the gathered embeddings
+/// 4. Broadcasts the sum across a weight matrix
+/// 5. Multiplies by weights (replacing RebaseScale with mul + div)
+/// 6. Adds bias vector
+/// 7. Applies ArgMax to find predicted class
+/// 8. Reshapes output to scalar
+pub fn multiclass0() -> Model {
+    const SCALE: i32 = 7;
+    let mut b = ModelBuilder::new(SCALE);
+
+    // Node 0: Embedding matrix (shape [32, 1])
+    let mut embedding = Tensor::new(
+        Some(&[
+            -30i128, 12, 229, -451, 214, -7, 341, -274, -359, 5, -1, -44, 38, 299, 2, -164, 2, -26,
+            129, 5, -185, -13, 2, 14, -48, 302, -479, 158, -297, -4, 206, -379,
+        ]),
+        &[32, 1],
+    )
+    .unwrap();
+    embedding.set_scale(SCALE);
+    let embedding_const = b.const_tensor_with_scale(embedding, SCALE, vec![32, 1], 1);
+
+    // Node 1: Input indices (shape [1, 8])
+    let input_indices = b.input(vec![1, 8], 1);
+
+    // Node 2: Gather embeddings
+    let gathered = b.gather(embedding_const, input_indices, 0, vec![1, 8, 1], 1);
+
+    // Node 3: Sum the gathered embeddings
+    let summed = b.sum(gathered, vec![1, 2], vec![1, 1, 1], 1);
+
+    // Node 4: Reshape to [1, 1]
+    let reshaped = b.reshape(summed, vec![1, 1], vec![1, 1], 1);
+
+    // Node 5: Weight matrix constants (shape [1, 10])
+    let mut weights = Tensor::new(
+        Some(&[-245i128, 254, -137, 422, 186, 186, 186, 186, 186, 186]),
+        &[1, 10],
+    )
+    .unwrap();
+    weights.set_scale(SCALE);
+    let weights_const = b.const_tensor_with_scale(weights, SCALE, vec![1, 10], 1);
+
+    // Node 5.5: Broadcast the scalar [1, 1] to [1, 10] shape
+    let scalar_broadcasted = b.broadcast(reshaped, vec![1, 10], vec![1, 10], 1);
+
+    // Node 6: Multiply the broadcasted scalar by the weight vector (replacing RebaseScale)
+    let multiplied = b.poly(
+        PolyOp::Mult,
+        weights_const,
+        scalar_broadcasted,
+        vec![1, 10],
+        1,
+    );
+
+    // Node 6.5: Divide by 128 (replacing the rebase scale division)
+    let scaled = b.div(128i128, multiplied, vec![1, 10], 1);
+
+    // Node 7: Bias vector (shape [1, 10])
+    let mut bias = Tensor::new(
+        Some(&[-347i128, 534, 259, 86, -188, -188, -188, -188, -188, -188]),
+        &[1, 10],
+    )
+    .unwrap();
+    bias.set_scale(SCALE);
+    let bias_const = b.const_tensor_with_scale(bias, SCALE, vec![1, 10], 1);
+
+    // Node 8: Add bias
+    let added = b.poly(PolyOp::Add, scaled, bias_const, vec![1, 10], 1);
+
+    // Node 9: ArgMax along dimension 1 to find predicted class
+    let argmax_result = b.argmax(added, 1, vec![1, 1], 1);
+
+    // Node 10: Reshape to scalar output [1]
+    let final_result = b.reshape(argmax_result, vec![1], vec![1], 1);
+
+    b.take(vec![input_indices.0], vec![final_result])
 }

@@ -1673,8 +1673,8 @@ pub fn argmax_axes<T: TensorType + Add<Output = T> + std::cmp::Ord + From<u64> +
         .clone()
         .into_iter()
         .enumerate()
-        // we value the first index in the case of a tie
-        .max_by_key(|(idx, value)| (value.clone(), -(*idx as i64)))
+        // we value the last index in the case of a tie
+        .max_by_key(|(idx, value)| (value.clone(), *idx as i64))
         .map(|(idx, _)| T::from(idx as u64))
         .unwrap()]
         .into_iter()
@@ -3717,6 +3717,10 @@ pub mod nonlinearities {
         .unwrap()
     }
 
+    /// # Note
+    /// Modified to match the semantics of zkVM division.
+    ///
+    /// ---
     /// Elementwise divides a tensor with a const integer element.
     /// # Arguments
     ///
@@ -3737,7 +3741,11 @@ pub mod nonlinearities {
     /// ```
     pub fn const_div(a: &Tensor<i128>, denom: f64) -> Tensor<i128> {
         a.par_enum_map(|_, a_i| {
-            let d_inv_x = (a_i as f64) / (denom);
+            let mut d_inv_x = (a_i as i32) / (denom as i32);
+            let remainder = a_i as i32 % denom as i32;
+            if (remainder < 0 && (denom as i32) > 0) || (remainder > 0 && (denom as i32) < 0) {
+                d_inv_x -= 1;
+            }
             Ok::<_, TensorError>(d_inv_x as i128)
         })
         .unwrap()
