@@ -111,9 +111,9 @@ pub fn jolt_virtual_sequence_test<I: VirtualInstructionSequence>(opcode: ONNXOpc
             if let Some(td_addr) = cycle.instr.td {
                 // Only write active output elements, rest should be zero
                 let mut td_output = vec![0u64; MAX_TENSOR_SIZE];
-                for i in 0..cycle.instr.active_output_elements.min(output.len()) {
-                    td_output[i] = output[i];
-                }
+                td_output[..cycle.instr.active_output_elements.min(output.len())].copy_from_slice(
+                    &output[..cycle.instr.active_output_elements.min(output.len())],
+                );
                 tensor_registers[td_addr] = td_output;
                 assert_eq!(
                     tensor_registers[td_addr],
