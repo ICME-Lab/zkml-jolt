@@ -260,7 +260,7 @@ mod e2e_tests {
         poly::commitment::dory::DoryCommitmentScheme, utils::transcript::KeccakTranscript,
     };
     use log::{debug, info};
-    use onnx_tracer::{builder, model, tensor::Tensor};
+    use onnx_tracer::{builder, logger::init_logger, model, tensor::Tensor};
     use serde_json::Value;
     use serial_test::serial;
     use std::{collections::HashMap, fs::File, io::Read};
@@ -269,52 +269,123 @@ mod e2e_tests {
 
     // TODO: Refactor duplicate code in tests
 
-    /*
-        vocab.json:
-        {
-            "i": 1,
-            "love": 2,
-            "this": 3,
-            "is": 4,
-            "great": 5,
-            "happy": 6,
-            "with": 7,
-            "the": 8,
-            "result": 9,
-            "hate": 10,
-            "bad": 11,
-            "not": 12,
-            "satisfied": 13
+    #[serial]
+    #[test]
+    fn test_custom_multiclass0() {
+        init_logger();
+        // "new streaming series announced",
+        // class  -> 3: entertainment
+        let input_vector = [25, 6, 2, 17, 0, 0, 0, 0];
+        let multiclass0 = builder::multiclass0();
+        let program_bytecode = onnx_tracer::decode_model(multiclass0.clone());
+        debug!("Program code: {program_bytecode:#?}",);
+        let pp: JoltProverPreprocessing<Fr, PCS, KeccakTranscript> =
+            JoltSNARK::prover_preprocess(program_bytecode);
+
+        // --- Prove ---
+        let raw_trace = onnx_tracer::execution_trace(
+            multiclass0,
+            &Tensor::new(Some(&input_vector), &[1, 8]).unwrap(),
+        );
+        debug!("Raw trace: {raw_trace:#?}",);
+        assert_eq!(
+            3, /* class  -> 3: entertainment */
+            raw_trace.last().unwrap().ts1_vals()[0]
+        );
+        let execution_trace = jolt_execution_trace(raw_trace);
+        let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
+            JoltSNARK::prove(pp.clone(), execution_trace);
+
+        // --- Verify ---
+        snark.verify((&pp).into()).unwrap();
+    }
+
+    #[test]
+    fn test_multiclass_inference() {
+        // see onnx-tracer/models/multiclass0/vocab.json for vocab
+        // see onnx-tracer/models/multiclass0/labels.json for labels
+
+        // "cheap flights to rome",
+        //  class  -> 2: travel
+        let input1 = [4, 24, 7, 11, 0, 0, 0, 0];
+
+        // "box office hits this weekend",
+        // class  -> 3: entertainment
+        let input2 = [25, 27, 30, 4, 18, 0, 0, 0];
+
+        // "quarterly earnings beat guidance",
+        // class  -> 0: business
+        let input3 = [26, 3, 17, 7, 0, 0, 0, 0];
+
+        // "university admissions tips",
+        //  class  -> 1: education
+        let input4 = [12, 17, 30, 0, 0, 0, 0, 0];
+
+        // "new streaming series announced",
+        // class  -> 3: entertainment
+        let input5 = [25, 6, 2, 17, 0, 0, 0, 0];
+
+        let multiclass0 = builder::multiclass0();
+        let inputs = [input1, input2, input3, input4, input5];
+        let expected_outputs = [
+            2, // travel
+            3, // entertainment
+            0, // business
+            1, // education
+            3, // entertainment
+        ];
+
+        for (input, expected) in inputs.iter().zip(expected_outputs.iter()) {
+            let result = multiclass0.forward(&[Tensor::new(Some(input), &[1, 8]).unwrap()]);
+            assert_eq!(result.unwrap().outputs[0].inner[0], *expected);
         }
-    */
-
-    /// const: [I, love, this, 0, 0]
-    const I_LOVE_THIS: [i128; 5] = [1, 2, 3, 0, 0];
-
-    /// const: [I, hate, this, 0, 0]
-    const I_HATE_THIS: [i128; 5] = [1, 10, 3, 0, 0];
-
-    /// const: [This, is, great, 0, 0]
-    const THIS_IS_GREAT: [i128; 5] = [3, 4, 5, 0, 0];
-
-    /// const: [This, is, bad, 0, 0]
-    const THIS_IS_BAD: [i128; 5] = [3, 4, 11, 0, 0];
-
-    const TEST_SENTIMENT_INPUTS: [[i128; 5]; 4] =
-        [I_LOVE_THIS, I_HATE_THIS, THIS_IS_GREAT, THIS_IS_BAD];
-
-    /// The sentiment analysis model processes tokenized text inputs and outputs sentiment predictions.
-    /// Expected outputs: 1 = positive sentiment, 0 = negative sentiment
-    /// These test cases verify the model correctly classifies:
-    /// - "I love this" → positive (1)
-    /// - "I hate this" → negative (0)
-    /// - "This is great" → positive (1)
-    /// - "This is bad" → negative (0)
-    const EXPECTED_SENTIMENT_OUTPUTS: [i128; 4] = [1, 0, 1, 0];
+    }
 
     #[test]
     #[serial]
     fn test_sentiment0() {
+        /*
+            vocab.json:
+            {
+                "i": 1,
+                "love": 2,
+                "this": 3,
+                "is": 4,
+                "great": 5,
+                "happy": 6,
+                "with": 7,
+                "the": 8,
+                "result": 9,
+                "hate": 10,
+                "bad": 11,
+                "not": 12,
+                "satisfied": 13
+            }
+        */
+
+        /// const: [I, love, this, 0, 0]
+        const I_LOVE_THIS: [i128; 5] = [1, 2, 3, 0, 0];
+
+        /// const: [I, hate, this, 0, 0]
+        const I_HATE_THIS: [i128; 5] = [1, 10, 3, 0, 0];
+
+        /// const: [This, is, great, 0, 0]
+        const THIS_IS_GREAT: [i128; 5] = [3, 4, 5, 0, 0];
+
+        /// const: [This, is, bad, 0, 0]
+        const THIS_IS_BAD: [i128; 5] = [3, 4, 11, 0, 0];
+
+        const TEST_SENTIMENT_INPUTS: [[i128; 5]; 4] =
+            [I_LOVE_THIS, I_HATE_THIS, THIS_IS_GREAT, THIS_IS_BAD];
+
+        /// The sentiment analysis model processes tokenized text inputs and outputs sentiment predictions.
+        /// Expected outputs: 1 = positive sentiment, 0 = negative sentiment
+        /// These test cases verify the model correctly classifies:
+        /// - "I love this" → positive (1)
+        /// - "I hate this" → negative (0)
+        /// - "This is great" → positive (1)
+        /// - "This is bad" → negative (0)
+        const EXPECTED_SENTIMENT_OUTPUTS: [i128; 4] = [1, 0, 1, 0];
         // --- Preprocessing ---
         let mut sentiment_model = builder::sentiment0();
         let program_bytecode = onnx_tracer::decode_model(sentiment_model.clone());
@@ -355,6 +426,8 @@ mod e2e_tests {
     #[test]
     #[serial]
     fn test_custom_select() {
+        /// const: [This, is, great, 0, 0]
+        const THIS_IS_GREAT: [i128; 5] = [3, 4, 5, 0, 0];
         // --- Preprocessing ---
         // acc for model in test.py = 0.83
         // mainly just using this to test select operator
@@ -380,11 +453,9 @@ mod e2e_tests {
 
     #[serial]
     #[test]
-    fn test_argmax() {
+    fn test_argmax_e2e() {
         // --- Preprocessing ---
         let custom_argmax_model = builder::argmax_model();
-        // let res = custom_argmax_model.forward(&[input]).unwrap();
-        // println!("Result: {res:#?}");
         let program_bytecode = onnx_tracer::decode_model(custom_argmax_model.clone());
         debug!("Program code: {program_bytecode:#?}");
         let pp: JoltProverPreprocessing<Fr, PCS, KeccakTranscript> =
@@ -431,7 +502,6 @@ mod e2e_tests {
         // --- Preprocessing ---
         let custom_addsubmul_model = builder::custom_addsubmuldiv_model();
         let program_bytecode = onnx_tracer::decode_model(custom_addsubmul_model.clone());
-        // debug!("Program code: {program_bytecode:#?}");
         let pp: JoltProverPreprocessing<Fr, PCS, KeccakTranscript> =
             JoltSNARK::prover_preprocess(program_bytecode);
 
@@ -439,7 +509,6 @@ mod e2e_tests {
         // Get execution trace
         let input = Tensor::new(Some(&[10, 20, 30, 40]), &[1, 4]).unwrap();
         let raw_trace = onnx_tracer::execution_trace(custom_addsubmul_model, &input);
-        // debug!("raw trace: {raw_trace:#?}");
         let execution_trace = jolt_execution_trace(raw_trace);
         let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
             JoltSNARK::prove(pp.clone(), execution_trace);
@@ -462,7 +531,6 @@ mod e2e_tests {
         // Get execution trace
         let input = Tensor::new(Some(&[10, 20, 30, 40]), &[1, 4]).unwrap();
         let raw_trace = onnx_tracer::execution_trace(custom_addsubmul_model, &input);
-        // debug!("raw trace: {raw_trace:#?}");
         let execution_trace = jolt_execution_trace(raw_trace);
         debug!("Execution trace: {execution_trace:#?}");
         let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
@@ -684,7 +752,8 @@ mod e2e_tests {
     #[test]
     fn test_sentiment_select() {
         // TODO: Rebase scale
-        let input_vector = I_HATE_THIS;
+        // const: [This, is, great, 0, 0]
+        let input_vector: [i128; 5] = [3, 4, 5, 0, 0];
 
         let sentiment_select = ONNXProgram {
             model_path: "../onnx-tracer/models/sentiment_select/network.onnx".into(),
@@ -695,5 +764,19 @@ mod e2e_tests {
 
         let raw_trace = sentiment_select.trace();
         info!("Raw trace: {raw_trace:#?}");
+    }
+
+    #[ignore]
+    #[test]
+    fn test_multiclass0() {
+        init_logger();
+        let input_vector = [1, 2, 3, 4, 5, 6, 7, 8];
+
+        let multiclass0 = ONNXProgram {
+            model_path: "../onnx-tracer/models/multiclass0/network.onnx".into(),
+            inputs: Tensor::new(Some(&input_vector), &[1, 8]).unwrap(), // Example input
+        };
+        let program_bytecode = multiclass0.decode();
+        info!("Program code: {program_bytecode:#?}");
     }
 }
