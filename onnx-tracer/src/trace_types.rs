@@ -598,6 +598,7 @@ pub enum ONNXOpcode {
     Gte,
     Reshape,
     ArgMax,
+    ReduceMax,
     Select,
 
     // Virtual instructions
@@ -645,6 +646,7 @@ impl ONNXOpcode {
             ONNXOpcode::Reshape => 1u64 << 24,
             ONNXOpcode::ArgMax => 1u64 << 25,
             ONNXOpcode::Select => 1u64 << 26,
+            ONNXOpcode::ReduceMax => 1u64 << 27,
             _ => panic!("ONNXOpcode {self:#?} not implemented in into_bitflag"),
         }
     }
