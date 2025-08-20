@@ -271,7 +271,7 @@ mod e2e_tests {
 
     #[serial]
     #[test]
-    fn test_custom_multiclass1() {
+    fn test_custom_multiclass0() {
         init_logger();
         // "this university grants scholarships",
         // class  -> 1: education
