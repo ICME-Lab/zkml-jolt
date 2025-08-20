@@ -486,6 +486,8 @@ pub fn argmax_model() -> Model {
     b.take(vec![input.0], vec![argmax_result])
 }
 
+/// Analog to onnx-tracer/models/multiclass0/network.onnx
+///
 /// Multiclass classification model that:
 /// 1. Takes embedding tensor and input indices
 /// 2. Gathers embeddings based on input indices  
@@ -499,17 +501,17 @@ pub fn multiclass0() -> Model {
     const SCALE: i32 = 7;
     let mut b = ModelBuilder::new(SCALE);
 
-    // Node 0: Embedding matrix (shape [32, 1])
+    // Node 0: Embedding matrix (shape [31, 1]) - Updated size and values
     let mut embedding = Tensor::new(
         Some(&[
-            -30i128, 12, 229, -451, 214, -7, 341, -274, -359, 5, -1, -44, 38, 299, 2, -164, 2, -26,
-            129, 5, -185, -13, 2, 14, -48, 302, -479, 158, -297, -4, 206, -379,
+            -61i128, -287, -437, -294, -318, 345, 331, 330, -28, 337, 113, 111, 91, 103, -58, 85,
+            72, -463, -342, -345, -318, 355, 385, 376, 180, 125, 10, 143, 137, -45, 128,
         ]),
-        &[32, 1],
+        &[31, 1],
     )
     .unwrap();
     embedding.set_scale(SCALE);
-    let embedding_const = b.const_tensor_with_scale(embedding, SCALE, vec![32, 1], 1);
+    let embedding_const = b.const_tensor_with_scale(embedding, SCALE, vec![31, 1], 1);
 
     // Node 1: Input indices (shape [1, 8])
     let input_indices = b.input(vec![1, 8], 1);
@@ -523,9 +525,9 @@ pub fn multiclass0() -> Model {
     // Node 4: Reshape to [1, 1]
     let reshaped = b.reshape(summed, vec![1, 1], vec![1, 1], 1);
 
-    // Node 5: Weight matrix constants (shape [1, 10])
+    // Node 5: Weight matrix constants (shape [1, 10]) - Updated values
     let mut weights = Tensor::new(
-        Some(&[-245i128, 254, -137, 422, 186, 186, 186, 186, 186, 186]),
+        Some(&[388i128, 16, -93, 517, 208, 208, 208, 208, 208, 208]),
         &[1, 10],
     )
     .unwrap();
@@ -547,9 +549,9 @@ pub fn multiclass0() -> Model {
     // Node 6.5: Divide by 128 (replacing the rebase scale division)
     let scaled = b.div(128i128, multiplied, vec![1, 10], 1);
 
-    // Node 7: Bias vector (shape [1, 10])
+    // Node 7: Bias vector (shape [1, 10]) - Updated values
     let mut bias = Tensor::new(
-        Some(&[-347i128, 534, 259, 86, -188, -188, -188, -188, -188, -188]),
+        Some(&[449i128, 421, -137, -95, -155, -155, -155, -155, -155, -155]),
         &[1, 10],
     )
     .unwrap();

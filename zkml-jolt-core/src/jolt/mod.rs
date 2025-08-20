@@ -271,11 +271,11 @@ mod e2e_tests {
 
     #[serial]
     #[test]
-    fn test_custom_multiclass0() {
+    fn test_custom_multiclass1() {
         init_logger();
-        // "new streaming series announced",
-        // class  -> 3: entertainment
-        let input_vector = [25, 6, 2, 17, 0, 0, 0, 0];
+        // "this university grants scholarships",
+        // class  -> 1: education
+        let input_vector = [8, 14, 30, 29, 0, 0, 0, 0];
         let multiclass0 = builder::multiclass0();
         let program_bytecode = onnx_tracer::decode_model(multiclass0.clone());
         debug!("Program code: {program_bytecode:#?}",);
@@ -289,7 +289,7 @@ mod e2e_tests {
         );
         debug!("Raw trace: {raw_trace:#?}",);
         assert_eq!(
-            3, /* class  -> 3: entertainment */
+            1, /* class  -> 1: education */
             raw_trace.last().unwrap().ts1_vals()[0]
         );
         let execution_trace = jolt_execution_trace(raw_trace);
@@ -307,32 +307,42 @@ mod e2e_tests {
 
         // "cheap flights to rome",
         //  class  -> 2: travel
-        let input1 = [4, 24, 7, 11, 0, 0, 0, 0];
+        let input1 = [1, 2, 3, 4, 0, 0, 0, 0];
 
         // "box office hits this weekend",
         // class  -> 3: entertainment
-        let input2 = [25, 27, 30, 4, 18, 0, 0, 0];
+        let input2 = [5, 6, 7, 8, 9, 0, 0, 0];
 
         // "quarterly earnings beat guidance",
         // class  -> 0: business
-        let input3 = [26, 3, 17, 7, 0, 0, 0, 0];
+        let input3 = [10, 11, 12, 13, 0, 0, 0, 0];
 
         // "university admissions tips",
         //  class  -> 1: education
-        let input4 = [12, 17, 30, 0, 0, 0, 0, 0];
+        let input4 = [14, 15, 16, 0, 0, 0, 0, 0];
 
         // "new streaming series announced",
         // class  -> 3: entertainment
-        let input5 = [25, 6, 2, 17, 0, 0, 0, 0];
+        let input5 = [21, 22, 23, 24, 0, 0, 0, 0];
+
+        // 'this university announced scholarships'
+        //   class  -> 1: education
+        let input6 = [8, 14, 24, 29, 0, 0, 0, 0];
+
+        //   class  -> 1: education
+        // 'scholarships news'
+        let inputs7 = [29, 28, 0, 0, 0, 0, 0, 0];
 
         let multiclass0 = builder::multiclass0();
-        let inputs = [input1, input2, input3, input4, input5];
+        let inputs = [input1, input2, input3, input4, input5, input6, inputs7];
         let expected_outputs = [
             2, // travel
             3, // entertainment
             0, // business
             1, // education
             3, // entertainment
+            1, // education
+            1, // education
         ];
 
         for (input, expected) in inputs.iter().zip(expected_outputs.iter()) {
@@ -433,7 +443,7 @@ mod e2e_tests {
         // mainly just using this to test select operator
         let sentiment_model = builder::sentiment_select();
         let program_bytecode = onnx_tracer::decode_model(sentiment_model.clone());
-        info!("Program code: {program_bytecode:#?}");
+        debug!("Program code: {program_bytecode:#?}");
         let pp: JoltProverPreprocessing<Fr, PCS, KeccakTranscript> =
             JoltSNARK::prover_preprocess(program_bytecode);
 
@@ -442,7 +452,7 @@ mod e2e_tests {
             sentiment_model,
             &Tensor::new(Some(&THIS_IS_GREAT), &[1, 5]).unwrap(),
         );
-        info!("Raw trace: {raw_trace:#?}");
+        debug!("Raw trace: {raw_trace:#?}");
         let execution_trace = jolt_execution_trace(raw_trace);
         debug!("Execution trace: {execution_trace:#?}");
         let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =

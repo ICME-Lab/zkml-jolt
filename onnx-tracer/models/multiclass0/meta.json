@@ -1,6 +1,4 @@
 {
   "PAD": 0,
-  "M": 31,
-  "L": 8,
-  "tokenizer": "sha256_mod"
+  "L": 8
 }
