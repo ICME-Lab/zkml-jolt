@@ -98,6 +98,8 @@ impl Model {
     /// - Input tensors must be in the correct order and shape.
     /// - This function does not perform any hardware-accelerated inference; it executes the model using the internal Rust implementation.
     /// - Handles both standard nodes and subgraphs (e.g., for ONNX Scan/Loop constructs).
+
+    // TODO: generic quantization
     pub fn forward(&self, model_inputs: &[Tensor<i128>]) -> Result<ForwardResult, Box<dyn Error>> {
         // A map that stores the output tensors of each node in the computation graph.
         //
@@ -411,6 +413,8 @@ impl Model {
     /// # What it does
     /// After this block, `inputs` contains the tensors that should be passed to the current node's operation,
     /// in the order expected by the node. This enables the subsequent execution of the node's computation.
+
+    // TODO: generic quantization
     fn node_inputs(
         idx: &usize,
         n: &NodeType,
@@ -437,6 +441,7 @@ impl Model {
         Ok(inputs)
     }
 
+    // TODO: generic quantization
     fn lookup_check(
         inputs: &[Tensor<i128>],
         max_lookup_inputs: &mut i128,
@@ -1122,6 +1127,8 @@ impl NodeType {
 
 /// The result of a forward pass.
 #[derive(Clone, Debug)]
+
+// TODO: generic quantization
 pub struct ForwardResult {
     /// The outputs of the forward pass.
     pub outputs: Vec<Tensor<i128>>,

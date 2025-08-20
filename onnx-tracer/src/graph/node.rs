@@ -478,6 +478,8 @@ impl Node {
 }
 
 /// A single operation in a [crate::graph::Model].
+
+// TODO: generic quantization
 #[derive(Clone, Debug, PartialEq)]
 pub enum SupportedOp {
     /// A linear operation.
@@ -513,6 +515,7 @@ impl From<&SupportedOp> for ONNXOpcode {
     }
 }
 
+// TODO: generic quantization
 impl SupportedOp {
     ///
     pub fn is_lookup(&self) -> bool {
@@ -660,6 +663,7 @@ impl SupportedOp {
     }
 }
 
+// TODO: generic quantization
 impl From<Box<dyn Op<i128>>> for SupportedOp {
     fn from(value: Box<dyn Op<i128>>) -> Self {
         if let Some(op) = value.as_any().downcast_ref::<PolyOp<i128>>() {
@@ -698,6 +702,7 @@ impl From<Box<dyn Op<i128>>> for SupportedOp {
     }
 }
 
+// TODO: generic quantization
 impl Op<i128> for SupportedOp {
     fn f(
         &self,
@@ -748,6 +753,7 @@ pub struct Rescaled {
     pub scale: Vec<(usize, u128)>,
 }
 
+// TODO: generic quantization
 impl Op<i128> for Rescaled {
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -861,6 +867,7 @@ impl RebaseScale {
     }
 }
 
+// TODO: generic quantization
 impl Op<i128> for RebaseScale {
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -984,6 +991,8 @@ impl PartialEq for Node {
 /// // During node construction, for each constant input:
 /// rescale_const_with_single_use(constant, input_scales, constant_node.num_uses())?;
 /// ```
+
+// TODO: generic quantization
 fn rescale_const_with_single_use(
     constant: &mut Constant<i128>,
     in_scales: Vec<crate::Scale>,

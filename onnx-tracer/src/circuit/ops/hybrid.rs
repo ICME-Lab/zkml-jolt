@@ -86,6 +86,8 @@ impl From<&HybridOp> for ONNXOpcode {
     }
 }
 
+// TODO: generic quantization
+// Need to consider casting i32 from u32 and opposite
 impl<
         F: TensorType
             + PartialOrd

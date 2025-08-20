@@ -76,6 +76,7 @@ impl LookupOp {
     }
 }
 
+// TODO: generic quantization
 impl<F: TensorType + PartialOrd> Op<F> for LookupOp
 where
     i128: std::convert::From<F>,

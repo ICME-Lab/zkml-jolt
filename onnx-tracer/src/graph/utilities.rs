@@ -47,6 +47,8 @@ use tract_onnx::{
 /// * `dims` - the dimensionality of the resulting [Tensor].
 /// * `shift` - offset used in the fixed point representation.
 /// * `scale` - `2^scale` used in the fixed point representation.
+
+// TODO: generic quantization
 pub fn quantize_float(elem: &f64, shift: f64, scale: crate::Scale) -> Result<i128, TensorError> {
     let mult = scale_to_multiplier(scale);
     let max_value = ((i128::MAX as f64 - shift) / mult).round(); // the maximum value that can be represented w/o sig bit truncation
@@ -1409,6 +1411,8 @@ pub fn extract_conv_values(boxed_op: Box<dyn Op<i128>>) -> [Option<Tensor<i128>>
 }
 
 /// Converts a tensor to a [ValTensor] with a given scale.
+
+// TODO: generic quantization
 pub fn quantize_tensor(
     const_value: Tensor<f32>,
     scale: crate::Scale,
@@ -1419,6 +1423,8 @@ pub fn quantize_tensor(
 }
 
 ///
+
+// TODO: generic quantization
 pub fn homogenize_input_scales(
     op: Box<dyn Op<i128>>,
     input_scales: Vec<crate::Scale>,
@@ -1485,6 +1491,7 @@ pub fn create_node(
     }
 }
 
+// TODO: generic quantization
 pub fn create_const_node(
     quantized: Tensor<i128>,
     raw: Tensor<f32>,
@@ -1517,6 +1524,7 @@ pub fn create_input_node(out_scale: i32, shape: Vec<usize>, idx: usize, num_uses
     )
 }
 
+// TODO: generic quantization
 pub fn create_polyop_node(
     op: PolyOp<i128>,
     out_scale: i32,

@@ -49,6 +49,7 @@ impl ModelBuilder {
         (id, O)
     }
 
+    // TODO: generic quantization
     fn const_tensor(
         &mut self,
         tensor: Tensor<i128>,
@@ -62,6 +63,7 @@ impl ModelBuilder {
         (id, O)
     }
 
+    // TODO: generic quantization
     fn poly(
         &mut self,
         op: PolyOp<i128>,
@@ -188,6 +190,7 @@ impl ModelBuilder {
         (id, O)
     }
 
+    // TODO: generic quantization
     fn const_tensor_with_scale(
         &mut self,
         tensor: Tensor<i128>,

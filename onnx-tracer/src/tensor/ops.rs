@@ -1705,6 +1705,9 @@ pub fn argmax_axes<T: TensorType + Add<Output = T> + std::cmp::Ord + From<u64> +
 /// ).unwrap();
 /// assert_eq!(result, expected);
 /// ```
+
+// TODO: generic quantization
+// Ensure T implements `From<u64>`
 pub fn argmin_axes<T: TensorType + Add<Output = T> + std::cmp::Ord + From<u64> + Send + Sync>(
     a: &Tensor<T>,
     dim: usize,
@@ -2006,6 +2009,8 @@ pub fn intercalate_values<T: TensorType>(
 ///                                           0, 0, 0, 0, 1]), &[2, 2, 5]).unwrap();
 /// assert_eq!(result, expected);
 /// ```
+
+// TODO: generic quantization
 pub fn one_hot(
     tensor: &Tensor<i128>,
     num_classes: usize,
@@ -2303,6 +2308,8 @@ pub fn deconv<
 /// let expected: Tensor<i128> = Tensor::<i128>::new(Some(&[3, 2, 2, 3]), &[1, 1, 2, 2]).unwrap();
 /// assert_eq!(pooled, expected);
 /// ```
+
+// TODO: generic quantization
 pub fn sumpool(
     image: &Tensor<i128>,
     padding: [(usize, usize); 2],
@@ -2731,6 +2738,8 @@ pub fn slice<T: TensorType + Send + Sync>(
 // ---------------------------------------------------------------------------------------------------------
 
 /// Activation functions
+
+// TODO: generic quantization
 pub mod nonlinearities {
     use super::*;
 
@@ -3739,6 +3748,8 @@ pub mod nonlinearities {
     /// let expected = Tensor::<i128>::new(Some(&[1, 0, 1, 3, 0, 0]), &[2, 3]).unwrap();
     /// assert_eq!(result, expected);
     /// ```
+
+    // TODO: generic quantization
     pub fn const_div(a: &Tensor<i128>, denom: f64) -> Tensor<i128> {
         a.par_enum_map(|_, a_i| {
             let mut d_inv_x = (a_i as i32) / (denom as i32);
@@ -3905,6 +3916,8 @@ pub mod nonlinearities {
     /// let expected = Tensor::<i128>::new(Some(&[2]), &[1]).unwrap();
     /// assert_eq!(result, expected);
     /// ```
+
+    // TODO: generic quantization
     pub fn mean(a: &Tensor<i128>, scale: usize) -> Tensor<i128> {
         let sum = sum(a).unwrap();
         const_div(&sum, (scale * a.len()) as f64)
@@ -3929,6 +3942,8 @@ pub mod nonlinearities {
     /// ).unwrap();
     /// assert_eq!(result, expected);
     /// ```
+
+    // TODO: generic quantization
     pub fn mean_of_squares_axes(a: &Tensor<i128>, axes: &[usize]) -> Tensor<i128> {
         let square = a.map(|a_i| a_i * a_i);
         let sum = sum_axes(&square, axes).unwrap();
