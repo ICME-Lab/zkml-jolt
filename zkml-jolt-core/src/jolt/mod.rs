@@ -375,6 +375,18 @@ mod e2e_tests {
 
     #[test]
     #[serial]
+    fn test_sentiment0() {
+        let config = ModelTestConfig::new(
+            "sentiment0",
+            vec![3, 4, 5, 0, 0], // [This, is, great, 0, 0]
+            vec![1, 5],
+        );
+
+        ZKMLTestHelper::prove_and_verify_simple(builder::sentiment0, &config.to_tensor());
+    }
+
+    #[test]
+    #[serial]
     fn test_custom_select() {
         let config = ModelTestConfig::new(
             "sentiment_select",
