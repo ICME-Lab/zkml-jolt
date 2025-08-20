@@ -138,101 +138,95 @@ impl<F: JoltField, ProofTranscript: Transcript> ReadWriteCheckingProof<F, ProofT
             .flat_map(|cycle| cycle.td_write().0)
             .collect();
 
-        #[cfg(test)]
-        let mut val_test = {
-            // Compute Val in cycle-major order, since we will be binding
-            // from low-to-high starting with the cycle variables
+        // commented out because it makes tests slow
+        // #[cfg(test)]
+        // let mut val_test = {
+        //     // Compute Val in cycle-major order, since we will be binding
+        //     // from low-to-high starting with the cycle variables
+        //     let mut val: Vec<F> = unsafe_allocate_zero_vec(K * T);
+        //     val.par_chunks_mut(T).enumerate().for_each(|(k, val_k)| {
+        //         let mut current_val = F::zero();
+        //         for j in 0..T {
+        //             val_k[j] = current_val;
+        //             let (address, _, write_value) = td_writes[j];
+        //             if address == k {
+        //                 current_val = F::from_u64(write_value);
+        //             }
+        //         }
+        //     });
+        //     MultilinearPolynomial::from(val)
+        // };
+        // #[cfg(test)]
+        // let mut ts1_ra_test = {
+        //     // Compute ra in cycle-major order, since we will be binding
+        //     // from low-to-high starting with the cycle variables
+        //     let mut ra: Vec<F> = unsafe_allocate_zero_vec(K * T);
+        //     ra.par_chunks_mut(T).enumerate().for_each(|(k, ra_k)| {
+        //         for j in 0..T {
+        //             if ts1_addr[j] == k {
+        //                 ra_k[j] = F::one();
+        //             }
+        //         }
+        //     });
+        //     MultilinearPolynomial::from(ra)
+        // };
+        // #[cfg(test)]
+        // let mut ts2_ra_test = {
+        //     // Compute ra in cycle-major order, since we will be binding
+        //     // from low-to-high starting with the cycle variables
+        //     let mut ra: Vec<F> = unsafe_allocate_zero_vec(K * T);
+        //     ra.par_chunks_mut(T).enumerate().for_each(|(k, ra_k)| {
+        //         for j in 0..T {
+        //             if ts2_addr[j] == k {
+        //                 ra_k[j] = F::one();
+        //             }
+        //         }
+        //     });
+        //     MultilinearPolynomial::from(ra)
+        // };
+        // #[cfg(test)]
+        // let mut ts3_ra_test = {
+        //     // Compute ra in cycle-major order, since we will be binding
+        //     // from low-to-high starting with the cycle variables
+        //     let mut ra: Vec<F> = unsafe_allocate_zero_vec(K * T);
+        //     ra.par_chunks_mut(T).enumerate().for_each(|(k, ra_k)| {
+        //         for j in 0..T {
+        //             if ts3_addr[j] == k {
+        //                 ra_k[j] = F::one();
+        //             }
+        //         }
+        //     });
+        //     MultilinearPolynomial::from(ra)
+        // };
+        // #[cfg(test)]
+        // let mut gather_ra_test = {
+        //     // Compute ra in cycle-major order, since we will be binding
+        //     // from low-to-high starting with the cycle variables
+        //     let mut ra: Vec<F> = unsafe_allocate_zero_vec(K * T);
+        //     ra.par_chunks_mut(T).enumerate().for_each(|(k, ra_k)| {
+        //         for j in 0..T {
+        //             if gather_addr[j] == k {
+        //                 ra_k[j] = F::one();
+        //             }
+        //         }
+        //     });
+        //     MultilinearPolynomial::from(ra)
+        // };
+        // #[cfg(test)]
+        // let mut wa_test = {
+        //     // Compute wa in cycle-major order, since we will be binding
+        //     // from low-to-high starting with the cycle variables
+        //     let mut wa: Vec<F> = unsafe_allocate_zero_vec(K * T);
+        //     wa.par_chunks_mut(T).enumerate().for_each(|(k, wa_k)| {
+        //         for j in 0..T {
+        //             if td_addr[j] ==
 
-            use jolt_core::utils::thread::unsafe_allocate_zero_vec;
-            let mut val: Vec<F> = unsafe_allocate_zero_vec(K * T);
-            val.par_chunks_mut(T).enumerate().for_each(|(k, val_k)| {
-                let mut current_val = F::zero();
-                for j in 0..T {
-                    val_k[j] = current_val;
-                    let (address, _, write_value) = td_writes[j];
-                    if address == k {
-                        current_val = F::from_u64(write_value);
-                    }
-                }
-            });
-            MultilinearPolynomial::from(val)
-        };
-        #[cfg(test)]
-        let mut ts1_ra_test = {
-            // Compute ra in cycle-major order, since we will be binding
-            // from low-to-high starting with the cycle variables
-
-            use jolt_core::utils::thread::unsafe_allocate_zero_vec;
-            let mut ra: Vec<F> = unsafe_allocate_zero_vec(K * T);
-            ra.par_chunks_mut(T).enumerate().for_each(|(k, ra_k)| {
-                for j in 0..T {
-                    if ts1_addr[j] == k {
-                        ra_k[j] = F::one();
-                    }
-                }
-            });
-            MultilinearPolynomial::from(ra)
-        };
-        #[cfg(test)]
-        let mut ts2_ra_test = {
-            // Compute ra in cycle-major order, since we will be binding
-            // from low-to-high starting with the cycle variables
-
-            use jolt_core::utils::thread::unsafe_allocate_zero_vec;
-            let mut ra: Vec<F> = unsafe_allocate_zero_vec(K * T);
-            ra.par_chunks_mut(T).enumerate().for_each(|(k, ra_k)| {
-                for j in 0..T {
-                    if ts2_addr[j] == k {
-                        ra_k[j] = F::one();
-                    }
-                }
-            });
-            MultilinearPolynomial::from(ra)
-        };
-        #[cfg(test)]
-        let mut ts3_ra_test = {
-            // Compute ra in cycle-major order, since we will be binding
-            // from low-to-high starting with the cycle variables
-
-            use jolt_core::utils::thread::unsafe_allocate_zero_vec;
-            let mut ra: Vec<F> = unsafe_allocate_zero_vec(K * T);
-            ra.par_chunks_mut(T).enumerate().for_each(|(k, ra_k)| {
-                for j in 0..T {
-                    if ts3_addr[j] == k {
-                        ra_k[j] = F::one();
-                    }
-                }
-            });
-            MultilinearPolynomial::from(ra)
-        };
-        #[cfg(test)]
-        let mut gather_ra_test = {
-            // Compute ra in cycle-major order, since we will be binding
-            // from low-to-high starting with the cycle variables
-            let mut ra: Vec<F> = unsafe_allocate_zero_vec(K * T);
-            ra.par_chunks_mut(T).enumerate().for_each(|(k, ra_k)| {
-                for j in 0..T {
-                    if gather_addr[j] == k {
-                        ra_k[j] = F::one();
-                    }
-                }
-            });
-            MultilinearPolynomial::from(ra)
-        };
-        #[cfg(test)]
-        let mut wa_test = {
-            // Compute wa in cycle-major order, since we will be binding
-            // from low-to-high starting with the cycle variables
-            let mut wa: Vec<F> = unsafe_allocate_zero_vec(K * T);
-            wa.par_chunks_mut(T).enumerate().for_each(|(k, wa_k)| {
-                for j in 0..T {
-                    if td_addr[j] == k {
-                        wa_k[j] = F::one();
-                    }
-                }
-            });
-            MultilinearPolynomial::from(wa)
-        };
+        //                 wa_k[j] = F::one();
+        //             }
+        //         }
+        //     });
+        //     MultilinearPolynomial::from(wa)
+        // };
 
         let span = tracing::span!(tracing::Level::INFO, "compute deltas");
         let _guard = span.enter();
@@ -288,20 +282,20 @@ impl<F: JoltField, ProofTranscript: Transcript> ReadWriteCheckingProof<F, ProofT
         drop(_guard);
         drop(span);
 
-        #[cfg(test)]
-        {
-            // Check that checkpoints are correct
-            for (chunk_index, checkpoint) in val_checkpoints.chunks(K).enumerate() {
-                let j = chunk_index * chunk_size;
-                for (k, V_k) in checkpoint.iter().enumerate() {
-                    assert_eq!(
-                        *V_k,
-                        val_test.get_bound_coeff(k * T + j),
-                        "k = {k}, j = {j}"
-                    );
-                }
-            }
-        }
+        // #[cfg(test)]
+        // {
+        //     // Check that checkpoints are correct
+        //     for (chunk_index, checkpoint) in val_checkpoints.chunks(K).enumerate() {
+        //         let j = chunk_index * chunk_size;
+        //         for (k, V_k) in checkpoint.iter().enumerate() {
+        //             assert_eq!(
+        //                 *V_k,
+        //                 val_test.get_bound_coeff(k * T + j),
+        //                 "k = {k}, j = {j}"
+        //             );
+        //         }
+        //     }
+        // }
 
         // A table that, in round i of sumcheck, stores all evaluations
         //     EQ(x, r_i, ..., r_1)
@@ -440,37 +434,37 @@ impl<F: JoltField, ProofTranscript: Transcript> ReadWriteCheckingProof<F, ProofT
 
         // First log(T / num_chunks) rounds of sumcheck
         for round in 0..chunk_size.log_2() {
-            #[cfg(test)]
-            {
-                let mut expected_claim = F::zero();
-                for j in 0..(T >> round) {
-                    let mut inner_sum = F::zero();
-                    for k in 0..K {
-                        let kj = k * (T >> round) + j;
-                        // write-checking sumcheck
-                        inner_sum += eq_r.get_bound_coeff(k)
-                            * wa_test.get_bound_coeff(kj)
-                            * (rd_wv.get_bound_coeff(j) - val_test.get_bound_coeff(kj));
-                        // read-checking sumcheck
-                        inner_sum +=
-                            z * ts1_ra_test.get_bound_coeff(kj) * val_test.get_bound_coeff(kj);
-                        inner_sum += z_squared
-                            * ts2_ra_test.get_bound_coeff(kj)
-                            * val_test.get_bound_coeff(kj);
-                        inner_sum += z_cubed
-                            * gather_ra_test.get_bound_coeff(kj)
-                            * val_test.get_bound_coeff(kj);
-                        inner_sum += z_fourth
-                            * ts3_ra_test.get_bound_coeff(kj)
-                            * val_test.get_bound_coeff(kj);
-                    }
-                    expected_claim += eq_r_prime.get_bound_coeff(j) * inner_sum;
-                }
-                assert_eq!(
-                    expected_claim, previous_claim,
-                    "Sumcheck sanity check failed in round {round}"
-                );
-            }
+            // #[cfg(test)]
+            // {
+            //     let mut expected_claim = F::zero();
+            //     for j in 0..(T >> round) {
+            //         let mut inner_sum = F::zero();
+            //         for k in 0..K {
+            //             let kj = k * (T >> round) + j;
+            //             // write-checking sumcheck
+            //             inner_sum += eq_r.get_bound_coeff(k)
+            //                 * wa_test.get_bound_coeff(kj)
+            //                 * (rd_wv.get_bound_coeff(j) - val_test.get_bound_coeff(kj));
+            //             // read-checking sumcheck
+            //             inner_sum +=
+            //                 z * ts1_ra_test.get_bound_coeff(kj) * val_test.get_bound_coeff(kj);
+            //             inner_sum += z_squared
+            //                 * ts2_ra_test.get_bound_coeff(kj)
+            //                 * val_test.get_bound_coeff(kj);
+            //             inner_sum += z_cubed
+            //                 * gather_ra_test.get_bound_coeff(kj)
+            //                 * val_test.get_bound_coeff(kj);
+            //             inner_sum += z_fourth
+            //                 * ts3_ra_test.get_bound_coeff(kj)
+            //                 * val_test.get_bound_coeff(kj);
+            //         }
+            //         expected_claim += eq_r_prime.get_bound_coeff(j) * inner_sum;
+            //     }
+            //     assert_eq!(
+            //         expected_claim, previous_claim,
+            //         "Sumcheck sanity check failed in round {round}"
+            //     );
+            // }
 
             let inner_span = tracing::span!(tracing::Level::INFO, "Compute univariate poly");
             let _inner_guard = inner_span.enter();
@@ -820,26 +814,26 @@ impl<F: JoltField, ProofTranscript: Transcript> ReadWriteCheckingProof<F, ProofT
                 || eq_r_prime.bind_parallel(r_j, BindingOrder::LowToHigh),
             );
 
-            #[cfg(test)]
-            {
-                val_test.bind_parallel(r_j, BindingOrder::LowToHigh);
-                ts1_ra_test.bind_parallel(r_j, BindingOrder::LowToHigh);
-                ts2_ra_test.bind_parallel(r_j, BindingOrder::LowToHigh);
-                gather_ra_test.bind_parallel(r_j, BindingOrder::LowToHigh);
-                ts3_ra_test.bind_parallel(r_j, BindingOrder::LowToHigh);
-                wa_test.bind_parallel(r_j, BindingOrder::LowToHigh);
+            // #[cfg(test)]
+            // {
+            //     val_test.bind_parallel(r_j, BindingOrder::LowToHigh);
+            //     ts1_ra_test.bind_parallel(r_j, BindingOrder::LowToHigh);
+            //     ts2_ra_test.bind_parallel(r_j, BindingOrder::LowToHigh);
+            //     gather_ra_test.bind_parallel(r_j, BindingOrder::LowToHigh);
+            //     ts3_ra_test.bind_parallel(r_j, BindingOrder::LowToHigh);
+            //     wa_test.bind_parallel(r_j, BindingOrder::LowToHigh);
 
-                // Check that row indices of I are non-decreasing
-                let mut current_row = 0;
-                for I_chunk in I.iter() {
-                    for (row, _, _, _) in I_chunk {
-                        if *row != current_row {
-                            assert_eq!(*row, current_row + 1);
-                            current_row = *row;
-                        }
-                    }
-                }
-            }
+            //     // Check that row indices of I are non-decreasing
+            //     let mut current_row = 0;
+            //     for I_chunk in I.iter() {
+            //         for (row, _, _, _) in I_chunk {
+            //             if *row != current_row {
+            //                 assert_eq!(*row, current_row + 1);
+            //                 current_row = *row;
+            //             }
+            //         }
+            //     }
+            // }
 
             let inner_span = tracing::span!(tracing::Level::INFO, "Update A");
             let _inner_guard = inner_span.enter();

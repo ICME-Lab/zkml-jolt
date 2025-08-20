@@ -7,7 +7,7 @@ pub mod read_write_check;
 
 // #![allow(clippy::needless_range_loop)]
 #[cfg(test)]
-use crate::jolt::execution_trace::check_mcc;
+use crate::jolt::execution_trace::sanity_check_mcc;
 use crate::jolt::{execution_trace::{project_heap_state, CommittedPolynomials, JoltONNXCycle}, tensor_heap::{output_check::{OutputProof, OutputSumcheck}, read_write_check::ReadWriteCheckingProof}, JoltProverPreprocessing};
 use jolt_core::{
     field::{JoltField, OptimizedMul}, poly::{
@@ -50,7 +50,7 @@ impl<F: JoltField, ProofTranscript: Transcript> TensorHeapTwistProof<F, ProofTra
         transcript: &mut ProofTranscript,
     ) -> TensorHeapTwistProof<F, ProofTranscript> {
         #[cfg(test)]
-        check_mcc(trace);
+        sanity_check_mcc(trace);
         let log_T = (trace.len() * MAX_TENSOR_SIZE).log_2();
 
         let r: Vec<F> = transcript.challenge_vector(K.log_2());
@@ -58,6 +58,16 @@ impl<F: JoltField, ProofTranscript: Transcript> TensorHeapTwistProof<F, ProofTra
 
         let (read_write_checking_proof, r_address, r_cycle) =
             ReadWriteCheckingProof::prove(trace, r, r_prime, transcript);
+
+        let (val_evaluation_proof, mut r_cycle_prime) = prove_val_evaluation(
+            trace,
+            r_address.clone(),
+            r_cycle,
+            read_write_checking_proof.val_claim,
+            transcript,
+        );
+        // Cycle variables are bound from low to high
+        r_cycle_prime.reverse();
 
                    // // ------------------------------
 
@@ -131,25 +141,6 @@ impl<F: JoltField, ProofTranscript: Transcript> TensorHeapTwistProof<F, ProofTra
         //     ra_claims,
         // };
 
-        let final_heap_state = project_heap_state(trace);
-        let output_proof = OutputSumcheck::prove(
-            preprocessing,
-            trace,
-            final_heap_state,
-            &r_address,
-            transcript,
-        );
-
-        let (val_evaluation_proof, mut r_cycle_prime) = prove_val_evaluation(
-            trace,
-            r_address.clone(),
-            r_cycle,
-            read_write_checking_proof.val_claim,
-            transcript,
-        );
-        // Cycle variables are bound from low to high
-        r_cycle_prime.reverse();
-
         // TODO: Openings: https://github.com/ICME-Lab/zkml-jolt/issues/66
         // let _rd_inc_poly = CommittedPolynomials::RdInc.generate_witness(preprocessing, trace);
         // opening_accumulator.append_sparse(
@@ -158,6 +149,15 @@ impl<F: JoltField, ProofTranscript: Transcript> TensorHeapTwistProof<F, ProofTra
         //     r_cycle_prime,
         //     vec![val_evaluation_proof.inc_claim],
         // );
+
+        let final_heap_state = project_heap_state(trace);
+        let output_proof = OutputSumcheck::prove(
+            preprocessing,
+            trace,
+            final_heap_state,
+            &r_address,
+            transcript,
+        );
 
         TensorHeapTwistProof {
             K,

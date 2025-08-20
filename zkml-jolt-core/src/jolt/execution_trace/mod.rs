@@ -1,6 +1,9 @@
-#![allow(unused_assignments)] // for the assign_singles! macro
+// for the assign_singles! macro
+#![allow(unused_assignments)]
+
 use crate::jolt::JoltProverPreprocessing;
 use crate::jolt::instruction::VirtualInstructionSequence;
+use crate::jolt::instruction::argmax::ArgMaxInstruction;
 use crate::jolt::instruction::div::DIVInstruction;
 use crate::jolt::instruction::precompile::reduce_sum::ReduceSumInstruction;
 use crate::jolt::instruction::virtual_advice::ADVICEInstruction;
@@ -17,6 +20,7 @@ use jolt_core::{
     },
     utils::transcript::Transcript,
 };
+
 use onnx_tracer::constants::{
     MAX_TENSOR_SIZE, TENSOR_REGISTER_COUNT, TEST_TENSOR_REGISTER_COUNT, VIRTUAL_TENSOR_REGISTER_COUNT
 };
@@ -182,6 +186,7 @@ pub fn jolt_execution_trace(raw_trace: Vec<ONNXCycle>) -> ExecutionTrace {
         // Expand (virtualize) if needed
         let expanded: Vec<ONNXCycle> = match raw.instr.opcode {
             ONNXOpcode::Div => DIVInstruction::<32>::virtual_trace(raw),
+            ONNXOpcode::ArgMax => ArgMaxInstruction::<32>::virtual_trace(raw),
             _ => vec![raw],
         };
 
@@ -208,7 +213,6 @@ pub fn jolt_execution_trace(raw_trace: Vec<ONNXCycle>) -> ExecutionTrace {
             out.push(JoltONNXCycle::from(&cycle));
         }
     }
-
     out
 }
 
@@ -403,6 +407,8 @@ pub trait ONNXLookupQuery<const WORD_SIZE: usize> {
     fn to_lookup_output(&self) -> Vec<u64>;
 }
 
+// TODO: Openings: https://github.com/ICME-Lab/zkml-jolt/issues/66
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum CommittedPolynomials {
     /* R1CS aux variables */
@@ -419,11 +425,11 @@ pub enum CommittedPolynomials {
     /// Whether the current instruction should write the lookup output to
     /// the destination register
     WriteLookupOutputToTD(usize),
+    /// Inc polynomial for the registers instance of Twist
+    TdInc,
     /// One-hot ra polynomial for the instruction lookups instance of Shout.
     /// There are four (d=4) of these polynomials, `InstructionRa(0) .. InstructionRa(3)`
     InstructionRa(usize),
-    /// Difference between the pre and post values of the destination register
-    TdInc,
 }
 
 macro_rules! fill_array_committed {
@@ -525,7 +531,6 @@ impl WitnessGenerator for CommittedPolynomials {
                 coeffs.into()
             }
 
-            // TODO: Openings: https://github.com/ICME-Lab/zkml-jolt/issues/66
             CommittedPolynomials::TdInc => {
                 let coeffs: Vec<i64> = trace
                     .par_iter()
@@ -536,7 +541,7 @@ impl WitnessGenerator for CommittedPolynomials {
                 coeffs.into()
             }
 
-            // FIXME: I think all polynomials in Spartan have to be the same length (either T or T * MAX_TENSOR_SIZE)
+            // FIXME: I think all polynomials used with Dory's setup have to be the same length (either T or T * MAX_TENSOR_SIZE)
             CommittedPolynomials::InstructionRa(i) => {
                 if *i > 3 {
                     panic!("Unexpected i: {i}");
@@ -1260,7 +1265,7 @@ fn format_write_op_ranges(
 /// floating point for intermediate calculations, which can cause mismatches between
 /// expected outputs and actual trace values.
 #[cfg(test)]
-pub fn check_mcc(execution_trace: &[JoltONNXCycle]) {
+pub fn sanity_check_mcc(execution_trace: &[JoltONNXCycle]) {
     let tensor_heap_addresses: Vec<usize> = execution_trace
         .iter()
         .map(|cycle| cycle.td_write().0.last().unwrap() + 1)
@@ -1280,7 +1285,7 @@ pub fn check_mcc(execution_trace: &[JoltONNXCycle]) {
             assert_eq!(
                 tensor_heap[*addr], *value,
                 "TS1 READ error at cycle_{i}: {cycle:#?}; Expected: {}, got: {} at address {addr} ",
-                tensor_heap[*addr], *value
+                tensor_heap[*addr] as u32 as i32, *value as u32 as i32
             );
         }
 
@@ -1290,7 +1295,7 @@ pub fn check_mcc(execution_trace: &[JoltONNXCycle]) {
             assert_eq!(
                 tensor_heap[*addr], *value,
                 "TS2 READ error at cycle_{i}: {cycle:#?}; Expected: {}, got: {} at address {addr} ",
-                tensor_heap[*addr], *value
+                tensor_heap[*addr] as u32 as i32, *value as u32 as i32
             );
         }
 
@@ -1300,7 +1305,7 @@ pub fn check_mcc(execution_trace: &[JoltONNXCycle]) {
             assert_eq!(
                 tensor_heap[*addr], *value,
                 "TS3 READ error at cycle_{i}: {cycle:#?}; Expected: {}, got: {} at address {addr} ",
-                tensor_heap[*addr], *value
+                tensor_heap[*addr] as u32 as i32, *value as u32 as i32
             );
         }
 
@@ -1313,7 +1318,7 @@ pub fn check_mcc(execution_trace: &[JoltONNXCycle]) {
             assert_eq!(
                 tensor_heap[*addr], *value,
                 "GATHER READ error at cycle_{i}: {cycle:#?}; Expected: {}, got: {} at address {addr} ",
-                tensor_heap[*addr], *value
+                tensor_heap[*addr] as u32 as i32, *value as u32 as i32
             );
         }
 
@@ -1326,8 +1331,8 @@ pub fn check_mcc(execution_trace: &[JoltONNXCycle]) {
         ) {
             assert_eq!(
                 tensor_heap[*addr], *pre_val,
-                "TD WRITE error at cycle_{i}: {cycle:#?}; Expected pre-state: {pre_val}, got: {} at address {addr} ",
-                tensor_heap[*addr]
+                "TD WRITE error at cycle_{i}: {cycle:#?}; Expected pre-state: {}, got: {} at address {addr} ",
+                *pre_val as u32 as i32, tensor_heap[*addr] as u32 as i32
             );
             tensor_heap[*addr] = *post_val;
         }
