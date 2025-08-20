@@ -18,7 +18,7 @@ use jolt_core::{
     utils::transcript::Transcript,
 };
 use onnx_tracer::constants::{
-    MAX_TENSOR_SIZE, TEST_TENSOR_REGISTER_COUNT, VIRTUAL_TENSOR_REGISTER_COUNT,
+    MAX_TENSOR_SIZE, TENSOR_REGISTER_COUNT, TEST_TENSOR_REGISTER_COUNT, VIRTUAL_TENSOR_REGISTER_COUNT
 };
 use onnx_tracer::tensor::Tensor;
 use onnx_tracer::trace_types::ONNXOpcode;
@@ -150,6 +150,11 @@ impl JoltONNXCycle {
             }
         }
     }
+
+    fn write_diffs(&self) -> Vec<i64> {
+        let (_, pre_vals, post_vals) = self.td_write();
+        post_vals.iter().zip(pre_vals.iter()).map(|(post, pre)| *post as i64 - *pre as i64).collect()
+    }
 }
 
 impl From<&ONNXCycle> for JoltONNXCycle {
@@ -205,6 +210,18 @@ pub fn jolt_execution_trace(raw_trace: Vec<ONNXCycle>) -> ExecutionTrace {
     }
 
     out
+}
+
+// TODO: Test this
+pub fn project_trace_to_heap(trace: &[JoltONNXCycle]) -> Vec<u32> {
+    let mut heap = vec![0; TENSOR_REGISTER_COUNT as usize];
+    trace.iter().for_each(|cycle| {
+        let (addresses, _, post) = cycle.td_write();
+        for addr in addresses {
+            heap[addr] = post[addr] as u32; // TODO: Check this
+        }
+    });
+    heap
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -389,14 +406,14 @@ pub enum CommittedPolynomials {
     Product(usize),
     /// Td * IsActive
     ActiveRd(usize),
-    // /// Whether the current instruction should write the lookup output to
-    // /// the destination register
+    /// Whether the current instruction should write the lookup output to
+    /// the destination register
     WriteLookupOutputToTD(usize),
-    // /// Inc polynomial for the registers instance of Twist
-    // RdInc,
     /// One-hot ra polynomial for the instruction lookups instance of Shout.
     /// There are four (d=4) of these polynomials, `InstructionRa(0) .. InstructionRa(3)`
     InstructionRa(usize),
+    /// Difference between the pre and post values of the destination register
+    TdInc,
 }
 
 macro_rules! fill_array_committed {
@@ -499,17 +516,15 @@ impl WitnessGenerator for CommittedPolynomials {
             }
 
             // TODO: Openings: https://github.com/ICME-Lab/zkml-jolt/issues/66
-            // CommittedPolynomials::RdInc => {
-            //     let coeffs: Vec<i64> = trace
-            //         .par_iter()
-            //         .map(|cycle| {
-            //             let pre_val = cycle.td_pre_val();
-            //             let post_val = cycle.td_post_val();
-            //             post_val as i64 - pre_val as i64
-            //         })
-            //         .collect();
-            //     coeffs.into()
-            // }
+            CommittedPolynomials::TdInc => {
+                let coeffs: Vec<i64> = trace
+                    .par_iter()
+                    .flat_map(|cycle| {
+                        cycle.write_diffs()
+                    })
+                    .collect();
+                coeffs.into()
+            }
 
             // FIXME: I think all polynomials in Spartan have to be the same length (either T or T * MAX_TENSOR_SIZE)
             CommittedPolynomials::InstructionRa(i) => {
