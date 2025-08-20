@@ -15,6 +15,7 @@ use jolt_core::{
         transcript::Transcript,
     },
 };
+use onnx_tracer::constants::MAX_TENSOR_SIZE;
 use rayon::prelude::*;
 
 use crate::jolt::{
@@ -42,12 +43,10 @@ struct OutputSumcheckProverState<F: JoltField> {
     /// EQ(x_1, ..., x_k, r_1, ..., r_k), where r_i is the
     /// random challenge for the i'th round of sumcheck.
     eq_table: ExpandingTable<F>,
-    output_vals: Vec<F>,
 }
 
 impl<F: JoltField> OutputSumcheckProverState<F> {
     fn initialize(
-        trace: &[JoltONNXCycle],
         final_heap_state: Vec<u32>,
         r_address: &[F],
     ) -> Self {
@@ -70,7 +69,6 @@ impl<F: JoltField> OutputSumcheckProverState<F> {
         let mut eq_table = ExpandingTable::new(K);
         eq_table.reset(F::one());
 
-        let output_vals = trace.last().unwrap().td_write().2.iter().map(|v| F::from_u64(*v)).collect();
 
         Self {
             val_init: initial_heap_state.into(),
@@ -79,7 +77,6 @@ impl<F: JoltField> OutputSumcheckProverState<F> {
             eq_poly: EqPolynomial::evals(r_address).into(),
             io_mask: io_mask.into(),
             eq_table,
-            output_vals,
         }
     }
 }
@@ -87,12 +84,14 @@ impl<F: JoltField> OutputSumcheckProverState<F> {
 #[derive(Debug, Clone)]
 struct OutputSumcheckVerifierState<F: JoltField> {
     r_address: Vec<F>,
+    output_vals: Vec<F>,
 }
 
 impl<F: JoltField> OutputSumcheckVerifierState<F> {
-    fn initialize(r_address: &[F]) -> Self {
+    fn initialize(r_address: &[F], output_vals: &[F]) -> Self {
         Self {
             r_address: r_address.to_vec(),
+            output_vals: output_vals.to_vec(),
         }
     }
 }
@@ -108,6 +107,7 @@ pub struct OutputProof<F: JoltField, ProofTranscript: Transcript> {
     val_final_claim: F,
     /// Claimed evaluations Inc(r_cycle) and wa(r_cycle) output by `ValFinalSumcheck`
     output_claims: ValFinalSumcheckClaims<F>,
+    output_vals: Vec<F>,
 }
 
 /// Sumcheck for the zero-check
@@ -138,8 +138,9 @@ impl<F: JoltField> OutputSumcheck<F> {
         let K = final_heap_state.len();
         let T = trace.len();
 
+        let output_vals = trace.last().unwrap().td_write().2.iter().map(|v| F::from_u64(*v)).collect();
         let output_sumcheck_prover_state =
-            OutputSumcheckProverState::initialize(trace, final_heap_state, r_address);
+            OutputSumcheckProverState::initialize(final_heap_state, r_address);
         let mut output_sumcheck = OutputSumcheck {
             K,
             T,
@@ -162,6 +163,7 @@ impl<F: JoltField> OutputSumcheck<F> {
             val_final_claim: output_sumcheck.val_final_claim.unwrap(),
             output_claims: None,
         };
+
         let (val_final_sumcheck_proof, _r_cycle) = val_final_sumcheck.prove_single(transcript);
         let output_claims = std::mem::take(val_final_sumcheck.output_claims.as_mut().unwrap());
         let val_final_claim = val_final_sumcheck.val_final_claim;
@@ -173,6 +175,7 @@ impl<F: JoltField> OutputSumcheck<F> {
             val_final_sumcheck_proof,
             val_final_claim,
             output_claims,
+            output_vals,
         }
     }
 
@@ -186,6 +189,7 @@ impl<F: JoltField> OutputSumcheck<F> {
         let K = r_address.len().pow2();
         let output_sumcheck_verifier_state = OutputSumcheckVerifierState {
             r_address: r_address.to_vec(),
+            output_vals: proof.output_vals.clone(),
         };
 
         let output_sumcheck = OutputSumcheck {
@@ -296,9 +300,8 @@ impl<F: JoltField, ProofTranscript: Transcript> BatchableSumcheckInstance<F, Pro
     fn expected_output_claim(&self, r: &[F]) -> F {
         let OutputSumcheckVerifierState {
             r_address,
+            output_vals,
         } = self.verifier_state.as_ref().unwrap();
-
-        let OutputSumcheckProverState { output_vals, .. } = self.prover_state.as_ref().unwrap();
 
         let val_final_claim = self.val_final_claim.as_ref().unwrap();
 
@@ -327,6 +330,7 @@ pub struct ValFinalSumcheckClaims<F: JoltField> {
     wa_claim: F,
 }
 
+#[derive(Debug, Clone)]
 struct ValFinalSumcheckProverState<F: JoltField> {
     inc: MultilinearPolynomial<F>,
     wa: MultilinearPolynomial<F>,
@@ -347,10 +351,6 @@ impl<F: JoltField> ValFinalSumcheckProverState<F> {
             .par_iter()
             .flat_map(|cycle| {
                 cycle.td_write().0
-                // remap_address(
-                //     cycle.ram_access.address() as u64,
-                //     &preprocessing.shared.memory_layout,
-                // ) as usize
             })
             .collect();
 
@@ -381,6 +381,8 @@ impl<F: JoltField> ValFinalSumcheckProverState<F> {
             );
         }
 
+        println!("write_addresses: {:?}", write_addresses.len());
+
         Self {
             inc,
             wa: wa_r_address.into(),
@@ -396,6 +398,7 @@ impl<F: JoltField> ValFinalSumcheckProverState<F> {
 /// into this sumcheck, which reduces it to claims about `Inc` and `wa`.
 /// Note that the verifier is assumed to be able to evaluate Val_init
 /// on its own.
+#[derive(Debug, Clone)]
 pub struct ValFinalSumcheck<F: JoltField> {
     T: usize,
     prover_state: Option<ValFinalSumcheckProverState<F>>,
@@ -412,7 +415,7 @@ impl<F: JoltField, ProofTranscript: Transcript> BatchableSumcheckInstance<F, Pro
     }
 
     fn num_rounds(&self) -> usize {
-        self.T.log_2()
+        (self.T * MAX_TENSOR_SIZE).log_2() // This is because there are MAX_TENSOR_SIZE write addresses per cycle
     }
 
     fn input_claim(&self) -> F {
