@@ -10,55 +10,6 @@ pub struct ProgramIOPolynomial<F: JoltField> {
 
 impl<F: JoltField> ProgramIOPolynomial<F> {
     pub fn new(output_vals: &[F]) -> Self {
-        // let range_end = remap_address(RAM_START_ADDRESS, &program_io.memory_layout);
-
-        // // TODO(moodlezoup) avoid next_power_of_two
-        // let mut coeffs: Vec<u32> = vec![0; range_end.next_power_of_two() as usize];
-
-        // let mut input_index = remap_address(
-        //     program_io.memory_layout.input_start,
-        //     &program_io.memory_layout,
-        // ) as usize;
-        // // Convert input bytes into words and populate `coeffs`
-        // for chunk in program_io.inputs.chunks(4) {
-        //     let mut word = [0u8; 4];
-        //     for (i, byte) in chunk.iter().enumerate() {
-        //         word[i] = *byte;
-        //     }
-        //     let word = u32::from_le_bytes(word);
-        //     coeffs[input_index] = word;
-        //     input_index += 1;
-        // }
-
-        // let mut output_index = remap_address(
-        //     program_io.memory_layout.output_start,
-        //     &program_io.memory_layout,
-        // ) as usize;
-        // // Convert output bytes into words and populate `coeffs`
-        // for chunk in program_io.outputs.chunks(4) {
-        //     let mut word = [0u8; 4];
-        //     for (i, byte) in chunk.iter().enumerate() {
-        //         word[i] = *byte;
-        //     }
-        //     let word = u32::from_le_bytes(word);
-        //     coeffs[output_index] = word;
-        //     output_index += 1;
-        // }
-
-        // // Copy panic bit
-        // let panic_index =
-        //     remap_address(program_io.memory_layout.panic, &program_io.memory_layout) as usize;
-        // coeffs[panic_index] = program_io.panic as u32;
-
-        // if !program_io.panic {
-        //     // Set termination bit
-        //     let termination_index = remap_address(
-        //         program_io.memory_layout.termination,
-        //         &program_io.memory_layout,
-        //     ) as usize;
-        //     coeffs[termination_index] = 1;
-        // }
-
         Self {
             poly: output_vals.to_vec().into(),
         }
