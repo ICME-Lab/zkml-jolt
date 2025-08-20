@@ -213,13 +213,24 @@ pub fn jolt_execution_trace(raw_trace: Vec<ONNXCycle>) -> ExecutionTrace {
 }
 
 pub fn project_heap_state(trace: &[JoltONNXCycle]) -> Vec<u32> {
-    let mut heap = vec![0; TENSOR_REGISTER_COUNT as usize];
-    trace.iter().for_each(|cycle| {
+    let mut heap = Vec::new();
+
+    for cycle in trace {
         let (addresses, _, post) = cycle.td_write();
-        for addr in addresses {
-            heap[addr] = post[addr] as u32; 
+
+        for (addr, post_val) in addresses.iter().zip(post.iter()) {
+            let addr = *addr;
+            if addr >= heap.len() {
+                heap.resize(addr + 1, 0);
+            }
+            heap[addr] = *post_val as u32;
         }
-    });
+    }
+
+    if !heap.is_empty() {
+        let new_len = heap.len().next_power_of_two();
+        heap.resize(new_len, 0);
+    }
     heap
 }
 
