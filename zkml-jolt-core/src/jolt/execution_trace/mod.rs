@@ -380,6 +380,8 @@ pub trait ONNXLookupQuery<const WORD_SIZE: usize> {
     fn to_lookup_output(&self) -> Vec<u64>;
 }
 
+// TODO: Openings: https://github.com/ICME-Lab/zkml-jolt/issues/66
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum CommittedPolynomials {
     /* R1CS aux variables */
@@ -396,8 +398,8 @@ pub enum CommittedPolynomials {
     // /// Whether the current instruction should write the lookup output to
     // /// the destination register
     WriteLookupOutputToTD(usize),
-    // /// Inc polynomial for the registers instance of Twist
-    // RdInc,
+    /// Inc polynomial for the registers instance of Twist
+    TdInc,
     /// One-hot ra polynomial for the instruction lookups instance of Shout.
     /// There are four (d=4) of these polynomials, `InstructionRa(0) .. InstructionRa(3)`
     InstructionRa(usize),
@@ -502,20 +504,22 @@ impl WitnessGenerator for CommittedPolynomials {
                 coeffs.into()
             }
 
-            // TODO: Openings: https://github.com/ICME-Lab/zkml-jolt/issues/66
-            // CommittedPolynomials::RdInc => {
-            //     let coeffs: Vec<i64> = trace
-            //         .par_iter()
-            //         .map(|cycle| {
-            //             let pre_val = cycle.td_pre_val();
-            //             let post_val = cycle.td_post_val();
-            //             post_val as i64 - pre_val as i64
-            //         })
-            //         .collect();
-            //     coeffs.into()
-            // }
+            CommittedPolynomials::TdInc => {
+                let coeffs: Vec<i64> = trace
+                    .par_iter()
+                    .flat_map(|cycle| {
+                        let (_, pre_value, post_value) = cycle.td_write();
+                        pre_value
+                            .iter()
+                            .zip(post_value.iter())
+                            .map(|(pre_value, post_value)| *post_value as i64 - *pre_value as i64)
+                            .collect_vec()
+                    })
+                    .collect();
+                coeffs.into()
+            }
 
-            // FIXME: I think all polynomials in Spartan have to be the same length (either T or T * MAX_TENSOR_SIZE)
+            // FIXME: I think all polynomials used with Dory's setup have to be the same length (either T or T * MAX_TENSOR_SIZE)
             CommittedPolynomials::InstructionRa(i) => {
                 if *i > 3 {
                     panic!("Unexpected i: {i}");
