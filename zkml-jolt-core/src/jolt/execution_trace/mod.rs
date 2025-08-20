@@ -151,7 +151,7 @@ impl JoltONNXCycle {
         }
     }
 
-    fn write_diffs(&self) -> Vec<i64> {
+    fn td_inc(&self) -> Vec<i64> {
         let (_, pre_vals, post_vals) = self.td_write();
         post_vals.iter().zip(pre_vals.iter()).map(|(post, pre)| *post as i64 - *pre as i64).collect()
     }
@@ -212,13 +212,12 @@ pub fn jolt_execution_trace(raw_trace: Vec<ONNXCycle>) -> ExecutionTrace {
     out
 }
 
-// TODO: Test this
-pub fn project_trace_to_heap(trace: &[JoltONNXCycle]) -> Vec<u32> {
+pub fn project_heap_state(trace: &[JoltONNXCycle]) -> Vec<u32> {
     let mut heap = vec![0; TENSOR_REGISTER_COUNT as usize];
     trace.iter().for_each(|cycle| {
         let (addresses, _, post) = cycle.td_write();
         for addr in addresses {
-            heap[addr] = post[addr] as u32; // TODO: Check this
+            heap[addr] = post[addr] as u32; 
         }
     });
     heap
@@ -520,7 +519,7 @@ impl WitnessGenerator for CommittedPolynomials {
                 let coeffs: Vec<i64> = trace
                     .par_iter()
                     .flat_map(|cycle| {
-                        cycle.write_diffs()
+                        cycle.td_inc()
                     })
                     .collect();
                 coeffs.into()

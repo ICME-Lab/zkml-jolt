@@ -8,7 +8,7 @@ pub mod read_write_check;
 // #![allow(clippy::needless_range_loop)]
 #[cfg(test)]
 use crate::jolt::execution_trace::check_mcc;
-use crate::jolt::{execution_trace::{project_trace_to_heap, CommittedPolynomials, JoltONNXCycle}, tensor_heap::{output_check::{OutputProof, OutputSumcheck}, read_write_check::ReadWriteCheckingProof}, JoltProverPreprocessing};
+use crate::jolt::{execution_trace::{project_heap_state, CommittedPolynomials, JoltONNXCycle}, tensor_heap::{output_check::{OutputProof, OutputSumcheck}, read_write_check::ReadWriteCheckingProof}, JoltProverPreprocessing};
 use jolt_core::{
     field::{JoltField, OptimizedMul}, poly::{
         commitment::commitment_scheme::CommitmentScheme,
@@ -59,8 +59,79 @@ impl<F: JoltField, ProofTranscript: Transcript> TensorHeapTwistProof<F, ProofTra
         let (read_write_checking_proof, r_address, r_cycle) =
             ReadWriteCheckingProof::prove(trace, r, r_prime, transcript);
 
+                   // // ------------------------------
 
-        let final_heap_state = project_trace_to_heap(trace);
+        // // Calculate D dynamically such that 2^8 = K^(1/D)
+        // // let log_k = K.log_2();
+        // // let d = (log_k / 8).max(1);
+
+        // let eq_r_cycle = EqPolynomial::evals(&r_prime);
+        // let d = 1; // @TODO(markosg04) keeping d = 1 for legacy prove
+        // let (booleanity_sumcheck, r_address_prime, r_cycle_prime, ra_claims) = prove_ra_booleanity(
+        //     trace,
+        //     ra,
+        //     &eq_r_cycle,
+        //     &r_address,
+        //     K,
+        //     d,
+        //     transcript,
+        // );
+        // let booleanity_proof = BooleanityProof {
+        //     sumcheck_proof: booleanity_sumcheck,
+        //     ra_claims: ra_claims.clone(),
+        // };
+
+        // let r_address_prime = r_address_prime.iter().copied().rev().collect::<Vec<_>>();
+        // let r_cycle_prime = r_cycle_prime.iter().rev().copied().collect::<Vec<_>>();
+
+        // // Prepare common data
+        // // let addresses: Vec<usize> = trace
+        // //     .par_iter()
+        // //     .map(|cycle| {
+        // //         remap_address(
+        // //             cycle.ram_access().address() as u64,
+        // //             &preprocessing.shared.memory_layout,
+        // //         ) as usize
+        // //     })
+        // //     .collect();
+
+
+        // let ra_claim = ra_claims[0]; // d = 1
+
+        // let ra_sumcheck_instance = RASumcheck::<F>::new(
+        //     ra_claim,
+        //     addresses,
+        //     r_cycle_prime,
+        //     r_address_prime.clone(),
+        //     1 << log_T,
+        //     d,
+        // );
+
+        // let (ra_proof, mut r_cycle_bound) = ra_sumcheck_instance.prove(transcript);
+
+        // // let unbound_ra_poly = CommittedPolynomials::RamRa(0).generate_witness(preprocessing, trace);
+        // r_cycle_bound.reverse();
+
+        // opening_accumulator.append_sparse(
+        //     vec![unbound_ra_poly],
+        //     r_address_prime.clone(),
+        //     r_cycle_bound,
+        //     ra_proof.ra_i_claims.clone(),
+        // );
+
+        // let (hamming_weight_sumcheck, _, ra_claims) = prove_ra_hamming_weight(
+        //     trace,
+        //     eq_r_cycle,
+        //     K,
+        //     d,
+        //     transcript,
+        // );
+        // let hamming_weight_proof = HammingWeightProof {
+        //     sumcheck_proof: hamming_weight_sumcheck,
+        //     ra_claims,
+        // };
+
+        let final_heap_state = project_heap_state(trace);
         let output_proof = OutputSumcheck::prove(
             preprocessing,
             trace,
