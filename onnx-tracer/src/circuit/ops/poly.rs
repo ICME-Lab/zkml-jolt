@@ -102,15 +102,14 @@ impl<F: TensorType + PartialOrd> From<&PolyOp<F>> for ONNXOpcode {
     }
 }
 
-// TODO: generic quantization
+// TODO(AntoineF4C5): generic quantization
 // Need to consider casting between i32 and u32
 impl<
         F: TensorType
             + PartialOrd
             + Send
             + Sync
-            + From<u32>
-            + From<i128>
+            + From<i32>
             + Add<Output = F>
             + Mul<Output = F>
             + Sub<Output = F>
@@ -118,7 +117,7 @@ impl<
             + std::iter::Sum,
     > Op<F> for PolyOp<F>
 where
-    i128: std::convert::From<F>,
+    i32: std::convert::From<F>,
 {
     /// Returns a reference to the Any trait.
     fn as_any(&self) -> &dyn Any {
@@ -241,7 +240,7 @@ where
                     return Err(TensorError::DimMismatch("pack inputs".to_string()));
                 }
 
-                tensor::ops::pack(&inputs[0], F::from(*base), *scale)
+                tensor::ops::pack(&inputs[0], F::from(*base as i32), *scale)
             }
             PolyOp::Pow(u) => {
                 if 1 != inputs.len() {
@@ -257,7 +256,7 @@ where
             }
             PolyOp::MeanOfSquares { axes } => {
                 let x = inputs[0].clone();
-                let x = x.map(|x| i128::from(x));
+                let x = x.map(|x| i32::from(x));
                 Ok(tensor::ops::nonlinearities::mean_of_squares_axes(&x, axes).map(|x| F::from(x)))
             }
             PolyOp::Prod { axes, .. } => {

@@ -48,17 +48,17 @@ use tract_onnx::{
 /// * `shift` - offset used in the fixed point representation.
 /// * `scale` - `2^scale` used in the fixed point representation.
 
-// TODO: generic quantization
-pub fn quantize_float(elem: &f64, shift: f64, scale: crate::Scale) -> Result<i128, TensorError> {
+// TODO(AntoineF4C5): generic quantization
+pub fn quantize_float(elem: &f64, shift: f64, scale: crate::Scale) -> Result<i32, TensorError> {
     let mult = scale_to_multiplier(scale);
-    let max_value = ((i128::MAX as f64 - shift) / mult).round(); // the maximum value that can be represented w/o sig bit truncation
+    let max_value = ((i32::MAX as f64 - shift) / mult).round(); // the maximum value that can be represented w/o sig bit truncation
 
     if *elem > max_value {
         return Err(TensorError::SigBitTruncationError);
     }
 
     // we parallelize the quantization process as it seems to be quite slow at times
-    let scaled = (mult * *elem + shift).round() as i128;
+    let scaled = (mult * *elem + shift).round() as i32;
 
     Ok(scaled)
 }
@@ -1389,7 +1389,7 @@ pub fn extract_const_raw_values(op: SupportedOp) -> Option<Tensor<f32>> {
 }
 
 /// Extracts the quantized values from a [crate::circuit::ops::Constant] op.
-pub fn extract_const_quantized_values(op: SupportedOp) -> Option<Tensor<i128>> {
+pub fn extract_const_quantized_values(op: SupportedOp) -> Option<Tensor<i32>> {
     match op {
         SupportedOp::Constant(crate::circuit::ops::Constant {
             quantized_values, ..
@@ -1412,11 +1412,11 @@ pub fn extract_conv_values(boxed_op: Box<dyn Op<i128>>) -> [Option<Tensor<i128>>
 
 /// Converts a tensor to a [ValTensor] with a given scale.
 
-// TODO: generic quantization
+// TODO(AntoineF4C5): generic quantization
 pub fn quantize_tensor(
     const_value: Tensor<f32>,
     scale: crate::Scale,
-) -> Result<Tensor<i128>, Box<dyn std::error::Error>> {
+) -> Result<Tensor<i32>, Box<dyn std::error::Error>> {
     let mut value = const_value.par_enum_map(|_, x| quantize_float(&(x).into(), 0.0, scale))?;
     value.set_scale(scale);
     Ok(value)
@@ -1424,12 +1424,12 @@ pub fn quantize_tensor(
 
 ///
 
-// TODO: generic quantization
+// TODO(AntoineF4C5): generic quantization
 pub fn homogenize_input_scales(
-    op: Box<dyn Op<i128>>,
+    op: Box<dyn Op<i32>>,
     input_scales: Vec<crate::Scale>,
     inputs_to_scale: Vec<usize>,
-) -> Result<Box<dyn Op<i128>>, Box<dyn Error>> {
+) -> Result<Box<dyn Op<i32>>, Box<dyn Error>> {
     let relevant_input_scales = input_scales
         .clone()
         .into_iter()
@@ -1491,9 +1491,9 @@ pub fn create_node(
     }
 }
 
-// TODO: generic quantization
+// TODO(AntoineF4C5): generic quantization
 pub fn create_const_node(
-    quantized: Tensor<i128>,
+    quantized: Tensor<i32>,
     raw: Tensor<f32>,
     out_scale: i32,
     out_dims: Vec<usize>,
@@ -1524,9 +1524,9 @@ pub fn create_input_node(out_scale: i32, shape: Vec<usize>, idx: usize, num_uses
     )
 }
 
-// TODO: generic quantization
+// TODO(AntoineF4C5): generic quantization
 pub fn create_polyop_node(
-    op: PolyOp<i128>,
+    op: PolyOp<i32>,
     out_scale: i32,
     inputs: Vec<(usize, usize)>,
     shape: Vec<usize>,
@@ -1598,7 +1598,7 @@ pub fn create_sigmoid_node(
 }
 
 pub fn create_div_node(
-    denom: i128,
+    denom: i32,
     out_scale: i32,
     inputs: Vec<(usize, usize)>,
     out_dims: Vec<usize>,

@@ -4,7 +4,7 @@ use crate::{
         execution_trace::{JoltONNXCycle, ONNXLookupQuery},
         instruction::VirtualInstructionSequence,
     },
-    utils::u64_vec_to_i128_iter,
+    utils::u64_vec_to_i32_iter,
 };
 use ark_std::test_rng;
 use onnx_tracer::{
@@ -76,16 +76,16 @@ pub fn jolt_virtual_sequence_test<I: VirtualInstructionSequence>(opcode: ONNXOpc
                 ts2: Some(t_y as usize),
                 ts3: None,
                 td: Some(td as usize),
-                imm: Some(Tensor::from(u64_vec_to_i128_iter(&y))),
+                imm: Some(Tensor::from(u64_vec_to_i32_iter(&y))),
                 virtual_sequence_remaining: None,
                 active_output_elements: MAX_TENSOR_SIZE,
             },
             memory_state: MemoryState {
-                ts1_val: Some(Tensor::from(u64_vec_to_i128_iter(&x))),
-                ts2_val: Some(Tensor::from(u64_vec_to_i128_iter(&y))),
+                ts1_val: Some(Tensor::from(u64_vec_to_i32_iter(&x))),
+                ts2_val: Some(Tensor::from(u64_vec_to_i32_iter(&y))),
                 ts3_val: None,
                 td_pre_val: None,
-                td_post_val: Some(Tensor::from(u64_vec_to_i128_iter(&result))),
+                td_post_val: Some(Tensor::from(u64_vec_to_i32_iter(&result))),
             },
             advice_value: None,
         };

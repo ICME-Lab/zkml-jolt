@@ -76,11 +76,11 @@ impl LookupOp {
     }
 }
 
-// TODO: generic quantization
+// TODO(AntoineF4C5): generic quantization
 impl<F: TensorType + PartialOrd> Op<F> for LookupOp
 where
-    i128: std::convert::From<F>,
-    F: From<i128>,
+    i32: std::convert::From<F>,
+    F: From<i32>,
 {
     /// Returns a reference to the Any trait.
     fn as_any(&self) -> &dyn Any {
@@ -89,7 +89,7 @@ where
     /// Matches a [Op] to an operation in the `tensor::ops` module.
     fn f(&self, x: &[Tensor<F>]) -> Result<ForwardResult<F>, TensorError> {
         let x = x[0].clone();
-        let x = x.map(|x| i128::from(x));
+        let x = x.map(|x| i32::from(x));
         let res = match &self {
             LookupOp::Abs => Ok(tensor::ops::abs(&x)?),
             LookupOp::Ceil { scale } => Ok(tensor::ops::nonlinearities::ceil(&x, scale.into())),

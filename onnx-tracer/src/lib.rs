@@ -88,15 +88,15 @@ pub fn decode_model(model: Model) -> Vec<ONNXInstr> {
 /// Roughly speaking, the trace describes just the changes to virtual machine state at each step of its execution (this includes read operations).
 /// These state transitions are later checked & verified in the Jolt proof system, ensuring the prover possesses a valid execution trace for the given model and input.
 
-// TODO: generic quantization
-pub fn trace(model_path: &PathBuf, input: &Tensor<i128>) -> Vec<ONNXCycle> {
+// TODO(AntoineF4C5): generic quantization
+pub fn trace(model_path: &PathBuf, input: &Tensor<i32>) -> Vec<ONNXCycle> {
     execution_trace(model(model_path), input)
 }
 
 /// Given a model and input extract the execution trace
 
-// TODO: generic quantization
-pub fn execution_trace(model: Model, input: &Tensor<i128>) -> Vec<ONNXCycle> {
+// TODO(AntoineF4C5): generic quantization
+pub fn execution_trace(model: Model, input: &Tensor<i32>) -> Vec<ONNXCycle> {
     // Run the model with the provided inputs.
     // The internal model tracer will automatically capture the execution trace during the forward pass
     let _ = model

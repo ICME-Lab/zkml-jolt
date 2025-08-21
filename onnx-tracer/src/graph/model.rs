@@ -99,8 +99,8 @@ impl Model {
     /// - This function does not perform any hardware-accelerated inference; it executes the model using the internal Rust implementation.
     /// - Handles both standard nodes and subgraphs (e.g., for ONNX Scan/Loop constructs).
 
-    // TODO: generic quantization
-    pub fn forward(&self, model_inputs: &[Tensor<i128>]) -> Result<ForwardResult, Box<dyn Error>> {
+    // TODO(AntoineF4C5): generic quantization
+    pub fn forward(&self, model_inputs: &[Tensor<i32>]) -> Result<ForwardResult, Box<dyn Error>> {
         // A map that stores the output tensors of each node in the computation graph.
         //
         // # Purpose
@@ -147,7 +147,7 @@ impl Model {
         // 5. Summary:
         //    - This structure allows us to efficiently store and retrieve all intermediate and final outputs of the computation graph,
         //      supporting both single-output and multi-output nodes, and ensuring deterministic iteration order.
-        let mut results: BTreeMap<&usize, Vec<Tensor<i128>>> = BTreeMap::new();
+        let mut results: BTreeMap<&usize, Vec<Tensor<i32>>> = BTreeMap::new();
         let mut max_lookup_inputs = 0;
         let mut min_lookup_inputs = 0;
         // Retrieves the shapes of all input tensors for the current computational graph.
@@ -209,7 +209,7 @@ impl Model {
             match n {
                 NodeType::Node(n) => {
                     // Execute
-                    let mut res = Op::<i128>::f(&n.opkind, &inputs)?;
+                    let mut res = Op::<i32>::f(&n.opkind, &inputs)?;
                     res.output.reshape(&n.out_dims)?;
                     // see if any of the intermediate lookup calcs are the max
                     if !res.intermediate_lookups.is_empty() {
@@ -294,7 +294,7 @@ impl Model {
                         num_iter, input_tuple, model.graph.inputs
                     );
                     debug!("input_mappings: {input_mappings:?}",);
-                    let mut full_results: Vec<Tensor<i128>> = vec![];
+                    let mut full_results: Vec<Tensor<i32>> = vec![];
                     for i in 0..num_iter {
                         // replace the Stacked input with the current chunk iter
                         for ((mapping, inp), og_input) in
@@ -414,12 +414,12 @@ impl Model {
     /// After this block, `inputs` contains the tensors that should be passed to the current node's operation,
     /// in the order expected by the node. This enables the subsequent execution of the node's computation.
 
-    // TODO: generic quantization
+    // TODO(AntoineF4C5): generic quantization
     fn node_inputs(
         idx: &usize,
         n: &NodeType,
-        results: &BTreeMap<&usize, Vec<Tensor<i128>>>,
-    ) -> Result<Vec<Tensor<i128>>, Box<dyn Error>> {
+        results: &BTreeMap<&usize, Vec<Tensor<i32>>>,
+    ) -> Result<Vec<Tensor<i32>>, Box<dyn Error>> {
         let mut inputs = vec![];
         if n.is_input() {
             let t = results.get(idx).ok_or(GraphError::MissingResults)?[0].clone();
@@ -441,11 +441,11 @@ impl Model {
         Ok(inputs)
     }
 
-    // TODO: generic quantization
+    // TODO(AntoineF4C5): generic quantization
     fn lookup_check(
-        inputs: &[Tensor<i128>],
-        max_lookup_inputs: &mut i128,
-        min_lookup_inputs: &mut i128,
+        inputs: &[Tensor<i32>],
+        max_lookup_inputs: &mut i32,
+        min_lookup_inputs: &mut i32,
     ) -> Result<(), Box<dyn Error>> {
         let (mut min, mut max) = (0, 0);
         for i in inputs {
@@ -1128,14 +1128,14 @@ impl NodeType {
 /// The result of a forward pass.
 #[derive(Clone, Debug)]
 
-// TODO: generic quantization
+// TODO(AntoineF4C5): generic quantization
 pub struct ForwardResult {
     /// The outputs of the forward pass.
-    pub outputs: Vec<Tensor<i128>>,
+    pub outputs: Vec<Tensor<i32>>,
     /// The maximum value of any input to a lookup operation.
-    pub max_lookup_inputs: i128,
+    pub max_lookup_inputs: i32,
     /// The minimum value of any input to a lookup operation.
-    pub min_lookup_inputs: i128,
+    pub min_lookup_inputs: i32,
 }
 
 /// Representation of execution graph
@@ -1355,7 +1355,7 @@ mod tests {
         let result = model.forward(&[x]).unwrap();
         assert_eq!(result.outputs.len(), 1);
 
-        let _out: Vec<i128> = result.outputs[0].iter().copied().collect();
+        let _out: Vec<i32> = result.outputs[0].iter().copied().collect();
 
         // TODO(Alberto): Not sure how to handle precision yet
         // sigmoid(-2)≈0.119, sigmoid(0)=0.5, sigmoid(2)≈0.881

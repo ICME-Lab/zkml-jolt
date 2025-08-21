@@ -17,15 +17,15 @@ use strum_macros::EnumCount as EnumCountMacro;
 /// Records what the VM did at a cycle of execution.
 /// Constructed at each step in the VM execution cycle, documenting instr, reads & state changes (writes).
 
-// TODO: generic quantization
+// TODO(AntoineF4C5): generic quantization
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ONNXCycle {
     pub instr: ONNXInstr,
     pub memory_state: MemoryState,
-    pub advice_value: Option<Tensor<i128>>,
+    pub advice_value: Option<Tensor<i32>>,
 }
 
-// TODO: generic quantization
+// TODO(AntoineF4C5): generic quantization
 impl ONNXCycle {
     pub fn no_op() -> Self {
         ONNXCycle {
@@ -40,7 +40,7 @@ impl ONNXCycle {
             instr: ONNXInstr::dummy(opcode),
             memory_state: MemoryState::random(rng),
             advice_value: Some(Tensor::from(
-                (0..MAX_TENSOR_SIZE).map(|_| rng.next_u64() as u32 as i32 as i128),
+                (0..MAX_TENSOR_SIZE).map(|_| rng.next_u64() as u32 as i32),
             )),
         }
     }
@@ -66,35 +66,25 @@ impl ONNXCycle {
     }
 }
 
-// TODO: generic quantization
+// TODO(AntoineF4C5): generic quantization
 #[derive(Clone, Debug, Eq, PartialEq, Default, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct MemoryState {
-    pub ts1_val: Option<Tensor<i128>>,
-    pub ts2_val: Option<Tensor<i128>>,
-    pub ts3_val: Option<Tensor<i128>>,
-    pub td_pre_val: Option<Tensor<i128>>,
-    pub td_post_val: Option<Tensor<i128>>,
+    pub ts1_val: Option<Tensor<i32>>,
+    pub ts2_val: Option<Tensor<i32>>,
+    pub ts3_val: Option<Tensor<i32>>,
+    pub td_pre_val: Option<Tensor<i32>>,
+    pub td_post_val: Option<Tensor<i32>>,
 }
 
-// TODO: generic quantization
+// TODO(AntoineF4C5): generic quantization
 impl MemoryState {
     pub fn random(rng: &mut StdRng) -> Self {
         MemoryState {
-            ts1_val: Some(
-                Tensor::new(Some(&[rng.next_u64() as u32 as i32 as i128]), &[1]).unwrap(),
-            ),
-            ts2_val: Some(
-                Tensor::new(Some(&[rng.next_u64() as u32 as i32 as i128]), &[1]).unwrap(),
-            ),
-            ts3_val: Some(
-                Tensor::new(Some(&[rng.next_u64() as u32 as i32 as i128]), &[1]).unwrap(),
-            ),
-            td_pre_val: Some(
-                Tensor::new(Some(&[rng.next_u64() as u32 as i32 as i128]), &[1]).unwrap(),
-            ),
-            td_post_val: Some(
-                Tensor::new(Some(&[rng.next_u64() as u32 as i32 as i128]), &[1]).unwrap(),
-            ),
+            ts1_val: Some(Tensor::new(Some(&[rng.next_u64() as u32 as i32]), &[1]).unwrap()),
+            ts2_val: Some(Tensor::new(Some(&[rng.next_u64() as u32 as i32]), &[1]).unwrap()),
+            ts3_val: Some(Tensor::new(Some(&[rng.next_u64() as u32 as i32]), &[1]).unwrap()),
+            td_pre_val: Some(Tensor::new(Some(&[rng.next_u64() as u32 as i32]), &[1]).unwrap()),
+            td_post_val: Some(Tensor::new(Some(&[rng.next_u64() as u32 as i32]), &[1]).unwrap()),
         }
     }
 }
@@ -117,7 +107,7 @@ impl MemoryState {
 /// The ONNX model is converted into a sequence of [`ONNXInstr`]s, forming the program code.
 /// During runtime, the program counter (PC) is used to fetch the next instruction from this read-only memory storing the program bytecode.
 
-// TODO: generic quantization
+// TODO(AntoineF4C5): generic quantization
 pub struct ONNXInstr {
     /// The program counter (PC) address of this instruction in the bytecode.
     pub address: usize,
@@ -143,7 +133,7 @@ pub struct ONNXInstr {
     /// This is analogous to the `rd` register specifier in RISC-V, indicating
     /// where the result of the operation should be written.
     pub td: Option<usize>,
-    pub imm: Option<Tensor<i128>>, // Immediate value, if applicable
+    pub imm: Option<Tensor<i32>>, // Immediate value, if applicable
     /// If this instruction is part of a "virtual sequence" (see Section 6.2 of the
     /// Jolt paper), then this contains the number of virtual instructions after this
     /// one in the sequence. I.e. if this is the last instruction in the sequence,
@@ -185,7 +175,7 @@ type ONNXCycleMemoryOps = (
     Vec<usize>,                       // gather addresses
 );
 
-// TODO: generic quantization
+// TODO(AntoineF4C5): generic quantization
 impl ONNXCycle {
     #[allow(clippy::type_complexity)]
     /// Converts the cycle's tensor state into memory operation tuples for ts1, ts2, and td.
@@ -280,8 +270,8 @@ impl ONNXCycle {
     /// ---
     /// Returns a Vec<u64> of normalized values, padded with zeros to `MAX_TENSOR_SIZE`.
 
-    // TODO: generic quantization
-    fn build_vals(&self, tensor_opt: Option<&Tensor<i128>>, name: &str) -> Vec<u64> {
+    // TODO(AntoineF4C5): generic quantization
+    fn build_vals(&self, tensor_opt: Option<&Tensor<i32>>, name: &str) -> Vec<u64> {
         match tensor_opt {
             Some(t) => {
                 assert!(
@@ -301,29 +291,29 @@ impl ONNXCycle {
 
     /// Returns the optional tensor for ts1 (unmodified).
 
-    // TODO: generic quantization
-    pub fn ts1_val_raw(&self) -> Option<&Tensor<i128>> {
+    // TODO(AntoineF4C5): generic quantization
+    pub fn ts1_val_raw(&self) -> Option<&Tensor<i32>> {
         self.memory_state.ts1_val.as_ref()
     }
 
     /// Returns the optional tensor for ts2 (unmodified).
 
-    // TODO: generic quantization
-    pub fn ts2_val_raw(&self) -> Option<&Tensor<i128>> {
+    // TODO(AntoineF4C5): generic quantization
+    pub fn ts2_val_raw(&self) -> Option<&Tensor<i32>> {
         self.memory_state.ts2_val.as_ref()
     }
 
     /// Returns the optional tensor for ts3 (unmodified).
 
-    // TODO: generic quantization
-    pub fn ts3_val_raw(&self) -> Option<&Tensor<i128>> {
+    // TODO(AntoineF4C5): generic quantization
+    pub fn ts3_val_raw(&self) -> Option<&Tensor<i32>> {
         self.memory_state.ts3_val.as_ref()
     }
 
     /// Returns the optional tensor for td_post (unmodified).
 
-    // TODO: generic quantization
-    pub fn td_post_val_raw(&self) -> Option<&Tensor<i128>> {
+    // TODO(AntoineF4C5): generic quantization
+    pub fn td_post_val_raw(&self) -> Option<&Tensor<i32>> {
         self.memory_state.td_post_val.as_ref()
     }
 
@@ -363,14 +353,9 @@ pub fn get_tensor_addresses(t: usize) -> Vec<usize> {
 /// Panics if the value's absolute value exceeds `i128::from(u32::MAX)`.
 /// This is to ensure that the immediate value can be safely normalized to u32 and then store in 64 bits.
 
-// TODO: generic quantization
-fn normalize(value: &i128) -> u64 {
-    // TODO: Temp assert. We will remove this when we migrate runtime to 32-bit quant strat.
-    assert!(
-        value.abs() <= i128::from(u32::MAX),
-        "Value out of bounds for normalization"
-    );
-    *value as i32 as u32 as u64
+// TODO(AntoineF4C5): generic quantization
+fn normalize(value: &i32) -> u64 {
+    *value as u32 as u64
 }
 
 /// Boolean flags used in Jolt's R1CS constraints (`opflags` in the Jolt paper).

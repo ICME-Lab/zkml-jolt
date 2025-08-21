@@ -12,7 +12,7 @@ use crate::{
         virtual_advice::ADVICEInstruction, virtual_assert_valid_div0::AssertValidDiv0Instruction,
         virtual_assert_valid_signed_remainder::AssertValidSignedRemainderInstruction,
     },
-    utils::u64_vec_to_i128_iter,
+    utils::u64_vec_to_i32_iter,
 };
 
 /// Perform signed division and return the result
@@ -126,9 +126,9 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
                 ts2_val: None,
                 ts3_val: None,
                 td_pre_val: None,
-                td_post_val: Some(Tensor::from(u64_vec_to_i128_iter(&q))),
+                td_post_val: Some(Tensor::from(u64_vec_to_i32_iter(&q))),
             },
-            advice_value: Some(Tensor::from(u64_vec_to_i128_iter(&quotient))),
+            advice_value: Some(Tensor::from(u64_vec_to_i32_iter(&quotient))),
         });
 
         let r = (0..MAX_TENSOR_SIZE)
@@ -151,9 +151,9 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
                 ts2_val: None,
                 ts3_val: None,
                 td_pre_val: None,
-                td_post_val: Some(Tensor::from(u64_vec_to_i128_iter(&r))),
+                td_post_val: Some(Tensor::from(u64_vec_to_i32_iter(&r))),
             },
-            advice_value: Some(Tensor::from(u64_vec_to_i128_iter(&remainder))),
+            advice_value: Some(Tensor::from(u64_vec_to_i32_iter(&remainder))),
         });
 
         let is_valid: Vec<u64> = (0..MAX_TENSOR_SIZE)
@@ -177,8 +177,8 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
                 active_output_elements: cycle.instr.active_output_elements,
             },
             memory_state: MemoryState {
-                ts1_val: Some(Tensor::from(u64_vec_to_i128_iter(&r))),
-                ts2_val: Some(Tensor::from(u64_vec_to_i128_iter(&y))),
+                ts1_val: Some(Tensor::from(u64_vec_to_i32_iter(&r))),
+                ts2_val: Some(Tensor::from(u64_vec_to_i32_iter(&y))),
                 ts3_val: None,
                 td_pre_val: None,
                 td_post_val: None,
@@ -205,8 +205,8 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
                 active_output_elements: cycle.instr.active_output_elements,
             },
             memory_state: MemoryState {
-                ts1_val: Some(Tensor::from(u64_vec_to_i128_iter(&y))),
-                ts2_val: Some(Tensor::from(u64_vec_to_i128_iter(&q))),
+                ts1_val: Some(Tensor::from(u64_vec_to_i32_iter(&y))),
+                ts2_val: Some(Tensor::from(u64_vec_to_i32_iter(&q))),
                 ts3_val: None,
                 td_pre_val: None,
                 td_post_val: None,
@@ -230,11 +230,11 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
                 active_output_elements: cycle.instr.active_output_elements,
             },
             memory_state: MemoryState {
-                ts1_val: Some(Tensor::from(u64_vec_to_i128_iter(&q))),
-                ts2_val: Some(Tensor::from(u64_vec_to_i128_iter(&y))),
+                ts1_val: Some(Tensor::from(u64_vec_to_i32_iter(&q))),
+                ts2_val: Some(Tensor::from(u64_vec_to_i32_iter(&y))),
                 ts3_val: None,
                 td_pre_val: None,
-                td_post_val: Some(Tensor::from(u64_vec_to_i128_iter(&q_y))),
+                td_post_val: Some(Tensor::from(u64_vec_to_i32_iter(&q_y))),
             },
             advice_value: None,
         });
@@ -255,11 +255,11 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
                 active_output_elements: cycle.instr.active_output_elements,
             },
             memory_state: MemoryState {
-                ts1_val: Some(Tensor::from(u64_vec_to_i128_iter(&q_y))),
-                ts2_val: Some(Tensor::from(u64_vec_to_i128_iter(&r))),
+                ts1_val: Some(Tensor::from(u64_vec_to_i32_iter(&q_y))),
+                ts2_val: Some(Tensor::from(u64_vec_to_i32_iter(&r))),
                 ts3_val: None,
                 td_pre_val: None,
-                td_post_val: Some(Tensor::from(u64_vec_to_i128_iter(&add_0))),
+                td_post_val: Some(Tensor::from(u64_vec_to_i32_iter(&add_0))),
             },
             advice_value: None,
         });
@@ -280,8 +280,8 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
                 active_output_elements: cycle.instr.active_output_elements,
             },
             memory_state: MemoryState {
-                ts1_val: Some(Tensor::from(u64_vec_to_i128_iter(&add_0))),
-                ts2_val: Some(Tensor::from(u64_vec_to_i128_iter(&x))),
+                ts1_val: Some(Tensor::from(u64_vec_to_i32_iter(&add_0))),
+                ts2_val: Some(Tensor::from(u64_vec_to_i32_iter(&x))),
                 ts3_val: None,
                 td_pre_val: None,
                 td_post_val: None,
@@ -302,11 +302,11 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for DIVInstruction<WORD_
                 active_output_elements: cycle.instr.active_output_elements,
             },
             memory_state: MemoryState {
-                ts1_val: Some(Tensor::from(u64_vec_to_i128_iter(&q))),
+                ts1_val: Some(Tensor::from(u64_vec_to_i32_iter(&q))),
                 ts2_val: None,
                 ts3_val: None,
                 td_pre_val: cycle.memory_state.td_pre_val.clone(),
-                td_post_val: Some(Tensor::from(u64_vec_to_i128_iter(&q))),
+                td_post_val: Some(Tensor::from(u64_vec_to_i32_iter(&q))),
             },
             advice_value: None,
         });

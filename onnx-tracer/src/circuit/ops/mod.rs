@@ -22,10 +22,11 @@ pub mod poly;
 /// A struct representing the result of a forward pass.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 
-// TODO: generic quantization
+// TODO(AntoineF4C5): generic quantization
 pub struct ForwardResult<F: TensorType + PartialOrd> {
     pub(crate) output: Tensor<F>,
-    pub(crate) intermediate_lookups: Vec<Tensor<i128>>,
+    // TODO(AntoineF4C5): Check why intermediate_lookups doesn't use same generic `F` as output
+    pub(crate) intermediate_lookups: Vec<Tensor<i32>>,
 }
 
 // /// A trait representing operations that can be represented as constraints in a
@@ -241,7 +242,7 @@ impl<F: TensorType + PartialOrd> From<&Constant<F>> for ONNXOpcode {
     }
 }
 
-impl<F: TensorType + PartialOrd + From<i128>> Constant<F> {
+impl<F: TensorType + PartialOrd + From<i32>> Constant<F> {
     ///
     pub fn new(mut quantized_values: Tensor<F>, mut raw_values: Tensor<f32>) -> Self {
         // dims.len == 1 for both quantized and raw values, then reshape to [1, dims[0]]

@@ -86,7 +86,7 @@ impl From<&HybridOp> for ONNXOpcode {
     }
 }
 
-// TODO: generic quantization
+// TODO(AntoineF4C5): generic quantization
 // Need to consider casting i32 from u32 and opposite
 impl<
         F: TensorType
@@ -96,15 +96,14 @@ impl<
             + Send
             + Sync
             + Sub
-            + From<u32>
-            + From<i128>
+            + From<i32>
             + Mul<Output = F>
             + Sub<Output = F>
             + Neg<Output = F>
             + std::iter::Sum,
     > Op<F> for HybridOp
 where
-    i128: std::convert::From<F>,
+    i32: std::convert::From<F>,
 {
     ///
     fn requires_homogenous_input_scales(&self) -> Vec<usize> {
@@ -122,7 +121,7 @@ where
     /// Matches a [Op] to an operation in the `tensor::ops` module.
     fn f(&self, inputs: &[Tensor<F>]) -> Result<ForwardResult<F>, TensorError> {
         let x = inputs[0].clone();
-        let x = x.map(|x| i128::from(x));
+        let x = x.map(|x| i32::from(x));
         let (res, intermediate_lookups) = match &self {
             HybridOp::ReduceMax { axes, .. } => {
                 let res = tensor::ops::max_axes(&x, axes)?;
@@ -151,8 +150,8 @@ where
             }
             HybridOp::ReduceArgMax { dim } => {
                 let res = tensor::ops::argmax_axes(&x, *dim)?;
-                let indices = Tensor::from(0..x.dims()[*dim] as i128);
-                let mut inter_equals: Vec<Tensor<i128>> = vec![indices.clone(), -indices];
+                let indices = Tensor::from(0..x.dims()[*dim] as i32);
+                let mut inter_equals: Vec<Tensor<i32>> = vec![indices.clone(), -indices];
                 let inter =
                     Op::f(&HybridOp::ReduceMax { axes: vec![*dim] }, inputs)?.intermediate_lookups;
                 inter_equals.extend(inter);
@@ -161,8 +160,8 @@ where
             }
             HybridOp::ReduceArgMin { dim } => {
                 let res = tensor::ops::argmin_axes(&x, *dim)?;
-                let indices = Tensor::from(0..x.dims()[*dim] as i128);
-                let mut inter_equals: Vec<Tensor<i128>> = vec![indices.clone(), -indices];
+                let indices = Tensor::from(0..x.dims()[*dim] as i32);
+                let mut inter_equals: Vec<Tensor<i32>> = vec![indices.clone(), -indices];
                 let inter =
                     Op::f(&HybridOp::ReduceMin { axes: vec![*dim] }, inputs)?.intermediate_lookups;
                 inter_equals.extend(inter);
@@ -175,16 +174,16 @@ where
                     let res = tensor::ops::gather(&x, idx, *dim)?;
                     (res.clone(), vec![])
                 } else {
-                    let y = inputs[1].clone().map(|x| i128::from(x));
-                    let indices = Tensor::from(0..x.dims()[*dim] as i128);
-                    let inter_equals: Vec<Tensor<i128>> = vec![indices.clone(), -indices];
+                    let y = inputs[1].clone().map(|x| i32::from(x));
+                    let indices = Tensor::from(0..x.dims()[*dim] as i32);
+                    let inter_equals: Vec<Tensor<i32>> = vec![indices.clone(), -indices];
                     let res = tensor::ops::gather(&x, &y.map(|x| x as usize), *dim)?;
                     (res.clone(), inter_equals)
                 }
             }
             HybridOp::OneHot { dim, num_classes } => {
-                let indices = Tensor::from(0..x.dims()[*dim] as i128);
-                let inter_equals: Vec<Tensor<i128>> = vec![indices.clone(), -indices];
+                let indices = Tensor::from(0..x.dims()[*dim] as i32);
+                let inter_equals: Vec<Tensor<i32>> = vec![indices.clone(), -indices];
                 let res = tensor::ops::one_hot(&x, *num_classes, *dim)?;
                 (res.clone(), inter_equals)
             }
@@ -218,9 +217,9 @@ where
                     let res = tensor::ops::gather_elements(&x, idx, *dim)?;
                     (res.clone(), vec![])
                 } else {
-                    let y = inputs[1].clone().map(|x| i128::from(x));
-                    let indices = Tensor::from(0..x.dims()[*dim] as i128);
-                    let inter_equals: Vec<Tensor<i128>> = vec![indices.clone(), -indices];
+                    let y = inputs[1].clone().map(|x| i32::from(x));
+                    let indices = Tensor::from(0..x.dims()[*dim] as i32);
+                    let inter_equals: Vec<Tensor<i32>> = vec![indices.clone(), -indices];
                     let res = tensor::ops::gather_elements(&x, &y.map(|x| x as usize), *dim)?;
                     (res.clone(), inter_equals)
                 }
@@ -228,14 +227,14 @@ where
             HybridOp::ScatterElements { dim, constant_idx } => {
                 if let Some(idx) = constant_idx {
                     log::debug!("idx: {}", idx.show());
-                    let src = inputs[1].clone().map(|x| i128::from(x));
+                    let src = inputs[1].clone().map(|x| i32::from(x));
                     let res = tensor::ops::scatter(&x, idx, &src, *dim)?;
                     (res.clone(), vec![])
                 } else {
-                    let idx = inputs[1].clone().map(|x| i128::from(x) as usize);
-                    let src = inputs[2].clone().map(|x| i128::from(x));
-                    let indices = Tensor::from(0..x.dims()[*dim] as i128);
-                    let inter_equals: Vec<Tensor<i128>> = vec![indices.clone(), -indices];
+                    let idx = inputs[1].clone().map(|x| i32::from(x) as usize);
+                    let src = inputs[2].clone().map(|x| i32::from(x));
+                    let indices = Tensor::from(0..x.dims()[*dim] as i32);
+                    let inter_equals: Vec<Tensor<i32>> = vec![indices.clone(), -indices];
                     let res = tensor::ops::scatter(&x, &idx, &src, *dim)?;
                     (res.clone(), inter_equals)
                 }
@@ -269,30 +268,30 @@ where
                 tensor::ops::nonlinearities::softmax_axes(&x, scale.into(), axes)
             }
             HybridOp::RangeCheck(tol) => {
-                let y = inputs[1].clone().map(|x| i128::from(x));
+                let y = inputs[1].clone().map(|x| i32::from(x));
                 (
                     tensor::ops::nonlinearities::range_check_percent(&[x, y], 128, 128, tol.val),
                     vec![],
                 )
             }
             HybridOp::Greater => {
-                let y = inputs[1].clone().map(|x| i128::from(x));
+                let y = inputs[1].clone().map(|x| i32::from(x));
                 tensor::ops::greater(&x, &y)?
             }
             HybridOp::GreaterEqual => {
-                let y = inputs[1].clone().map(|x| i128::from(x));
+                let y = inputs[1].clone().map(|x| i32::from(x));
                 tensor::ops::greater_equal(&x, &y)?
             }
             HybridOp::Less => {
-                let y = inputs[1].clone().map(|x| i128::from(x));
+                let y = inputs[1].clone().map(|x| i32::from(x));
                 tensor::ops::less(&x, &y)?
             }
             HybridOp::LessEqual => {
-                let y = inputs[1].clone().map(|x| i128::from(x));
+                let y = inputs[1].clone().map(|x| i32::from(x));
                 tensor::ops::less_equal(&x, &y)?
             }
             HybridOp::Equals => {
-                let y = inputs[1].clone().map(|x| i128::from(x));
+                let y = inputs[1].clone().map(|x| i32::from(x));
                 tensor::ops::equals(&x, &y)?
             }
         };

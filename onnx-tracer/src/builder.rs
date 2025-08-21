@@ -49,10 +49,10 @@ impl ModelBuilder {
         (id, O)
     }
 
-    // TODO: generic quantization
+    // TODO(AntoineF4C5): generic quantization
     fn const_tensor(
         &mut self,
-        tensor: Tensor<i128>,
+        tensor: Tensor<i32>,
         out_dims: Vec<usize>,
         fanout_hint: usize,
     ) -> Wire {
@@ -63,10 +63,10 @@ impl ModelBuilder {
         (id, O)
     }
 
-    // TODO: generic quantization
+    // TODO(AntoineF4C5): generic quantization
     fn poly(
         &mut self,
-        op: PolyOp<i128>,
+        op: PolyOp<i32>,
         a: Wire,
         b: Wire,
         out_dims: Vec<usize>,
@@ -78,7 +78,7 @@ impl ModelBuilder {
         (id, O)
     }
 
-    fn div(&mut self, divisor: i128, x: Wire, out_dims: Vec<usize>, fanout_hint: usize) -> Wire {
+    fn div(&mut self, divisor: i32, x: Wire, out_dims: Vec<usize>, fanout_hint: usize) -> Wire {
         let id = self.alloc();
         let n = create_div_node(divisor, self.scale, vec![x], out_dims, id, fanout_hint);
         self.model.insert_node(n);
@@ -190,10 +190,10 @@ impl ModelBuilder {
         (id, O)
     }
 
-    // TODO: generic quantization
+    // TODO(AntoineF4C5): generic quantization
     fn const_tensor_with_scale(
         &mut self,
-        tensor: Tensor<i128>,
+        tensor: Tensor<i32>,
         scale: i32,
         out_dims: Vec<usize>,
         fanout_hint: usize,
@@ -271,7 +271,7 @@ pub fn custom_addsubmulconst_model() -> Model {
     let mut b = ModelBuilder::new(SCALE);
 
     let x = b.input(vec![1, 4], 2);
-    let mut c = Tensor::new(Some(&[50i128, 60i128, 70i128, 80i128]), &[1, 4]).unwrap();
+    let mut c: Tensor<i32> = Tensor::new(Some(&[50, 60, 70, 80]), &[1, 4]).unwrap();
     c.set_scale(SCALE);
     let k = b.const_tensor(c, vec![1, 4], 2);
 
@@ -293,7 +293,7 @@ pub fn custom_addsubmuldiv_model() -> Model {
     let s = b.poly(PolyOp::Sub, a, x, out_dims.clone(), 1);
     let m = b.poly(PolyOp::Mult, a, s, out_dims.clone(), 1);
     let t = b.poly(PolyOp::Add, s, m, out_dims.clone(), 1);
-    let y = b.div(2i128, t, out_dims.clone(), 1);
+    let y = b.div(2, t, out_dims.clone(), 1);
 
     b.take(vec![x.0], vec![y])
 }
@@ -309,8 +309,8 @@ pub fn custom_addsubmuldivdiv_model() -> Model {
     let s = b.poly(PolyOp::Sub, a, x, out_dims.clone(), 1);
     let m = b.poly(PolyOp::Mult, a, s, out_dims.clone(), 1);
     let t = b.poly(PolyOp::Add, s, m, out_dims.clone(), 1);
-    let d1 = b.div(2i128, t, out_dims.clone(), 1);
-    let y = b.div(5i128, d1, out_dims.clone(), 1);
+    let d1 = b.div(2, t, out_dims.clone(), 1);
+    let y = b.div(5, d1, out_dims.clone(), 1);
 
     b.take(vec![x.0], vec![y])
 }
@@ -342,9 +342,9 @@ pub fn sentiment0() -> Model {
     let mut b = ModelBuilder::new(SCALE);
 
     // Node 0: Create the embedding tensor (shape [14, 1]) (embeddings taken from /models/sentiment_sum)
-    let mut embedding = Tensor::new(
+    let mut embedding: Tensor<i32> = Tensor::new(
         Some(&[
-            139i128, -200, -331, -42, -260, -290, -166, -171, -481, -294, 210, 291, 2, 328,
+            139, -200, -331, -42, -260, -290, -166, -171, -481, -294, 210, 291, 2, 328,
         ]),
         &[14, 1],
     )
@@ -369,13 +369,13 @@ pub fn sentiment0() -> Model {
        let divided = b.div_f64(-0.46149117, summed, vec![1, 1], 1);
        -1 / -0.46149117 ≈ -2.167
     */
-    let mul_const = Tensor::new(Some(&[-2i128]), &[1, 1]).unwrap();
+    let mul_const: Tensor<i32> = Tensor::new(Some(&[-2]), &[1, 1]).unwrap();
     let mul_wire = b.const_tensor(mul_const, vec![1, 1], 1);
     // Multiplication instead of division
     let multiplied = b.poly(PolyOp::Mult, summed, mul_wire, vec![1, 1], 1);
 
     // Node 7: Create the bias constant (-54)
-    let mut bias = Tensor::new(Some(&[-54i128]), &[1, 1]).unwrap();
+    let mut bias: Tensor<i32> = Tensor::new(Some(&[-54]), &[1, 1]).unwrap();
     bias.set_scale(SCALE);
     let bias_const = b.const_tensor(bias, vec![1, 1], 1);
 
@@ -383,7 +383,7 @@ pub fn sentiment0() -> Model {
     let added = b.poly(PolyOp::Add, multiplied, bias_const, vec![1, 1], 1);
 
     // Node 9: Create the zero constant
-    let mut zero = Tensor::new(Some(&[0i128]), &[1, 1]).unwrap();
+    let mut zero: Tensor<i32> = Tensor::new(Some(&[0]), &[1, 1]).unwrap();
     zero.set_scale(SCALE);
     let zero_const = b.const_tensor(zero, vec![1, 1], 1);
 
@@ -405,9 +405,9 @@ pub fn sentiment_select() -> Model {
     let mut b = ModelBuilder::new(SCALE);
 
     // Node 0: Embedding tensor (shape [14, 1])
-    let mut embedding = Tensor::new(
+    let mut embedding: Tensor<i32> = Tensor::new(
         Some(&[
-            0i128, 45, -137, -14, -6, 454, -81, -92, -32, 421, -106, -16, -146, 18,
+            0, 45, -137, -14, -6, 454, -81, -92, -32, 421, -106, -16, -146, 18,
         ]),
         &[14, 1],
     )
@@ -422,7 +422,7 @@ pub fn sentiment_select() -> Model {
     let gathered = b.gather(embedding_const, input_indices, 0, vec![1, 5, 1], 1);
 
     // Node 3: Threshold constant (64)
-    let mut threshold = Tensor::new(Some(&[64i128; 5]), &[1, 5, 1]).unwrap();
+    let mut threshold: Tensor<i32> = Tensor::new(Some(&[64; 5]), &[1, 5, 1]).unwrap();
     threshold.set_scale(SCALE);
     let threshold_const = b.const_tensor_with_scale(threshold, SCALE, vec![1, 5, 1], 1);
 
@@ -430,7 +430,7 @@ pub fn sentiment_select() -> Model {
     let condition = b.greater_equal(gathered, threshold_const, vec![1, 5, 1], 1);
 
     // Node 5: Zero tensor for false case
-    let mut zeros = Tensor::new(Some(&[0i128, 0, 0, 0, 0]), &[1, 5, 1]).unwrap();
+    let mut zeros: Tensor<i32> = Tensor::new(Some(&[0, 0, 0, 0, 0]), &[1, 5, 1]).unwrap();
     zeros.set_scale(SCALE);
     let zeros_const = b.const_tensor_with_scale(zeros, SCALE, vec![1, 5, 1], 1);
 
@@ -444,7 +444,7 @@ pub fn sentiment_select() -> Model {
     let reshaped = b.reshape(summed, vec![1, 1], vec![1, 1], 1);
 
     // Node 9: Scale factor constant (261)
-    let mut scale_factor = Tensor::new(Some(&[261i128]), &[1, 1]).unwrap();
+    let mut scale_factor: Tensor<i32> = Tensor::new(Some(&[261]), &[1, 1]).unwrap();
     scale_factor.set_scale(SCALE);
     let scale_const = b.const_tensor_with_scale(scale_factor, SCALE, vec![1, 1], 1);
 
@@ -452,10 +452,10 @@ pub fn sentiment_select() -> Model {
     let multiplied = b.poly(PolyOp::Mult, reshaped, scale_const, vec![1, 1], 1);
 
     // Node 10.5: Divide by 128 (replacing the rebase scale division)
-    let scaled = b.div(128i128, multiplied, vec![1, 1], 1);
+    let scaled = b.div(128i32, multiplied, vec![1, 1], 1);
 
     // Node 11: Bias constant (-142)
-    let mut bias = Tensor::new(Some(&[-142i128]), &[1, 1]).unwrap();
+    let mut bias: Tensor<i32> = Tensor::new(Some(&[-142]), &[1, 1]).unwrap();
     bias.set_scale(SCALE);
     let bias_const = b.const_tensor_with_scale(bias, SCALE, vec![1, 1], 1);
 
@@ -463,7 +463,7 @@ pub fn sentiment_select() -> Model {
     let added = b.poly(PolyOp::Add, scaled, bias_const, vec![1, 1], 1);
 
     // Node 13: Zero constant for final comparison
-    let mut zero = Tensor::new(Some(&[0i128]), &[1, 1]).unwrap();
+    let mut zero: Tensor<i32> = Tensor::new(Some(&[0]), &[1, 1]).unwrap();
     zero.set_scale(SCALE);
     let zero_const = b.const_tensor_with_scale(zero, SCALE, vec![1, 1], 1);
 
@@ -505,10 +505,10 @@ pub fn multiclass0() -> Model {
     let mut b = ModelBuilder::new(SCALE);
 
     // Node 0: Embedding matrix (shape [31, 1]) - Updated size and values
-    let mut embedding = Tensor::new(
+    let mut embedding: Tensor<i32> = Tensor::new(
         Some(&[
-            -61i128, -287, -437, -294, -318, 345, 331, 330, -28, 337, 113, 111, 91, 103, -58, 85,
-            72, -463, -342, -345, -318, 355, 385, 376, 180, 125, 10, 143, 137, -45, 128,
+            -61, -287, -437, -294, -318, 345, 331, 330, -28, 337, 113, 111, 91, 103, -58, 85, 72,
+            -463, -342, -345, -318, 355, 385, 376, 180, 125, 10, 143, 137, -45, 128,
         ]),
         &[31, 1],
     )
@@ -529,8 +529,8 @@ pub fn multiclass0() -> Model {
     let reshaped = b.reshape(summed, vec![1, 1], vec![1, 1], 1);
 
     // Node 5: Weight matrix constants (shape [1, 10]) - Updated values
-    let mut weights = Tensor::new(
-        Some(&[388i128, 16, -93, 517, 208, 208, 208, 208, 208, 208]),
+    let mut weights: Tensor<i32> = Tensor::new(
+        Some(&[388, 16, -93, 517, 208, 208, 208, 208, 208, 208]),
         &[1, 10],
     )
     .unwrap();
@@ -550,11 +550,11 @@ pub fn multiclass0() -> Model {
     );
 
     // Node 6.5: Divide by 128 (replacing the rebase scale division)
-    let scaled = b.div(128i128, multiplied, vec![1, 10], 1);
+    let scaled = b.div(128, multiplied, vec![1, 10], 1);
 
     // Node 7: Bias vector (shape [1, 10]) - Updated values
-    let mut bias = Tensor::new(
-        Some(&[449i128, 421, -137, -95, -155, -155, -155, -155, -155, -155]),
+    let mut bias: Tensor<i32> = Tensor::new(
+        Some(&[449, 421, -137, -95, -155, -155, -155, -155, -155, -155]),
         &[1, 10],
     )
     .unwrap();

@@ -272,7 +272,7 @@ mod e2e_tests {
     impl ZKMLTestHelper {
         fn prove_and_verify<F>(
             model_fn: F,
-            input: &Tensor<i128>,
+            input: &Tensor<i32>,
             expected_output: Option<u64>,
         ) -> onnx_tracer::trace_types::ONNXCycle
         where
@@ -302,7 +302,7 @@ mod e2e_tests {
             raw_trace.into_iter().last().unwrap()
         }
 
-        fn prove_and_verify_simple<F>(model_fn: F, input: &Tensor<i128>)
+        fn prove_and_verify_simple<F>(model_fn: F, input: &Tensor<i32>)
         where
             F: Fn() -> Model,
         {
@@ -311,7 +311,7 @@ mod e2e_tests {
 
         fn test_inference<F>(
             model_fn: F,
-            test_cases: &[(Vec<i128>, Vec<usize>, i128)], // (input, shape, expected)
+            test_cases: &[(Vec<i32>, Vec<usize>, i32)], // (input, shape, expected)
         ) where
             F: Fn() -> Model,
         {
@@ -330,13 +330,13 @@ mod e2e_tests {
 
     struct ModelTestConfig {
         _name: String,
-        input_data: Vec<i128>,
+        input_data: Vec<i32>,
         input_shape: Vec<usize>,
         expected_output: Option<u64>,
     }
 
     impl ModelTestConfig {
-        fn new(name: &str, input_data: Vec<i128>, input_shape: Vec<usize>) -> Self {
+        fn new(name: &str, input_data: Vec<i32>, input_shape: Vec<usize>) -> Self {
             Self {
                 _name: name.to_string(),
                 input_data,
@@ -350,7 +350,7 @@ mod e2e_tests {
             self
         }
 
-        fn to_tensor(&self) -> Tensor<i128> {
+        fn to_tensor(&self) -> Tensor<i32> {
             Tensor::new(Some(&self.input_data), &self.input_shape).unwrap()
         }
     }
@@ -506,7 +506,7 @@ mod e2e_tests {
     }
 
     /// Tokenize and convert text to vector of length 1000
-    pub fn build_input_vector(text: &str, vocab: &HashMap<String, (usize, i32)>) -> Vec<i128> {
+    pub fn build_input_vector(text: &str, vocab: &HashMap<String, (usize, i32)>) -> Vec<i32> {
         let mut vec = vec![0; 1000];
 
         // Split text into tokens (preserve punctuation as tokens)
@@ -515,7 +515,7 @@ mod e2e_tests {
             let token = cap.get(0).unwrap().as_str().to_lowercase();
             if let Some(&(index, idf)) = vocab.get(&token) {
                 if index < 1000 {
-                    vec[index] += idf as i128; // accumulate idf value
+                    vec[index] += idf; // accumulate idf value
                 }
             }
         }
@@ -647,7 +647,7 @@ mod e2e_tests {
     fn test_sentiment_select() {
         // TODO: Rebase scale
         // const: [This, is, great, 0, 0]
-        let input_vector: [i128; 5] = [3, 4, 5, 0, 0];
+        let input_vector: [i32; 5] = [3, 4, 5, 0, 0];
 
         let sentiment_select = ONNXProgram {
             model_path: "../onnx-tracer/models/sentiment_select/network.onnx".into(),
