@@ -27,7 +27,7 @@ use jolt_core::{
 };
 use onnx_tracer::{
     constants::MAX_TENSOR_SIZE,
-    trace_types::{ONNXInstr, ONNXOpcode},
+    trace_types::{ONNXInstr, ONNXOpcode}, ProgramIO,
 };
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
@@ -220,6 +220,7 @@ where
     pub fn verify(
         &self,
         preprocessing: JoltVerifierPreprocessing<F, PCS, ProofTranscript>,
+        program_io: ProgramIO,
     ) -> Result<(), ProofVerifyError> {
         let mut transcript = ProofTranscript::new(b"Jolt transcript");
         let mut opening_accumulator: VerifierOpeningAccumulator<F, PCS, ProofTranscript> =
@@ -244,6 +245,7 @@ where
             padded_trace_length * MAX_TENSOR_SIZE,
             &mut opening_accumulator,
             &mut transcript,
+            program_io,
         )?;
         Ok(())
     }
@@ -283,7 +285,7 @@ mod e2e_tests {
             JoltSNARK::prover_preprocess(program_bytecode);
 
         // --- Prove ---
-        let raw_trace = onnx_tracer::execution_trace(
+        let (raw_trace, program_io) = onnx_tracer::execution_trace(
             multiclass0,
             &Tensor::new(Some(&input_vector), &[1, 8]).unwrap(),
         );
@@ -297,7 +299,7 @@ mod e2e_tests {
             JoltSNARK::prove(pp.clone(), execution_trace);
 
         // --- Verify ---
-        snark.verify((&pp).into()).unwrap();
+        snark.verify((&pp).into(), program_io).unwrap();
     }
 
     #[test]
@@ -418,7 +420,7 @@ mod e2e_tests {
         sentiment_model.clear_execution_trace();
 
         // --- Prove ---
-        let raw_trace = onnx_tracer::execution_trace(
+        let (raw_trace, program_io) = onnx_tracer::execution_trace(
             sentiment_model,
             &Tensor::new(Some(&THIS_IS_GREAT), &[1, 5]).unwrap(),
         );
@@ -430,7 +432,7 @@ mod e2e_tests {
             JoltSNARK::prove(pp.clone(), execution_trace);
 
         // --- Verify ---
-        snark.verify((&pp).into()).unwrap();
+        snark.verify((&pp).into(), program_io).unwrap();
     }
 
     #[test]
@@ -448,7 +450,7 @@ mod e2e_tests {
             JoltSNARK::prover_preprocess(program_bytecode);
 
         // --- Prove ---
-        let raw_trace = onnx_tracer::execution_trace(
+        let (raw_trace, program_io) = onnx_tracer::execution_trace(
             sentiment_model,
             &Tensor::new(Some(&THIS_IS_GREAT), &[1, 5]).unwrap(),
         );
@@ -458,7 +460,7 @@ mod e2e_tests {
         let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
             JoltSNARK::prove(pp.clone(), execution_trace);
         // --- Verify ---
-        snark.verify((&pp).into()).unwrap();
+        snark.verify((&pp).into(), program_io).unwrap();
     }
 
     #[serial]
@@ -474,14 +476,14 @@ mod e2e_tests {
         // --- Proving ---
         // Get execution trace
         let input = Tensor::new(Some(&[10, 20, 30, 50, 50]), &[5]).unwrap();
-        let raw_trace = onnx_tracer::execution_trace(custom_argmax_model, &input);
+        let (raw_trace, program_io) = onnx_tracer::execution_trace(custom_argmax_model, &input);
         debug!("raw trace: {raw_trace:#?}");
         let execution_trace = jolt_execution_trace(raw_trace);
         let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
             JoltSNARK::prove(pp.clone(), execution_trace);
 
         // --- Verification ---
-        snark.verify((&pp).into()).unwrap();
+        snark.verify((&pp).into(), program_io).unwrap();
     }
 
     #[serial]
@@ -497,13 +499,13 @@ mod e2e_tests {
         // --- Proving ---
         // Get execution trace
         let input = Tensor::new(Some(&[10, 20, 30, 40]), &[1, 4]).unwrap();
-        let raw_trace = onnx_tracer::execution_trace(custom_addsubmul_model, &input);
+        let (raw_trace, program_io) = onnx_tracer::execution_trace(custom_addsubmul_model, &input);
         let execution_trace = jolt_execution_trace(raw_trace);
         let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
             JoltSNARK::prove(pp.clone(), execution_trace);
 
         // --- Verification ---
-        snark.verify((&pp).into()).unwrap();
+        snark.verify((&pp).into(), program_io).unwrap();
     }
 
     #[serial]
@@ -518,13 +520,13 @@ mod e2e_tests {
         // --- Proving ---
         // Get execution trace
         let input = Tensor::new(Some(&[10, 20, 30, 40]), &[1, 4]).unwrap();
-        let raw_trace = onnx_tracer::execution_trace(custom_addsubmul_model, &input);
+        let (raw_trace, program_io) = onnx_tracer::execution_trace(custom_addsubmul_model, &input);
         let execution_trace = jolt_execution_trace(raw_trace);
         let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
             JoltSNARK::prove(pp.clone(), execution_trace);
 
         // --- Verification ---
-        snark.verify((&pp).into()).unwrap();
+        snark.verify((&pp).into(), program_io).unwrap();
     }
 
     #[serial]
@@ -540,14 +542,14 @@ mod e2e_tests {
         // --- Proving ---
         // Get execution trace
         let input = Tensor::new(Some(&[10, 20, 30, 40]), &[1, 4]).unwrap();
-        let raw_trace = onnx_tracer::execution_trace(custom_addsubmul_model, &input);
+        let (raw_trace, program_io) = onnx_tracer::execution_trace(custom_addsubmul_model, &input);
         let execution_trace = jolt_execution_trace(raw_trace);
         debug!("Execution trace: {execution_trace:#?}");
         let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
             JoltSNARK::prove(pp.clone(), execution_trace);
 
         // --- Verification ---
-        snark.verify((&pp).into()).unwrap();
+        snark.verify((&pp).into(), program_io).unwrap();
     }
 
     #[serial]
@@ -563,14 +565,14 @@ mod e2e_tests {
         // --- Proving ---
         // Get execution trace
         let input = Tensor::new(Some(&[10, 20, 30, 40]), &[1, 4]).unwrap();
-        let raw_trace = onnx_tracer::execution_trace(custom_addsubmul_model, &input);
+        let (raw_trace, program_io) = onnx_tracer::execution_trace(custom_addsubmul_model, &input);
         debug!("raw trace: {raw_trace:#?}");
         let execution_trace = jolt_execution_trace(raw_trace);
         let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
             JoltSNARK::prove(pp.clone(), execution_trace);
 
         // --- Verification ---
-        snark.verify((&pp).into()).unwrap();
+        snark.verify((&pp).into(), program_io).unwrap();
     }
 
     #[serial]
@@ -585,7 +587,7 @@ mod e2e_tests {
 
         // --- Proving ---
         let input = Tensor::new(Some(&[60]), &[1]).unwrap();
-        let raw_trace = onnx_tracer::execution_trace(scalar_addsubmul_model, &input);
+        let (raw_trace, program_io) = onnx_tracer::execution_trace(scalar_addsubmul_model, &input);
         debug!("Execution trace: {raw_trace:#?}");
         let execution_trace = jolt_execution_trace(raw_trace);
 
@@ -593,7 +595,7 @@ mod e2e_tests {
             JoltSNARK::prove(pp.clone(), execution_trace);
 
         // --- Verification ---
-        snark.verify((&pp).into()).unwrap();
+        snark.verify((&pp).into(), program_io).unwrap();
     }
 
     /// Load vocab.json into HashMap<String, (usize, i32)>
@@ -772,7 +774,7 @@ mod e2e_tests {
         let program_bytecode = sentiment_select.decode();
         info!("Program code: {program_bytecode:#?}");
 
-        let raw_trace = sentiment_select.trace();
+        let (raw_trace, program_io) = sentiment_select.trace();
         info!("Raw trace: {raw_trace:#?}");
     }
 

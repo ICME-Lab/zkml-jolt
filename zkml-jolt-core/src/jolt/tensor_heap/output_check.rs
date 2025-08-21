@@ -15,7 +15,7 @@ use jolt_core::{
         transcript::Transcript,
     },
 };
-use onnx_tracer::constants::MAX_TENSOR_SIZE;
+use onnx_tracer::{constants::MAX_TENSOR_SIZE, ProgramIO};
 use rayon::prelude::*;
 
 use crate::jolt::{
@@ -51,6 +51,7 @@ impl<F: JoltField> OutputSumcheckProverState<F> {
         r_address: &[F],
     ) -> Self {
         let K = final_heap_state.len();
+        println!("Heap state length: {:?}", K);
         let initial_heap_state = vec![F::zero(); K];
 
         debug_assert!(K.is_power_of_two());
@@ -107,7 +108,6 @@ pub struct OutputProof<F: JoltField, ProofTranscript: Transcript> {
     val_final_claim: F,
     /// Claimed evaluations Inc(r_cycle) and wa(r_cycle) output by `ValFinalSumcheck`
     output_claims: ValFinalSumcheckClaims<F>,
-    output_vals: Vec<F>,
 }
 
 /// Sumcheck for the zero-check
@@ -135,10 +135,15 @@ impl<F: JoltField> OutputSumcheck<F> {
         r_address: &[F],
         transcript: &mut ProofTranscript,
     ) -> OutputProof<F, ProofTranscript> {
+        // TODO: Review this
         let K = final_heap_state.len();
-        let T = trace.len();
+        println!("K: {:?}", K);
+        println!("Log K: {:?}", K.log_2());
+        let T = trace.len() * MAX_TENSOR_SIZE;
+        println!("T: {:?}", T);
+        println!("Log T: {:?}", T.log_2());
 
-        let output_vals = trace.last().unwrap().td_write().2.iter().map(|v| F::from_u64(*v)).collect();
+        // let output_vals = trace.last().unwrap().td_write().2.iter().map(|v| F::from_u64(*v)).collect();
         let output_sumcheck_prover_state =
             OutputSumcheckProverState::initialize(final_heap_state, r_address);
         let mut output_sumcheck = OutputSumcheck {
@@ -175,7 +180,6 @@ impl<F: JoltField> OutputSumcheck<F> {
             val_final_sumcheck_proof,
             val_final_claim,
             output_claims,
-            output_vals,
         }
     }
 
@@ -185,16 +189,25 @@ impl<F: JoltField> OutputSumcheck<F> {
         T: usize,
         proof: &OutputProof<F, ProofTranscript>,
         transcript: &mut ProofTranscript,
+        program_io: ProgramIO,
     ) -> Result<(), ProofVerifyError> {
         let K = r_address.len().pow2();
+        println!("Verifier K: {:?}", K);
+        println!("Verifier Log K: {:?}", K.log_2());
+        println!("Verifier T: {:?}", T);
+        println!("Verifier Log T: {:?}", T.log_2());
+        println!("Verifier MAX_TENSOR_SIZE: {:?}", MAX_TENSOR_SIZE);
+        println!("Verifier T * MAX_TENSOR_SIZE: {:?}", T * MAX_TENSOR_SIZE);
+        println!("Verifier Log T * MAX_TENSOR_SIZE: {:?}", (T * MAX_TENSOR_SIZE).log_2());
         let output_sumcheck_verifier_state = OutputSumcheckVerifierState {
             r_address: r_address.to_vec(),
-            output_vals: proof.output_vals.clone(),
+            // TODO: Maybe convert to fields earlier
+            output_vals: program_io.outputs.into_iter().map(|v| F::from_u64(v as u64)).collect(),
         };
 
         let output_sumcheck = OutputSumcheck {
             K,
-            T,
+            T: T * MAX_TENSOR_SIZE,
             verifier_state: Some(output_sumcheck_verifier_state),
             prover_state: None,
             val_final_claim: Some(proof.val_final_claim),
@@ -204,7 +217,7 @@ impl<F: JoltField> OutputSumcheck<F> {
             output_sumcheck.verify_single(&proof.output_sumcheck_proof, transcript)?;
 
         let val_final_sumcheck = ValFinalSumcheck {
-            T,
+            T: T, // * MAX_TENSOR_SIZE,
             prover_state: None,
             val_init_eval: val_init.evaluate(&r_address_prime),
             val_final_claim: output_sumcheck.val_final_claim.unwrap(),
@@ -225,6 +238,7 @@ impl<F: JoltField, ProofTranscript: Transcript> BatchableSumcheckInstance<F, Pro
     }
 
     fn num_rounds(&self) -> usize {
+        println!("OutputSumcheck Num rounds: {:?}", self.K.log_2());
         self.K.log_2()
     }
 
@@ -307,20 +321,37 @@ impl<F: JoltField, ProofTranscript: Transcript> BatchableSumcheckInstance<F, Pro
 
         let r_address_prime = &r[..r_address.len()];
 
-        // TODO: We should only take the addresses of the output!
+        // TODO: Choose output addresses
         let output_mask = RangeMaskPolynomial::new(
-            (self.K - output_vals.len()) as u64,
-            self.K as u64,
+            // (self.K - 1) as u64,
+            // self.K as u64,
+            188,
+            188
         );
-        let val_output = ProgramIOPolynomial::new(output_vals);
+
+        let padded_output_vals = vec![F::zero(); self.K - output_vals.len()];
+        let extended_output_vals = [output_vals.clone(), padded_output_vals].concat();
+
+        let val_output = MultilinearPolynomial::from(extended_output_vals);
 
         let eq_eval = EqPolynomial::mle(r_address, r_address_prime);
         let output_mask_eval = output_mask.evaluate_mle(r_address_prime);
         let val_output_eval = val_output.evaluate(r_address_prime);
 
+        println!("K: {:?}", self.K);
+        println!("r_address: {:?}", r_address.len());
+        println!("r_address_prime: {:?}", r_address_prime.len());
+        println!("output_vals: {:?}", output_vals.len());
+        println!("Eq eval: {:?}", eq_eval);
+        println!("Output mask eval: {:?}", output_mask_eval);
+        println!("Val output eval: {:?}", *val_final_claim - val_output_eval);
+
+        println!("Output claim: {:?}", eq_eval * output_mask_eval * (*val_final_claim - val_output_eval));
         // Recall that the sumcheck expression is:
         //   0 = \sum_k eq(r_address, k) * io_range(k) * (Val_final(k) - Val_io(k))
-        eq_eval * output_mask_eval * (*val_final_claim - val_output_eval)
+        let result = eq_eval * output_mask_eval * (*val_final_claim - val_output_eval);
+        assert_eq!(result, F::zero());
+        result
     }
 }
 
@@ -415,7 +446,9 @@ impl<F: JoltField, ProofTranscript: Transcript> BatchableSumcheckInstance<F, Pro
     }
 
     fn num_rounds(&self) -> usize {
-        (self.T * MAX_TENSOR_SIZE).log_2() // This is because there are MAX_TENSOR_SIZE write addresses per cycle
+        println!("T: {:?}", self.T);
+        println!("ValFinalSumcheck Num rounds: {:?}", (self.T).log_2());
+        (self.T).log_2() // This is because there are MAX_TENSOR_SIZE write addresses per cycle
     }
 
     fn input_claim(&self) -> F {

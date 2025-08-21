@@ -217,11 +217,16 @@ pub fn jolt_execution_trace(raw_trace: Vec<ONNXCycle>) -> ExecutionTrace {
 }
 
 pub fn project_heap_state(trace: &[JoltONNXCycle]) -> Vec<u32> {
-    let mut heap = Vec::new();
+    println!("Trace: {:?}", trace);
+    let mut heap = vec![0; trace.len() * MAX_TENSOR_SIZE];
 
-    for cycle in trace {
+    for (i, cycle) in trace.iter().enumerate() {
         let (addresses, _, post) = cycle.td_write();
-
+        println!("Cycle: {:?}", i);
+        println!("Addresses: {:?}", addresses.len());
+        println!("Post: {:?}", post.len());
+        println!("Addresses: {:?}", addresses);
+        println!("Post: {:?}", post);
         for (addr, post_val) in addresses.iter().zip(post.iter()) {
             let addr = *addr;
             if addr >= heap.len() {
@@ -232,7 +237,9 @@ pub fn project_heap_state(trace: &[JoltONNXCycle]) -> Vec<u32> {
     }
 
     if !heap.is_empty() {
+        println!("Heap length: {:?}", heap.len());
         let new_len = heap.len().next_power_of_two();
+        println!("New heap length: {:?}", new_len);
         heap.resize(new_len, 0);
     }
     heap
@@ -538,6 +545,7 @@ impl WitnessGenerator for CommittedPolynomials {
                         cycle.td_inc()
                     })
                     .collect();
+                println!("Coefficients length: {:?}", coeffs.len());
                 coeffs.into()
             }
 

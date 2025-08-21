@@ -63,6 +63,12 @@ pub mod logger;
 pub mod tensor;
 pub mod trace_types;
 
+pub struct ProgramIO {
+    pub outputs: Vec<i128>,
+    pub output_address: usize,
+}
+
+
 /// The denominator in the fixed point representation used when quantizing inputs
 pub type Scale = i32;
 
@@ -87,19 +93,24 @@ pub fn decode_model(model: Model) -> Vec<ONNXInstr> {
 /// An execution trace is, a step-by-step record of what the VM did over the course of its execution.
 /// Roughly speaking, the trace describes just the changes to virtual machine state at each step of its execution (this includes read operations).
 /// These state transitions are later checked & verified in the Jolt proof system, ensuring the prover possesses a valid execution trace for the given model and input.
-pub fn trace(model_path: &PathBuf, input: &Tensor<i128>) -> Vec<ONNXCycle> {
+pub fn trace(model_path: &PathBuf, input: &Tensor<i128>) -> (Vec<ONNXCycle>, ProgramIO) {
     execution_trace(model(model_path), input)
 }
 
 /// Given a model and input extract the execution trace
-pub fn execution_trace(model: Model, input: &Tensor<i128>) -> Vec<ONNXCycle> {
+pub fn execution_trace(model: Model, input: &Tensor<i128>) -> (Vec<ONNXCycle>, ProgramIO) {
     // Run the model with the provided inputs.
     // The internal model tracer will automatically capture the execution trace during the forward pass
-    let _ = model
+    let forward_result = model
         .forward(&[input.clone()])
         .expect("Failed to run model");
     let execution_trace = model.tracer.execution_trace.borrow().clone();
-    execution_trace
+
+    let outputs = execution_trace.last().unwrap().memory_state.td_post_val.as_ref().unwrap().clone();
+    let output_address = execution_trace.last().unwrap().instr.td.unwrap();
+
+    assert_eq!(forward_result.outputs[0], outputs);
+    (execution_trace, ProgramIO { outputs: outputs.inner, output_address })
 }
 
 /// Given a file path, load the ONNX model and return a [`Model`].

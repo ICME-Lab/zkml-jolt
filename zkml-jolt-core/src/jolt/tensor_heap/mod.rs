@@ -25,7 +25,7 @@ use jolt_core::{
         transcript::{AppendToTranscript, Transcript},
     }
 };
-use onnx_tracer::constants::MAX_TENSOR_SIZE;
+use onnx_tracer::{constants::MAX_TENSOR_SIZE, ProgramIO};
 use rayon::prelude::*;
 
 #[derive(Debug, Clone)]
@@ -69,87 +69,6 @@ impl<F: JoltField, ProofTranscript: Transcript> TensorHeapTwistProof<F, ProofTra
         // Cycle variables are bound from low to high
         r_cycle_prime.reverse();
 
-                   // // ------------------------------
-
-        // // Calculate D dynamically such that 2^8 = K^(1/D)
-        // // let log_k = K.log_2();
-        // // let d = (log_k / 8).max(1);
-
-        // let eq_r_cycle = EqPolynomial::evals(&r_prime);
-        // let d = 1; // @TODO(markosg04) keeping d = 1 for legacy prove
-        // let (booleanity_sumcheck, r_address_prime, r_cycle_prime, ra_claims) = prove_ra_booleanity(
-        //     trace,
-        //     ra,
-        //     &eq_r_cycle,
-        //     &r_address,
-        //     K,
-        //     d,
-        //     transcript,
-        // );
-        // let booleanity_proof = BooleanityProof {
-        //     sumcheck_proof: booleanity_sumcheck,
-        //     ra_claims: ra_claims.clone(),
-        // };
-
-        // let r_address_prime = r_address_prime.iter().copied().rev().collect::<Vec<_>>();
-        // let r_cycle_prime = r_cycle_prime.iter().rev().copied().collect::<Vec<_>>();
-
-        // // Prepare common data
-        // // let addresses: Vec<usize> = trace
-        // //     .par_iter()
-        // //     .map(|cycle| {
-        // //         remap_address(
-        // //             cycle.ram_access().address() as u64,
-        // //             &preprocessing.shared.memory_layout,
-        // //         ) as usize
-        // //     })
-        // //     .collect();
-
-
-        // let ra_claim = ra_claims[0]; // d = 1
-
-        // let ra_sumcheck_instance = RASumcheck::<F>::new(
-        //     ra_claim,
-        //     addresses,
-        //     r_cycle_prime,
-        //     r_address_prime.clone(),
-        //     1 << log_T,
-        //     d,
-        // );
-
-        // let (ra_proof, mut r_cycle_bound) = ra_sumcheck_instance.prove(transcript);
-
-        // // let unbound_ra_poly = CommittedPolynomials::RamRa(0).generate_witness(preprocessing, trace);
-        // r_cycle_bound.reverse();
-
-        // opening_accumulator.append_sparse(
-        //     vec![unbound_ra_poly],
-        //     r_address_prime.clone(),
-        //     r_cycle_bound,
-        //     ra_proof.ra_i_claims.clone(),
-        // );
-
-        // let (hamming_weight_sumcheck, _, ra_claims) = prove_ra_hamming_weight(
-        //     trace,
-        //     eq_r_cycle,
-        //     K,
-        //     d,
-        //     transcript,
-        // );
-        // let hamming_weight_proof = HammingWeightProof {
-        //     sumcheck_proof: hamming_weight_sumcheck,
-        //     ra_claims,
-        // };
-
-        // TODO: Openings: https://github.com/ICME-Lab/zkml-jolt/issues/66
-        // let _rd_inc_poly = CommittedPolynomials::RdInc.generate_witness(preprocessing, trace);
-        // opening_accumulator.append_sparse(
-        //     vec![rd_inc_poly],
-        //     r_address,
-        //     r_cycle_prime,
-        //     vec![val_evaluation_proof.inc_claim],
-        // );
-
         let final_heap_state = project_heap_state(trace);
         let output_proof = OutputSumcheck::prove(
             preprocessing,
@@ -173,6 +92,7 @@ impl<F: JoltField, ProofTranscript: Transcript> TensorHeapTwistProof<F, ProofTra
         T: usize,
         _opening_accumulator: &mut VerifierOpeningAccumulator<F, PCS, ProofTranscript>,
         transcript: &mut ProofTranscript,
+        program_io: ProgramIO,
     ) -> Result<(), ProofVerifyError> {
         let log_K = self.K.log_2();
         let log_T = T.log_2();
@@ -227,6 +147,7 @@ impl<F: JoltField, ProofTranscript: Transcript> TensorHeapTwistProof<F, ProofTra
             T,
             &self.output_proof,
             transcript,
+            program_io,
         )?;
         Ok(())
     }

@@ -6,9 +6,10 @@
 
 use onnx_tracer::{
     tensor::Tensor,
-    trace_types::{ONNXCycle, ONNXInstr},
+    trace_types::{ONNXCycle, ONNXInstr}, ProgramIO,
 };
 use std::path::PathBuf;
+
 
 /// Represents an ONNX program with tracing capabilities.
 /// The model binary is specified by a `PathBuf`, and model inputs are stored for inference.
@@ -42,7 +43,7 @@ impl ONNXProgram {
     ///
     /// # Returns
     ///  - `Vec<ONNXCycle>`: A step by step record of what the ONNX runtime did over the course of its execution.
-    pub fn trace(&self) -> Vec<ONNXCycle> {
+    pub fn trace(&self) -> (Vec<ONNXCycle>, ProgramIO) {
         onnx_tracer::trace(&self.model_path, &self.inputs)
     }
 }
