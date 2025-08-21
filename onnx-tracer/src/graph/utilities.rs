@@ -53,7 +53,7 @@ pub fn quantize_float(elem: &f64, shift: f64, scale: crate::Scale) -> Result<i32
     let mult = scale_to_multiplier(scale);
     let max_value = ((i32::MAX as f64 - shift) / mult).round(); // the maximum value that can be represented w/o sig bit truncation
 
-    if *elem > max_value {
+    if *elem > max_value || *elem < -max_value {
         return Err(TensorError::SigBitTruncationError);
     }
 
