@@ -5749,6 +5749,7 @@ dependencies = [
  "ark-serialize 0.5.0",
  "ark-serialize-derive 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ark-std 0.5.0",
+ "clap",
  "itertools 0.10.5",
  "jolt-core",
  "log",
@@ -5765,6 +5766,8 @@ dependencies = [
  "strum_macros",
  "thiserror 1.0.69",
  "tracing",
+ "tracing-chrome",
+ "tracing-subscriber",
 ]
 
 [[patch.unused]]

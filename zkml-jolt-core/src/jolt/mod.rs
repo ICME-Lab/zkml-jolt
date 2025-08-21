@@ -260,340 +260,224 @@ mod e2e_tests {
         poly::commitment::dory::DoryCommitmentScheme, utils::transcript::KeccakTranscript,
     };
     use log::{debug, info};
-    use onnx_tracer::{builder, logger::init_logger, model, tensor::Tensor};
+    use onnx_tracer::{builder, graph::model::Model, logger::init_logger, model, tensor::Tensor};
     use serde_json::Value;
     use serial_test::serial;
     use std::{collections::HashMap, fs::File, io::Read};
 
     type PCS = DoryCommitmentScheme<KeccakTranscript>;
 
-    // TODO: Refactor duplicate code in tests
+    struct ZKMLTestHelper;
+
+    impl ZKMLTestHelper {
+        fn prove_and_verify<F>(
+            model_fn: F,
+            input: &Tensor<i128>,
+            expected_output: Option<u64>,
+        ) -> onnx_tracer::trace_types::ONNXCycle
+        where
+            F: Fn() -> Model,
+        {
+            let model = model_fn();
+            let program_bytecode = onnx_tracer::decode_model(model.clone());
+            let pp: JoltProverPreprocessing<Fr, PCS, KeccakTranscript> =
+                JoltSNARK::prover_preprocess(program_bytecode);
+
+            let raw_trace = onnx_tracer::execution_trace(model, input);
+
+            // Verify expected output if provided
+            if let Some(expected) = expected_output {
+                assert_eq!(
+                    expected,
+                    raw_trace.last().unwrap().ts1_vals()[0],
+                    "Output mismatch for input: {input:?}",
+                );
+            }
+
+            let execution_trace = jolt_execution_trace(raw_trace.clone());
+            let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
+                JoltSNARK::prove(pp.clone(), execution_trace);
+
+            snark.verify((&pp).into()).unwrap();
+            raw_trace.into_iter().last().unwrap()
+        }
+
+        fn prove_and_verify_simple<F>(model_fn: F, input: &Tensor<i128>)
+        where
+            F: Fn() -> Model,
+        {
+            Self::prove_and_verify(model_fn, input, None);
+        }
+
+        fn test_inference<F>(
+            model_fn: F,
+            test_cases: &[(Vec<i128>, Vec<usize>, i128)], // (input, shape, expected)
+        ) where
+            F: Fn() -> Model,
+        {
+            let mut model = model_fn();
+            for (input_data, shape, expected) in test_cases {
+                let input = Tensor::new(Some(input_data), shape).unwrap();
+                let result = model.forward(&[input]).unwrap();
+                assert_eq!(
+                    result.outputs[0].inner[0], *expected,
+                    "Inference failed for input: {input_data:?}",
+                );
+            }
+            model.clear_execution_trace();
+        }
+    }
+
+    struct ModelTestConfig {
+        _name: String,
+        input_data: Vec<i128>,
+        input_shape: Vec<usize>,
+        expected_output: Option<u64>,
+    }
+
+    impl ModelTestConfig {
+        fn new(name: &str, input_data: Vec<i128>, input_shape: Vec<usize>) -> Self {
+            Self {
+                _name: name.to_string(),
+                input_data,
+                input_shape,
+                expected_output: None,
+            }
+        }
+
+        fn with_expected_output(mut self, expected: u64) -> Self {
+            self.expected_output = Some(expected);
+            self
+        }
+
+        fn to_tensor(&self) -> Tensor<i128> {
+            Tensor::new(Some(&self.input_data), &self.input_shape).unwrap()
+        }
+    }
 
     #[serial]
     #[test]
     fn test_custom_multiclass0() {
         init_logger();
-        // "this university grants scholarships",
-        // class  -> 1: education
-        let input_vector = [8, 14, 30, 29, 0, 0, 0, 0];
-        let multiclass0 = builder::multiclass0();
-        let program_bytecode = onnx_tracer::decode_model(multiclass0.clone());
-        debug!("Program code: {program_bytecode:#?}",);
-        let pp: JoltProverPreprocessing<Fr, PCS, KeccakTranscript> =
-            JoltSNARK::prover_preprocess(program_bytecode);
+        let config = ModelTestConfig::new(
+            "multiclass0",
+            vec![8, 14, 30, 29, 0, 0, 0, 0], // "this university grants scholarships"
+            vec![1, 8],
+        )
+        .with_expected_output(1); // class -> 1: education
 
-        // --- Prove ---
-        let raw_trace = onnx_tracer::execution_trace(
-            multiclass0,
-            &Tensor::new(Some(&input_vector), &[1, 8]).unwrap(),
+        ZKMLTestHelper::prove_and_verify(
+            builder::multiclass0,
+            &config.to_tensor(),
+            config.expected_output,
         );
-        debug!("Raw trace: {raw_trace:#?}",);
-        assert_eq!(
-            1, /* class  -> 1: education */
-            raw_trace.last().unwrap().ts1_vals()[0]
-        );
-        let execution_trace = jolt_execution_trace(raw_trace);
-        let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
-            JoltSNARK::prove(pp.clone(), execution_trace);
-
-        // --- Verify ---
-        snark.verify((&pp).into()).unwrap();
-    }
-
-    #[test]
-    fn test_multiclass_inference() {
-        // see onnx-tracer/models/multiclass0/vocab.json for vocab
-        // see onnx-tracer/models/multiclass0/labels.json for labels
-
-        // "cheap flights to rome",
-        //  class  -> 2: travel
-        let input1 = [1, 2, 3, 4, 0, 0, 0, 0];
-
-        // "box office hits this weekend",
-        // class  -> 3: entertainment
-        let input2 = [5, 6, 7, 8, 9, 0, 0, 0];
-
-        // "quarterly earnings beat guidance",
-        // class  -> 0: business
-        let input3 = [10, 11, 12, 13, 0, 0, 0, 0];
-
-        // "university admissions tips",
-        //  class  -> 1: education
-        let input4 = [14, 15, 16, 0, 0, 0, 0, 0];
-
-        // "new streaming series announced",
-        // class  -> 3: entertainment
-        let input5 = [21, 22, 23, 24, 0, 0, 0, 0];
-
-        // 'this university announced scholarships'
-        //   class  -> 1: education
-        let input6 = [8, 14, 24, 29, 0, 0, 0, 0];
-
-        //   class  -> 1: education
-        // 'scholarships news'
-        let inputs7 = [29, 28, 0, 0, 0, 0, 0, 0];
-
-        let multiclass0 = builder::multiclass0();
-        let inputs = [input1, input2, input3, input4, input5, input6, inputs7];
-        let expected_outputs = [
-            2, // travel
-            3, // entertainment
-            0, // business
-            1, // education
-            3, // entertainment
-            1, // education
-            1, // education
-        ];
-
-        for (input, expected) in inputs.iter().zip(expected_outputs.iter()) {
-            let result = multiclass0.forward(&[Tensor::new(Some(input), &[1, 8]).unwrap()]);
-            assert_eq!(result.unwrap().outputs[0].inner[0], *expected);
-        }
     }
 
     #[test]
     #[serial]
     fn test_sentiment0() {
-        /*
-            vocab.json:
-            {
-                "i": 1,
-                "love": 2,
-                "this": 3,
-                "is": 4,
-                "great": 5,
-                "happy": 6,
-                "with": 7,
-                "the": 8,
-                "result": 9,
-                "hate": 10,
-                "bad": 11,
-                "not": 12,
-                "satisfied": 13
-            }
-        */
-
-        /// const: [I, love, this, 0, 0]
-        const I_LOVE_THIS: [i128; 5] = [1, 2, 3, 0, 0];
-
-        /// const: [I, hate, this, 0, 0]
-        const I_HATE_THIS: [i128; 5] = [1, 10, 3, 0, 0];
-
-        /// const: [This, is, great, 0, 0]
-        const THIS_IS_GREAT: [i128; 5] = [3, 4, 5, 0, 0];
-
-        /// const: [This, is, bad, 0, 0]
-        const THIS_IS_BAD: [i128; 5] = [3, 4, 11, 0, 0];
-
-        const TEST_SENTIMENT_INPUTS: [[i128; 5]; 4] =
-            [I_LOVE_THIS, I_HATE_THIS, THIS_IS_GREAT, THIS_IS_BAD];
-
-        /// The sentiment analysis model processes tokenized text inputs and outputs sentiment predictions.
-        /// Expected outputs: 1 = positive sentiment, 0 = negative sentiment
-        /// These test cases verify the model correctly classifies:
-        /// - "I love this" → positive (1)
-        /// - "I hate this" → negative (0)
-        /// - "This is great" → positive (1)
-        /// - "This is bad" → negative (0)
-        const EXPECTED_SENTIMENT_OUTPUTS: [i128; 4] = [1, 0, 1, 0];
-        // --- Preprocessing ---
-        let mut sentiment_model = builder::sentiment0();
-        let program_bytecode = onnx_tracer::decode_model(sentiment_model.clone());
-        debug!("Program code: {program_bytecode:#?}");
-        let pp: JoltProverPreprocessing<Fr, PCS, KeccakTranscript> =
-            JoltSNARK::prover_preprocess(program_bytecode);
-
-        // --- Test inference ---
-        for (i, input) in TEST_SENTIMENT_INPUTS.iter().enumerate() {
-            let result = sentiment_model
-                .forward(&[Tensor::new(Some(input), &[1, 5]).unwrap()])
-                .unwrap();
-            let output = result.outputs[0].clone();
-            assert_eq!(
-                output.inner[0], EXPECTED_SENTIMENT_OUTPUTS[i],
-                "Input: {:?}, Output: {}, Expected: {}",
-                input, output.inner[0], EXPECTED_SENTIMENT_OUTPUTS[i]
-            );
-        }
-        sentiment_model.clear_execution_trace();
-
-        // --- Prove ---
-        let raw_trace = onnx_tracer::execution_trace(
-            sentiment_model,
-            &Tensor::new(Some(&THIS_IS_GREAT), &[1, 5]).unwrap(),
+        let config = ModelTestConfig::new(
+            "sentiment0",
+            vec![3, 4, 5, 0, 0], // [This, is, great, 0, 0]
+            vec![1, 5],
         );
-        debug!("Raw trace: {raw_trace:#?}");
-        let execution_trace = jolt_execution_trace(raw_trace);
-        debug!("Execution trace: {execution_trace:#?}");
-        debug!("Execution trace length: {}", execution_trace.len());
-        let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
-            JoltSNARK::prove(pp.clone(), execution_trace);
 
-        // --- Verify ---
-        snark.verify((&pp).into()).unwrap();
+        ZKMLTestHelper::prove_and_verify_simple(builder::sentiment0, &config.to_tensor());
     }
 
     #[test]
     #[serial]
     fn test_custom_select() {
-        /// const: [This, is, great, 0, 0]
-        const THIS_IS_GREAT: [i128; 5] = [3, 4, 5, 0, 0];
-        // --- Preprocessing ---
-        // acc for model in test.py = 0.83
-        // mainly just using this to test select operator
-        let sentiment_model = builder::sentiment_select();
-        let program_bytecode = onnx_tracer::decode_model(sentiment_model.clone());
-        debug!("Program code: {program_bytecode:#?}");
-        let pp: JoltProverPreprocessing<Fr, PCS, KeccakTranscript> =
-            JoltSNARK::prover_preprocess(program_bytecode);
-
-        // --- Prove ---
-        let raw_trace = onnx_tracer::execution_trace(
-            sentiment_model,
-            &Tensor::new(Some(&THIS_IS_GREAT), &[1, 5]).unwrap(),
+        let config = ModelTestConfig::new(
+            "sentiment_select",
+            vec![3, 4, 5, 0, 0], // [This, is, great, 0, 0]
+            vec![1, 5],
         );
-        debug!("Raw trace: {raw_trace:#?}");
-        let execution_trace = jolt_execution_trace(raw_trace);
-        debug!("Execution trace: {execution_trace:#?}");
-        let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
-            JoltSNARK::prove(pp.clone(), execution_trace);
-        // --- Verify ---
-        snark.verify((&pp).into()).unwrap();
+
+        ZKMLTestHelper::prove_and_verify_simple(builder::sentiment_select, &config.to_tensor());
     }
 
     #[serial]
     #[test]
     fn test_argmax_e2e() {
-        // --- Preprocessing ---
-        let custom_argmax_model = builder::argmax_model();
-        let program_bytecode = onnx_tracer::decode_model(custom_argmax_model.clone());
-        debug!("Program code: {program_bytecode:#?}");
-        let pp: JoltProverPreprocessing<Fr, PCS, KeccakTranscript> =
-            JoltSNARK::prover_preprocess(program_bytecode);
+        let config = ModelTestConfig::new("argmax", vec![10, 20, 30, 50, 50], vec![5]);
 
-        // --- Proving ---
-        // Get execution trace
-        let input = Tensor::new(Some(&[10, 20, 30, 50, 50]), &[5]).unwrap();
-        let raw_trace = onnx_tracer::execution_trace(custom_argmax_model, &input);
-        debug!("raw trace: {raw_trace:#?}");
-        let execution_trace = jolt_execution_trace(raw_trace);
-        let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
-            JoltSNARK::prove(pp.clone(), execution_trace);
+        ZKMLTestHelper::prove_and_verify_simple(builder::argmax_model, &config.to_tensor());
+    }
 
-        // --- Verification ---
-        snark.verify((&pp).into()).unwrap();
+    fn test_arithmetic_model<F>(model_fn: F, test_name: &str)
+    where
+        F: Fn() -> Model,
+    {
+        let config = ModelTestConfig::new(test_name, vec![10, 20, 30, 40], vec![1, 4]);
+
+        ZKMLTestHelper::prove_and_verify_simple(model_fn, &config.to_tensor());
     }
 
     #[serial]
     #[test]
     fn test_addsubmuldivdiv() {
-        // --- Preprocessing ---
-        let custom_addsubmul_model = builder::custom_addsubmuldivdiv_model();
-        let program_bytecode = onnx_tracer::decode_model(custom_addsubmul_model.clone());
-        debug!("Program code: {program_bytecode:#?}");
-        let pp: JoltProverPreprocessing<Fr, PCS, KeccakTranscript> =
-            JoltSNARK::prover_preprocess(program_bytecode);
-
-        // --- Proving ---
-        // Get execution trace
-        let input = Tensor::new(Some(&[10, 20, 30, 40]), &[1, 4]).unwrap();
-        let raw_trace = onnx_tracer::execution_trace(custom_addsubmul_model, &input);
-        let execution_trace = jolt_execution_trace(raw_trace);
-        let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
-            JoltSNARK::prove(pp.clone(), execution_trace);
-
-        // --- Verification ---
-        snark.verify((&pp).into()).unwrap();
+        test_arithmetic_model(builder::custom_addsubmuldivdiv_model, "addsubmuldivdiv");
     }
 
     #[serial]
     #[test]
     fn test_addsubmuldiv() {
-        // --- Preprocessing ---
-        let custom_addsubmul_model = builder::custom_addsubmuldiv_model();
-        let program_bytecode = onnx_tracer::decode_model(custom_addsubmul_model.clone());
-        let pp: JoltProverPreprocessing<Fr, PCS, KeccakTranscript> =
-            JoltSNARK::prover_preprocess(program_bytecode);
-
-        // --- Proving ---
-        // Get execution trace
-        let input = Tensor::new(Some(&[10, 20, 30, 40]), &[1, 4]).unwrap();
-        let raw_trace = onnx_tracer::execution_trace(custom_addsubmul_model, &input);
-        let execution_trace = jolt_execution_trace(raw_trace);
-        let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
-            JoltSNARK::prove(pp.clone(), execution_trace);
-
-        // --- Verification ---
-        snark.verify((&pp).into()).unwrap();
+        test_arithmetic_model(builder::custom_addsubmuldiv_model, "addsubmuldiv");
     }
 
     #[serial]
     #[test]
     fn test_custom_addsubmulconst() {
-        // --- Preprocessing ---
-        let custom_addsubmul_model = builder::custom_addsubmulconst_model();
-        let program_bytecode = onnx_tracer::decode_model(custom_addsubmul_model.clone());
-        // debug!("Program code: {program_bytecode:#?}");
-        let pp: JoltProverPreprocessing<Fr, PCS, KeccakTranscript> =
-            JoltSNARK::prover_preprocess(program_bytecode);
-
-        // --- Proving ---
-        // Get execution trace
-        let input = Tensor::new(Some(&[10, 20, 30, 40]), &[1, 4]).unwrap();
-        let raw_trace = onnx_tracer::execution_trace(custom_addsubmul_model, &input);
-        let execution_trace = jolt_execution_trace(raw_trace);
-        debug!("Execution trace: {execution_trace:#?}");
-        let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
-            JoltSNARK::prove(pp.clone(), execution_trace);
-
-        // --- Verification ---
-        snark.verify((&pp).into()).unwrap();
+        test_arithmetic_model(builder::custom_addsubmulconst_model, "addsubmulconst");
     }
 
     #[serial]
     #[test]
     fn test_custom_addsubmul() {
-        // --- Preprocessing ---
-        let custom_addsubmul_model = builder::custom_addsubmul_model();
-        let program_bytecode = onnx_tracer::decode_model(custom_addsubmul_model.clone());
-        debug!("Program code: {program_bytecode:#?}");
-        let pp: JoltProverPreprocessing<Fr, PCS, KeccakTranscript> =
-            JoltSNARK::prover_preprocess(program_bytecode);
-
-        // --- Proving ---
-        // Get execution trace
-        let input = Tensor::new(Some(&[10, 20, 30, 40]), &[1, 4]).unwrap();
-        let raw_trace = onnx_tracer::execution_trace(custom_addsubmul_model, &input);
-        debug!("raw trace: {raw_trace:#?}");
-        let execution_trace = jolt_execution_trace(raw_trace);
-        let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
-            JoltSNARK::prove(pp.clone(), execution_trace);
-
-        // --- Verification ---
-        snark.verify((&pp).into()).unwrap();
+        let config = ModelTestConfig::new("addsubmul", vec![-10, -20, -30, -40], vec![1, 4]);
+        ZKMLTestHelper::prove_and_verify_simple(
+            builder::custom_addsubmul_model,
+            &config.to_tensor(),
+        );
     }
 
     #[serial]
     #[test]
     fn test_scalar_addsubmul() {
-        // --- Preprocessing ---
-        let scalar_addsubmul_model = builder::scalar_addsubmul_model();
-        let program_bytecode = onnx_tracer::decode_model(scalar_addsubmul_model.clone());
-        debug!("Program code: {program_bytecode:#?}");
-        let pp: JoltProverPreprocessing<Fr, PCS, KeccakTranscript> =
-            JoltSNARK::prover_preprocess(program_bytecode);
+        let config = ModelTestConfig::new("scalar_addsubmul", vec![60], vec![1]);
 
-        // --- Proving ---
-        let input = Tensor::new(Some(&[60]), &[1]).unwrap();
-        let raw_trace = onnx_tracer::execution_trace(scalar_addsubmul_model, &input);
-        debug!("Execution trace: {raw_trace:#?}");
-        let execution_trace = jolt_execution_trace(raw_trace);
+        ZKMLTestHelper::prove_and_verify_simple(
+            builder::scalar_addsubmul_model,
+            &config.to_tensor(),
+        );
+    }
 
-        let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
-            JoltSNARK::prove(pp.clone(), execution_trace);
+    #[test]
+    fn test_multiclass_inference() {
+        let test_cases = vec![
+            (vec![1, 2, 3, 4, 0, 0, 0, 0], vec![1, 8], 2), // "cheap flights to rome" -> travel
+            (vec![5, 6, 7, 8, 9, 0, 0, 0], vec![1, 8], 3), // "box office hits this weekend" -> entertainment
+            (vec![10, 11, 12, 13, 0, 0, 0, 0], vec![1, 8], 0), // "quarterly earnings beat guidance" -> business
+            (vec![14, 15, 16, 0, 0, 0, 0, 0], vec![1, 8], 1), // "university admissions tips" -> education
+            (vec![21, 22, 23, 24, 0, 0, 0, 0], vec![1, 8], 3), // "new streaming series announced" -> entertainment
+            (vec![8, 14, 24, 29, 0, 0, 0, 0], vec![1, 8], 1), // "this university announced scholarships" -> education
+            (vec![29, 28, 0, 0, 0, 0, 0, 0], vec![1, 8], 1),  // "scholarships news" -> education
+        ];
 
-        // --- Verification ---
-        snark.verify((&pp).into()).unwrap();
+        ZKMLTestHelper::test_inference(builder::multiclass0, &test_cases);
+    }
+
+    #[test]
+    fn test_sentiment0_inference() {
+        let test_cases = vec![
+            (vec![1, 2, 3, 0, 0], vec![1, 5], 1), // "I love this" -> positive
+            (vec![1, 10, 3, 0, 0], vec![1, 5], 0), // "I hate this" -> negative
+            (vec![3, 4, 5, 0, 0], vec![1, 5], 1), // "This is great" -> positive
+            (vec![3, 4, 11, 0, 0], vec![1, 5], 0), // "This is bad" -> negative
+        ];
+
+        ZKMLTestHelper::test_inference(builder::sentiment0, &test_cases);
     }
 
     /// Load vocab.json into HashMap<String, (usize, i32)>
