@@ -106,9 +106,8 @@ impl MemoryState {
 ///
 /// The ONNX model is converted into a sequence of [`ONNXInstr`]s, forming the program code.
 /// During runtime, the program counter (PC) is used to fetch the next instruction from this read-only memory storing the program bytecode.
-
-// TODO(AntoineF4C5): generic quantization
 pub struct ONNXInstr {
+    // TODO(AntoineF4C5): generic quantization
     /// The program counter (PC) address of this instruction in the bytecode.
     pub address: usize,
     /// The operation code (opcode) that defines the instruction's function.
@@ -269,9 +268,8 @@ impl ONNXCycle {
     /// - Panics if the tensor's length exceeds `MAX_TENSOR_SIZE`.
     /// ---
     /// Returns a Vec<u64> of normalized values, padded with zeros to `MAX_TENSOR_SIZE`.
-
-    // TODO(AntoineF4C5): generic quantization
     fn build_vals(&self, tensor_opt: Option<&Tensor<i32>>, name: &str) -> Vec<u64> {
+        // TODO(AntoineF4C5): generic quantization
         match tensor_opt {
             Some(t) => {
                 assert!(
@@ -290,30 +288,26 @@ impl ONNXCycle {
     }
 
     /// Returns the optional tensor for ts1 (unmodified).
-
-    // TODO(AntoineF4C5): generic quantization
     pub fn ts1_val_raw(&self) -> Option<&Tensor<i32>> {
+        // TODO(AntoineF4C5): generic quantization
         self.memory_state.ts1_val.as_ref()
     }
 
     /// Returns the optional tensor for ts2 (unmodified).
-
-    // TODO(AntoineF4C5): generic quantization
     pub fn ts2_val_raw(&self) -> Option<&Tensor<i32>> {
+        // TODO(AntoineF4C5): generic quantization
         self.memory_state.ts2_val.as_ref()
     }
 
     /// Returns the optional tensor for ts3 (unmodified).
-
-    // TODO(AntoineF4C5): generic quantization
     pub fn ts3_val_raw(&self) -> Option<&Tensor<i32>> {
+        // TODO(AntoineF4C5): generic quantization
         self.memory_state.ts3_val.as_ref()
     }
 
     /// Returns the optional tensor for td_post (unmodified).
-
-    // TODO(AntoineF4C5): generic quantization
     pub fn td_post_val_raw(&self) -> Option<&Tensor<i32>> {
+        // TODO(AntoineF4C5): generic quantization
         self.memory_state.td_post_val.as_ref()
     }
 
@@ -352,9 +346,8 @@ pub fn get_tensor_addresses(t: usize) -> Vec<usize> {
 /// # Panics
 /// Panics if the value's absolute value exceeds `i128::from(u32::MAX)`.
 /// This is to ensure that the immediate value can be safely normalized to u32 and then store in 64 bits.
-
-// TODO(AntoineF4C5): generic quantization
 fn normalize(value: &i32) -> u64 {
+    // TODO(AntoineF4C5): generic quantization
     *value as u32 as u64
 }
 

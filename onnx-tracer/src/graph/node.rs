@@ -988,9 +988,8 @@ impl PartialEq for Node {
 /// // During node construction, for each constant input:
 /// rescale_const_with_single_use(constant, input_scales, constant_node.num_uses())?;
 /// ```
-
-// TODO(AntoineF4C5): generic quantization
 fn rescale_const_with_single_use(
+    // TODO(AntoineF4C5): generic quantization
     constant: &mut Constant<i32>,
     in_scales: Vec<crate::Scale>,
     num_uses: usize,
