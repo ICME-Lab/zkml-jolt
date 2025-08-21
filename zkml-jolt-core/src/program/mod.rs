@@ -22,7 +22,7 @@ pub struct ONNXProgram {
     /// # Note:
     ///    - We quantize inputs to i128 bits for compatibility with the zkVM.
     ///    - We limit batch size to 1 for simplicity.
-    pub inputs: Tensor<i128>,
+    pub inputs: Tensor<i32>,
 }
 
 impl ONNXProgram {
@@ -53,7 +53,7 @@ impl ONNXProgram {
     /// # Arguments
     /// - `model_path`: The path to the ONNX model file.
     /// - `inputs`: The inputs to the ONNX model as a tensor.
-    pub fn new(model_path: PathBuf, inputs: Tensor<i128>) -> Self {
+    pub fn new(model_path: PathBuf, inputs: Tensor<i32>) -> Self {
         Self { model_path, inputs }
     }
 }

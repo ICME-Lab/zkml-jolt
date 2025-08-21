@@ -22,7 +22,7 @@ pub fn benchmarks(bench_type: BenchType) -> Vec<(tracing::Span, Box<dyn FnOnce()
 
 fn prove_and_verify<F>(
     model_fn: F,
-    input: Vec<i128>,
+    input: Vec<i32>,
     input_shape: Vec<usize>,
 ) -> Vec<(tracing::Span, Box<dyn FnOnce()>)>
 where

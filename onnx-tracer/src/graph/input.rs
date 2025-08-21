@@ -1,4 +1,4 @@
-use crate::{circuit::ops::InputType, fieldutils::i128_to_felt, graph::utilities::quantize_float};
+use crate::{circuit::ops::InputType, fieldutils::i32_to_felt, graph::utilities::quantize_float};
 use halo2curves::bn256::Fr as Fp;
 use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
 use std::{io::Read, panic::UnwindSafe};
@@ -103,7 +103,7 @@ impl FileSourceInner {
     /// Convert to a field element
     pub fn to_field(&self, scale: crate::Scale) -> Fp {
         match self {
-            FileSourceInner::Float(f) => i128_to_felt(quantize_float(f, 0.0, scale).unwrap()),
+            FileSourceInner::Float(f) => i32_to_felt(quantize_float(f, 0.0, scale).unwrap()),
             FileSourceInner::Bool(f) => {
                 if *f {
                     Fp::one()
