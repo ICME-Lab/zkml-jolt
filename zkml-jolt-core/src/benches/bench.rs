@@ -34,12 +34,12 @@ where
         let program_bytecode = onnx_tracer::decode_model(model.clone());
         let pp: JoltProverPreprocessing<Fr, PCS, KeccakTranscript> =
             JoltSNARK::prover_preprocess(program_bytecode);
-        let raw_trace =
+        let (raw_trace, program_output) =
             onnx_tracer::execution_trace(model, &Tensor::new(Some(&input), &input_shape).unwrap());
         let execution_trace = jolt_execution_trace(raw_trace.clone());
         let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
-            JoltSNARK::prove(pp.clone(), execution_trace);
-        snark.verify((&pp).into()).unwrap();
+            JoltSNARK::prove(pp.clone(), execution_trace, &program_output);
+        snark.verify((&pp).into(), program_output).unwrap();
     };
     tasks.push((
         tracing::info_span!("Example_E2E"),

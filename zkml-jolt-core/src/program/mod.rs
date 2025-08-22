@@ -5,6 +5,7 @@
 //! the zkVM, such as decoding them and tracing their execution.
 
 use onnx_tracer::{
+    ProgramOutput,
     tensor::Tensor,
     trace_types::{ONNXCycle, ONNXInstr},
 };
@@ -42,7 +43,7 @@ impl ONNXProgram {
     ///
     /// # Returns
     ///  - `Vec<ONNXCycle>`: A step by step record of what the ONNX runtime did over the course of its execution.
-    pub fn trace(&self) -> Vec<ONNXCycle> {
+    pub fn trace(&self) -> (Vec<ONNXCycle>, ProgramOutput) {
         onnx_tracer::trace(&self.model_path, &self.inputs)
     }
 }

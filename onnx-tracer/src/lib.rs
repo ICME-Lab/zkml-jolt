@@ -41,9 +41,9 @@
 
 use crate::{
     constants::BYTECODE_PREPEND_NOOP,
-    graph::model::{Model, NodeType},
+    graph::model::{ForwardResult, Model, NodeType},
     tensor::Tensor,
-    trace_types::{ONNXCycle, ONNXInstr},
+    trace_types::{normalize, ONNXCycle, ONNXInstr},
 };
 use clap::Args;
 use serde::{Deserialize, Serialize};
@@ -62,6 +62,25 @@ pub mod logger;
 /// An implementation of multi-dimensional tensors.
 pub mod tensor;
 pub mod trace_types;
+
+#[derive(Debug, Clone)]
+pub struct ProgramOutput {
+    pub outputs: Vec<u64>,
+    pub output_address: usize,
+}
+
+impl ProgramOutput {
+    pub fn new(res: ForwardResult, output_address: usize) -> Self {
+        let outputs = res.outputs;
+        assert!(outputs.len() == 1);
+        let output = outputs[0].clone();
+        let vals: Vec<u64> = output.inner.iter().map(normalize).collect();
+        ProgramOutput {
+            outputs: vals,
+            output_address,
+        }
+    }
+}
 
 /// The denominator in the fixed point representation used when quantizing inputs
 pub type Scale = i32;
@@ -87,21 +106,23 @@ pub fn decode_model(model: Model) -> Vec<ONNXInstr> {
 /// An execution trace is, a step-by-step record of what the VM did over the course of its execution.
 /// Roughly speaking, the trace describes just the changes to virtual machine state at each step of its execution (this includes read operations).
 /// These state transitions are later checked & verified in the Jolt proof system, ensuring the prover possesses a valid execution trace for the given model and input.
-pub fn trace(model_path: &PathBuf, input: &Tensor<i32>) -> Vec<ONNXCycle> {
-    // TODO(AntoineF4C5): generic quantization
+pub fn trace(model_path: &PathBuf, input: &Tensor<i32>) -> (Vec<ONNXCycle>, ProgramOutput) {
     execution_trace(model(model_path), input)
 }
 
 /// Given a model and input extract the execution trace
-pub fn execution_trace(model: Model, input: &Tensor<i32>) -> Vec<ONNXCycle> {
-    // TODO(AntoineF4C5): generic quantization
+pub fn execution_trace(model: Model, input: &Tensor<i32>) -> (Vec<ONNXCycle>, ProgramOutput) {
     // Run the model with the provided inputs.
     // The internal model tracer will automatically capture the execution trace during the forward pass
-    let _ = model
+    let forward_result = model
         .forward(&[input.clone()])
         .expect("Failed to run model");
     let execution_trace = model.tracer.execution_trace.borrow().clone();
-    execution_trace
+    let output_address = execution_trace.last().unwrap().td();
+    (
+        execution_trace,
+        ProgramOutput::new(forward_result, output_address),
+    )
 }
 
 /// Given a file path, load the ONNX model and return a [`Model`].

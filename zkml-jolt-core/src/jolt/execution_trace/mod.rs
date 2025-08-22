@@ -154,6 +154,15 @@ impl JoltONNXCycle {
             }
         }
     }
+
+    fn td_inc(&self) -> Vec<i64> {
+        let (_, pre_vals, post_vals) = self.td_write();
+        post_vals
+            .iter()
+            .zip(pre_vals.iter())
+            .map(|(post, pre)| *post as i64 - *pre as i64)
+            .collect()
+    }
 }
 
 impl From<&ONNXCycle> for JoltONNXCycle {
@@ -395,8 +404,8 @@ pub enum CommittedPolynomials {
     Product(usize),
     /// Td * IsActive
     ActiveRd(usize),
-    // /// Whether the current instruction should write the lookup output to
-    // /// the destination register
+    /// Whether the current instruction should write the lookup output to
+    /// the destination register
     WriteLookupOutputToTD(usize),
     /// Inc polynomial for the registers instance of Twist
     TdInc,
@@ -505,17 +514,7 @@ impl WitnessGenerator for CommittedPolynomials {
             }
 
             CommittedPolynomials::TdInc => {
-                let coeffs: Vec<i64> = trace
-                    .par_iter()
-                    .flat_map(|cycle| {
-                        let (_, pre_value, post_value) = cycle.td_write();
-                        pre_value
-                            .iter()
-                            .zip(post_value.iter())
-                            .map(|(pre_value, post_value)| *post_value as i64 - *pre_value as i64)
-                            .collect_vec()
-                    })
-                    .collect();
+                let coeffs: Vec<i64> = trace.par_iter().flat_map(|cycle| cycle.td_inc()).collect();
                 coeffs.into()
             }
 

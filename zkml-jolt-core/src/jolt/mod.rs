@@ -26,6 +26,7 @@ use jolt_core::{
     utils::{errors::ProofVerifyError, transcript::Transcript},
 };
 use onnx_tracer::{
+    ProgramOutput,
     constants::MAX_TENSOR_SIZE,
     trace_types::{ONNXInstr, ONNXOpcode},
 };
@@ -129,6 +130,7 @@ where
     pub fn prove(
         mut preprocessing: JoltProverPreprocessing<F, PCS, ProofTranscript>,
         mut trace: Vec<JoltONNXCycle>,
+        program_output: &ProgramOutput,
     ) -> Self {
         let trace_length = trace.len();
         println!("Trace length: {trace_length}");
@@ -205,6 +207,7 @@ where
             tensor_heap_K,
             &mut opening_accumulator,
             &mut transcript,
+            program_output,
         );
         JoltSNARK {
             trace_length,
@@ -220,6 +223,7 @@ where
     pub fn verify(
         &self,
         preprocessing: JoltVerifierPreprocessing<F, PCS, ProofTranscript>,
+        program_output: ProgramOutput,
     ) -> Result<(), ProofVerifyError> {
         let mut transcript = ProofTranscript::new(b"Jolt transcript");
         let mut opening_accumulator: VerifierOpeningAccumulator<F, PCS, ProofTranscript> =
@@ -244,6 +248,7 @@ where
             padded_trace_length * MAX_TENSOR_SIZE,
             &mut opening_accumulator,
             &mut transcript,
+            program_output,
         )?;
         Ok(())
     }
@@ -283,7 +288,7 @@ mod e2e_tests {
             let pp: JoltProverPreprocessing<Fr, PCS, KeccakTranscript> =
                 JoltSNARK::prover_preprocess(program_bytecode);
 
-            let raw_trace = onnx_tracer::execution_trace(model, input);
+            let (raw_trace, program_output) = onnx_tracer::execution_trace(model, input);
 
             // Verify expected output if provided
             if let Some(expected) = expected_output {
@@ -296,9 +301,9 @@ mod e2e_tests {
 
             let execution_trace = jolt_execution_trace(raw_trace.clone());
             let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
-                JoltSNARK::prove(pp.clone(), execution_trace);
+                JoltSNARK::prove(pp.clone(), execution_trace, &program_output);
 
-            snark.verify((&pp).into()).unwrap();
+            snark.verify((&pp).into(), program_output).unwrap();
             raw_trace.into_iter().last().unwrap()
         }
 
@@ -656,8 +661,9 @@ mod e2e_tests {
         let program_bytecode = sentiment_select.decode();
         info!("Program code: {program_bytecode:#?}");
 
-        let raw_trace = sentiment_select.trace();
+        let (raw_trace, program_io) = sentiment_select.trace();
         info!("Raw trace: {raw_trace:#?}");
+        info!("Program IO: {program_io:#?}");
     }
 
     #[ignore]
