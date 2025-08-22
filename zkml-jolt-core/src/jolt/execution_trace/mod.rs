@@ -22,8 +22,7 @@ use jolt_core::{
 };
 
 use onnx_tracer::constants::{
-    MAX_TENSOR_SIZE, TEST_TENSOR_REGISTER_COUNT,
-    VIRTUAL_TENSOR_REGISTER_COUNT,
+    MAX_TENSOR_SIZE, TEST_TENSOR_REGISTER_COUNT, VIRTUAL_TENSOR_REGISTER_COUNT,
 };
 use onnx_tracer::tensor::Tensor;
 use onnx_tracer::trace_types::ONNXOpcode;

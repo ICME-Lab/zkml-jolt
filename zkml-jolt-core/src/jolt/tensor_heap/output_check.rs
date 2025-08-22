@@ -14,9 +14,7 @@ use jolt_core::{
         sumcheck::{BatchableSumcheckInstance, SumcheckInstanceProof},
     },
     utils::{
-        errors::ProofVerifyError,
-        math::Math,
-        thread::drop_in_background_thread,
+        errors::ProofVerifyError, math::Math, thread::drop_in_background_thread,
         transcript::Transcript,
     },
 };
@@ -192,11 +190,9 @@ impl<F: JoltField> OutputSumcheck<F> {
         program_output: ProgramOutput,
     ) -> Result<(), ProofVerifyError> {
         let K = r_address.len().pow2();
-        let output_sumcheck_verifier_state = OutputSumcheckVerifierState::initialize(
-            r_address,
-            &program_output,
-        ); 
-        
+        let output_sumcheck_verifier_state =
+            OutputSumcheckVerifierState::initialize(r_address, &program_output);
+
         let output_sumcheck = OutputSumcheck {
             K,
             verifier_state: Some(output_sumcheck_verifier_state),
@@ -208,7 +204,7 @@ impl<F: JoltField> OutputSumcheck<F> {
             output_sumcheck.verify_single(&proof.output_sumcheck_proof, transcript)?;
 
         let val_final_sumcheck = ValFinalSumcheck {
-            T, 
+            T,
             prover_state: None,
             val_final_claim: output_sumcheck.val_final_claim.unwrap(),
             output_claims: Some(proof.output_claims.clone()),
