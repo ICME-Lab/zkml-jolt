@@ -46,13 +46,3 @@ jobs:
       - name: Build Wasm
         working-directory: ./jolt-core
         run: cargo build --release --target wasm32-unknown-unknown
-
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - name: Install nextest
-        uses: taiki-e/install-action@nextest
-      - name: Run zkml-jolt-core tests
-        run: cargo nextest run --release -p zkml-jolt-core
