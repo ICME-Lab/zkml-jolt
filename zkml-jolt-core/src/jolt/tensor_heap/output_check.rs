@@ -19,7 +19,7 @@ use onnx_tracer::{constants::MAX_TENSOR_SIZE, trace_types::get_tensor_addresses,
 use rayon::prelude::*;
 
 use crate::jolt::{
-    execution_trace::{CommittedPolynomials, JoltONNXCycle, WitnessGenerator}, JoltProverPreprocessing
+    execution_trace::{project_heap_state, CommittedPolynomials, JoltONNXCycle, WitnessGenerator}, JoltProverPreprocessing
 };
 
 #[derive(Debug, Clone)]
@@ -139,11 +139,11 @@ impl<F: JoltField> OutputSumcheck<F> {
     pub fn prove<ProofTranscript: Transcript, PCS: CommitmentScheme<ProofTranscript, Field = F>>(
         preprocessing: &JoltProverPreprocessing<F, PCS, ProofTranscript>,
         trace: &[JoltONNXCycle],
-        final_heap_state: Vec<u32>,
         r_address: &[F],
         transcript: &mut ProofTranscript,
         program_output: &ProgramOutput,
     ) -> OutputProof<F, ProofTranscript> {
+        let final_heap_state = project_heap_state(trace);
         let K = final_heap_state.len();
         let T = trace.len() * MAX_TENSOR_SIZE;
 
@@ -325,8 +325,6 @@ impl<F: JoltField, ProofTranscript: Transcript> BatchableSumcheckInstance<F, Pro
         println!("Output start: {:?}", output_start);
         println!("Output end: {:?}", output_end);
 
-        // println!("Final heap state: {:?}", &final_heap_state[output_start..output_end]);
-
         let val_final_claim = self.val_final_claim.as_ref().unwrap();
 
         let r_address_prime = &r[..r_address.len()];
@@ -397,22 +395,19 @@ impl<F: JoltField> ValFinalSumcheckProverState<F> {
                 val_final,
                 ..
             } = &output_sumcheck_prover_state;
-            // Check that Val_init(r), wa(r, j), and Inc(j) are consistent with
+            // Check that wa(r, j), and Inc(j) are consistent with
             // the claim Val_final(r)
             let expected = val_final.final_sumcheck_claim();
-            let actual = // val_init.final_sumcheck_claim() +
-                wa_r_address
+            let actual = wa_r_address
                     .par_iter()
                     .enumerate()
                     .map(|(j, wa)| inc.get_coeff(j) * wa)
                     .sum::<F>();
             assert_eq!(
                 expected, actual,
-                "Val_final(r_address) ≠ Val_init(r_address) + \\sum_j wa(r_address, j) * Inc(j)"
+                "Val_final(r_address) ≠ \\sum_j wa(r_address, j) * Inc(j)"
             );
         }
-
-        println!("write_addresses: {:?}", write_addresses.len());
 
         Self {
             inc,
@@ -422,18 +417,16 @@ impl<F: JoltField> ValFinalSumcheckProverState<F> {
 }
 
 /// This sumcheck virtualizes Val_final(k) as:
-/// Val_final(k) = Val_init(k) + \sum_k Inc(j) * wa(k, j)
+/// Val_final(k) = \sum_j Inc(j) * wa(k, j)
 ///   or equivalently:
-/// Val_final(k) - Val_init(k) = \sum_k Inc(j) * wa(k, j)
+/// Val_final(k) = \sum_j Inc(j) * wa(k, j)
 /// We feed the output claim Val_final(r_address) from `OutputSumcheck`
 /// into this sumcheck, which reduces it to claims about `Inc` and `wa`.
-/// Note that the verifier is assumed to be able to evaluate Val_init
-/// on its own.
+/// Val_init is zero
 #[derive(Debug, Clone)]
 pub struct ValFinalSumcheck<F: JoltField> {
     T: usize,
     prover_state: Option<ValFinalSumcheckProverState<F>>,
-    // val_init_eval: F,
     val_final_claim: F,
     output_claims: Option<ValFinalSumcheckClaims<F>>,
 }
