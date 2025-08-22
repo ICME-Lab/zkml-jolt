@@ -220,27 +220,6 @@ pub fn jolt_execution_trace(raw_trace: Vec<ONNXCycle>) -> ExecutionTrace {
     out
 }
 
-pub fn project_heap_state(trace: &[JoltONNXCycle]) -> Vec<u32> {
-    let mut heap = vec![0; trace.len() * MAX_TENSOR_SIZE];
-
-    for cycle in trace.iter() {
-        let (addresses, _, post) = cycle.td_write();
-        for (addr, post_val) in addresses.iter().zip(post.iter()) {
-            let addr = *addr;
-            if addr >= heap.len() {
-                heap.resize(addr + 1, 0);
-            }
-            heap[addr] = *post_val as u32;
-        }
-    }
-
-    if !heap.is_empty() {
-        let new_len = heap.len().next_power_of_two();
-        heap.resize(new_len, 0);
-    }
-    heap
-}
-
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct MemoryOps {
     ts1_read: (Vec<usize>, Vec<u64>),

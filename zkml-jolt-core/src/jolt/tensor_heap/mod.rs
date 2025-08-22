@@ -10,7 +10,7 @@ pub mod read_write_check;
 use crate::jolt::execution_trace::sanity_check_mcc;
 use crate::jolt::{
     JoltProverPreprocessing,
-    execution_trace::{JoltONNXCycle, project_heap_state},
+    execution_trace::JoltONNXCycle,
     tensor_heap::{
         output_check::{OutputProof, OutputSumcheck},
         read_write_check::ReadWriteCheckingProof,
@@ -80,7 +80,19 @@ impl<F: JoltField, ProofTranscript: Transcript> TensorHeapTwistProof<F, ProofTra
         // Cycle variables are bound from low to high
         r_cycle_prime.reverse();
 
-        let final_heap_state = project_heap_state(trace);
+        let mut final_heap_state = vec![0u32; K];
+        trace.iter().for_each(|cycle| {
+            cycle
+                .td_write()
+                .0
+                .iter()
+                .enumerate()
+                .for_each(|(i, &address)| {
+                    if address < K {
+                        final_heap_state[address] = cycle.td_write().2[i] as u32;
+                    }
+                });
+        });
 
         let output_proof = OutputSumcheck::prove(
             preprocessing,
