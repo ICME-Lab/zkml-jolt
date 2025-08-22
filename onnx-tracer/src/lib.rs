@@ -119,7 +119,7 @@ pub fn execution_trace(model: Model, input: &Tensor<i128>) -> (Vec<ONNXCycle>, P
         .forward(&[input.clone()])
         .expect("Failed to run model");
     let execution_trace = model.tracer.execution_trace.borrow().clone();
-    let output_address = execution_trace.last().unwrap().instr.td.unwrap();
+    let output_address = execution_trace.last().unwrap().td();
     (execution_trace, ProgramOutput::new(forward_result, output_address))
 }
 

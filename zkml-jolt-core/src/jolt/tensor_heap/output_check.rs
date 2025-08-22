@@ -54,14 +54,10 @@ impl<F: JoltField> OutputSumcheckProverState<F> {
         debug_assert!(K.is_power_of_two());
 
         let tensor_addresses = get_tensor_addresses(program_output.output_address);
-        println!("Tensor addresses: {:?}", tensor_addresses);
 
         let output_start = tensor_addresses[0];
         let output_end = *tensor_addresses.last().unwrap();
-        println!("Output start: {:?}", output_start);
-        println!("Output end: {:?}", output_end);
 
-        println!("Final heap state: {:?}", &final_heap_state[output_start..output_end]);
         let mut val_output = vec![0; K];
         val_output[output_start..output_end]
             .par_iter_mut()
@@ -206,7 +202,7 @@ impl<F: JoltField> OutputSumcheck<F> {
             val_final_claim: Some(proof.val_final_claim),
         };
 
-        let r_address_prime =
+        let _r_address_prime =
             output_sumcheck.verify_single(&proof.output_sumcheck_proof, transcript)?;
 
         let val_final_sumcheck = ValFinalSumcheck {
