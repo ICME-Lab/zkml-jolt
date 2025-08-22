@@ -5,11 +5,11 @@
 //! the zkVM, such as decoding them and tracing their execution.
 
 use onnx_tracer::{
+    ProgramOutput,
     tensor::Tensor,
-    trace_types::{ONNXCycle, ONNXInstr}, ProgramOutput,
+    trace_types::{ONNXCycle, ONNXInstr},
 };
 use std::path::PathBuf;
-
 
 /// Represents an ONNX program with tracing capabilities.
 /// The model binary is specified by a `PathBuf`, and model inputs are stored for inference.

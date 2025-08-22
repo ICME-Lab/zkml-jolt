@@ -2,24 +2,30 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use jolt_core::{
     field::JoltField,
     poly::{
-        commitment::commitment_scheme::CommitmentScheme, eq_poly::EqPolynomial, multilinear_polynomial::{
+        commitment::commitment_scheme::CommitmentScheme,
+        eq_poly::EqPolynomial,
+        multilinear_polynomial::{
             BindingOrder, MultilinearPolynomial, PolynomialBinding, PolynomialEvaluation,
-        }, range_mask_polynomial::RangeMaskPolynomial
+        },
+        range_mask_polynomial::RangeMaskPolynomial,
     },
     subprotocols::{
         sparse_dense_shout::ExpandingTable,
         sumcheck::{BatchableSumcheckInstance, SumcheckInstanceProof},
     },
     utils::{
-        errors::ProofVerifyError, math::Math, thread::{drop_in_background_thread, unsafe_allocate_zero_vec},
+        errors::ProofVerifyError,
+        math::Math,
+        thread::{drop_in_background_thread, unsafe_allocate_zero_vec},
         transcript::Transcript,
     },
 };
-use onnx_tracer::{constants::MAX_TENSOR_SIZE, trace_types::get_tensor_addresses, ProgramOutput};
+use onnx_tracer::{ProgramOutput, constants::MAX_TENSOR_SIZE, trace_types::get_tensor_addresses};
 use rayon::prelude::*;
 
 use crate::jolt::{
-    execution_trace::{project_heap_state, CommittedPolynomials, JoltONNXCycle, WitnessGenerator}, JoltProverPreprocessing
+    JoltProverPreprocessing,
+    execution_trace::{CommittedPolynomials, JoltONNXCycle, WitnessGenerator, project_heap_state},
 };
 
 #[derive(Debug, Clone)]
@@ -66,12 +72,13 @@ impl<F: JoltField> OutputSumcheckProverState<F> {
 
         // Compute io_mask by setting the relevant coefficients to 1
         let mut output_mask = vec![0u8; K];
-        output_mask[output_start..output_end].par_iter_mut().for_each(|k| *k = 1);
+        output_mask[output_start..output_end]
+            .par_iter_mut()
+            .for_each(|k| *k = 1);
 
         // Initialize the EQ table
         let mut eq_table = ExpandingTable::new(K);
         eq_table.reset(F::one());
-
 
         Self {
             val_final: final_heap_state.into(),
@@ -206,7 +213,7 @@ impl<F: JoltField> OutputSumcheck<F> {
             output_sumcheck.verify_single(&proof.output_sumcheck_proof, transcript)?;
 
         let val_final_sumcheck = ValFinalSumcheck {
-            T: T, // * MAX_TENSOR_SIZE,
+            T, // * MAX_TENSOR_SIZE,
             prover_state: None,
             // val_init_eval: val_init.evaluate(&r_address_prime),
             val_final_claim: output_sumcheck.val_final_claim.unwrap(),
@@ -250,7 +257,8 @@ impl<F: JoltField, ProofTranscript: Transcript> BatchableSumcheckInstance<F, Pro
             .into_par_iter()
             .map(|k| {
                 let eq_evals = eq_poly.sumcheck_evals(k, DEGREE, BindingOrder::HighToLow);
-                let output_mask_evals = output_mask.sumcheck_evals(k, DEGREE, BindingOrder::HighToLow);
+                let output_mask_evals =
+                    output_mask.sumcheck_evals(k, DEGREE, BindingOrder::HighToLow);
                 let val_final_evals = val_final.sumcheck_evals(k, DEGREE, BindingOrder::HighToLow);
                 let val_io_evals = val_output.sumcheck_evals(k, DEGREE, BindingOrder::HighToLow);
                 [
@@ -318,10 +326,7 @@ impl<F: JoltField, ProofTranscript: Transcript> BatchableSumcheckInstance<F, Pro
 
         let r_address_prime = &r[..r_address.len()];
 
-        let output_range = RangeMaskPolynomial::new(
-            output_start as u64,
-            output_end as u64
-        );
+        let output_range = RangeMaskPolynomial::new(output_start as u64, output_end as u64);
 
         let mut val_output = vec![F::zero(); self.K];
         val_output[output_start..output_end]
@@ -367,9 +372,7 @@ impl<F: JoltField> ValFinalSumcheckProverState<F> {
         // this `write_addresses`
         let write_addresses: Vec<_> = trace
             .par_iter()
-            .flat_map(|cycle| {
-                cycle.td_write().0
-            })
+            .flat_map(|cycle| cycle.td_write().0)
             .collect();
 
         // wa(r_address, j)
@@ -388,10 +391,10 @@ impl<F: JoltField> ValFinalSumcheckProverState<F> {
             // the claim Val_final(r)
             let expected = val_final.final_sumcheck_claim();
             let actual = wa_r_address
-                    .par_iter()
-                    .enumerate()
-                    .map(|(j, wa)| inc.get_coeff(j) * wa)
-                    .sum::<F>();
+                .par_iter()
+                .enumerate()
+                .map(|(j, wa)| inc.get_coeff(j) * wa)
+                .sum::<F>();
             assert_eq!(
                 expected, actual,
                 "Val_final(r_address) ≠ \\sum_j wa(r_address, j) * Inc(j)"
@@ -428,11 +431,11 @@ impl<F: JoltField, ProofTranscript: Transcript> BatchableSumcheckInstance<F, Pro
     }
 
     fn num_rounds(&self) -> usize {
-        self.T.log_2() 
+        self.T.log_2()
     }
 
     fn input_claim(&self) -> F {
-        self.val_final_claim 
+        self.val_final_claim
     }
 
     #[tracing::instrument(skip_all, name = "ValFinalSumcheck::compute_prover_message")]

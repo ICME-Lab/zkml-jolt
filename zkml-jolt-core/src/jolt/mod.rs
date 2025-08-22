@@ -26,8 +26,9 @@ use jolt_core::{
     utils::{errors::ProofVerifyError, transcript::Transcript},
 };
 use onnx_tracer::{
+    ProgramOutput,
     constants::MAX_TENSOR_SIZE,
-    trace_types::{ONNXInstr, ONNXOpcode}, ProgramOutput,
+    trace_types::{ONNXInstr, ONNXOpcode},
 };
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;

@@ -82,7 +82,6 @@ impl ProgramOutput {
     }
 }
 
-
 /// The denominator in the fixed point representation used when quantizing inputs
 pub type Scale = i32;
 
@@ -120,7 +119,10 @@ pub fn execution_trace(model: Model, input: &Tensor<i128>) -> (Vec<ONNXCycle>, P
         .expect("Failed to run model");
     let execution_trace = model.tracer.execution_trace.borrow().clone();
     let output_address = execution_trace.last().unwrap().td();
-    (execution_trace, ProgramOutput::new(forward_result, output_address))
+    (
+        execution_trace,
+        ProgramOutput::new(forward_result, output_address),
+    )
 }
 
 /// Given a file path, load the ONNX model and return a [`Model`].

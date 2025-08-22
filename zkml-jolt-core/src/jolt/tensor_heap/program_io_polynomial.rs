@@ -3,7 +3,6 @@ use jolt_core::{
     poly::multilinear_polynomial::{MultilinearPolynomial, PolynomialEvaluation},
 };
 
-
 pub struct ProgramIOPolynomial<F: JoltField> {
     poly: MultilinearPolynomial<F>,
 }

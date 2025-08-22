@@ -8,9 +8,17 @@ pub mod read_write_check;
 // #![allow(clippy::needless_range_loop)]
 #[cfg(test)]
 use crate::jolt::execution_trace::sanity_check_mcc;
-use crate::jolt::{execution_trace::{project_heap_state, CommittedPolynomials, JoltONNXCycle}, tensor_heap::{output_check::{OutputProof, OutputSumcheck}, read_write_check::ReadWriteCheckingProof}, JoltProverPreprocessing};
+use crate::jolt::{
+    JoltProverPreprocessing,
+    execution_trace::{CommittedPolynomials, JoltONNXCycle, project_heap_state},
+    tensor_heap::{
+        output_check::{OutputProof, OutputSumcheck},
+        read_write_check::ReadWriteCheckingProof,
+    },
+};
 use jolt_core::{
-    field::{JoltField, OptimizedMul}, poly::{
+    field::{JoltField, OptimizedMul},
+    poly::{
         commitment::commitment_scheme::CommitmentScheme,
         eq_poly::EqPolynomial,
         multilinear_polynomial::{
@@ -18,14 +26,19 @@ use jolt_core::{
         },
         opening_proof::{ProverOpeningAccumulator, VerifierOpeningAccumulator},
         unipoly::{CompressedUniPoly, UniPoly},
-    }, subprotocols::{ra_virtual::RASumcheck, sumcheck::{BatchableSumcheckInstance, SumcheckInstanceProof}}, utils::{
+    },
+    subprotocols::{
+        ra_virtual::RASumcheck,
+        sumcheck::{BatchableSumcheckInstance, SumcheckInstanceProof},
+    },
+    utils::{
         errors::ProofVerifyError,
         math::Math,
         thread::{drop_in_background_thread, unsafe_allocate_zero_vec},
         transcript::{AppendToTranscript, Transcript},
-    }
+    },
 };
-use onnx_tracer::{constants::MAX_TENSOR_SIZE, ProgramOutput};
+use onnx_tracer::{ProgramOutput, constants::MAX_TENSOR_SIZE};
 use rayon::prelude::*;
 
 #[derive(Debug, Clone)]
@@ -69,7 +82,7 @@ impl<F: JoltField, ProofTranscript: Transcript> TensorHeapTwistProof<F, ProofTra
         );
         // Cycle variables are bound from low to high
         r_cycle_prime.reverse();
-        
+
         let final_heap_state = project_heap_state(trace);
 
         let output_proof = OutputSumcheck::prove(
@@ -78,7 +91,7 @@ impl<F: JoltField, ProofTranscript: Transcript> TensorHeapTwistProof<F, ProofTra
             &r_address,
             transcript,
             program_output,
-            final_heap_state
+            final_heap_state,
         );
 
         TensorHeapTwistProof {
@@ -291,6 +304,3 @@ pub fn prove_val_evaluation<F: JoltField, ProofTranscript: Transcript>(
 
     (proof, r_cycle_prime)
 }
-
-
-
