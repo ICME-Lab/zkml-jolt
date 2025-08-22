@@ -24,8 +24,6 @@ use crate::jolt::{
 
 #[derive(Debug, Clone)]
 struct OutputSumcheckProverState<F: JoltField> {
-    // /// Val(k, 0)
-    // val_init: MultilinearPolynomial<F>,
     /// The MLE of the final heap state
     val_final: MultilinearPolynomial<F>,
     /// Val_output(k) = Val_final(k) if k is in the "output" region of memory,
@@ -80,7 +78,6 @@ impl<F: JoltField> OutputSumcheckProverState<F> {
 
 
         Self {
-            // val_init: initial_heap_state.into(),
             val_final: final_heap_state.into(),
             val_output: val_output.into(),
             eq_poly: EqPolynomial::evals(r_address).into(),
@@ -167,7 +164,6 @@ impl<F: JoltField> OutputSumcheck<F> {
         let mut val_final_sumcheck = ValFinalSumcheck {
             T,
             prover_state: Some(val_final_prover_state),
-            // val_init_eval: output_sumcheck_prover_state.val_init.final_sumcheck_claim(),
             val_final_claim: output_sumcheck.val_final_claim.unwrap(),
             output_claims: None,
         };
@@ -440,7 +436,7 @@ impl<F: JoltField, ProofTranscript: Transcript> BatchableSumcheckInstance<F, Pro
     }
 
     fn input_claim(&self) -> F {
-        self.val_final_claim // - self.val_init_eval
+        self.val_final_claim 
     }
 
     #[tracing::instrument(skip_all, name = "ValFinalSumcheck::compute_prover_message")]
