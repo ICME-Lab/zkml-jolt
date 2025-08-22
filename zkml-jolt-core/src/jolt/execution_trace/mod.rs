@@ -8,7 +8,7 @@ use crate::jolt::instruction::div::DIVInstruction;
 use crate::jolt::instruction::precompile::reduce_sum::ReduceSumInstruction;
 use crate::jolt::instruction::virtual_advice::ADVICEInstruction;
 use crate::jolt::instruction::virtual_const::ConstInstruction;
-use crate::utils::u64_vec_to_i128_iter;
+use crate::utils::u64_vec_to_i32_iter;
 use itertools::Itertools;
 use jolt_core::jolt::instruction::LookupQuery;
 use jolt_core::poly::one_hot_polynomial::OneHotPolynomial;
@@ -205,7 +205,7 @@ pub fn jolt_execution_trace(raw_trace: Vec<ONNXCycle>) -> ExecutionTrace {
                         let idx = vtr_index(td);
                         // store pre-state
                         cycle.memory_state.td_pre_val =
-                            Some(Tensor::from(u64_vec_to_i128_iter(&vtr[idx])));
+                            Some(Tensor::from(u64_vec_to_i32_iter(&vtr[idx])));
                         // sanity check
                         assert_eq!(cycle.td_pre_vals(), vtr[idx], "cycle: {cycle:#?}");
                         // update post-state

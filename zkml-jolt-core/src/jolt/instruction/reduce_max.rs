@@ -1,6 +1,6 @@
 use crate::{
     jolt::instruction::{VirtualInstructionSequence, ge::GEInstruction},
-    utils::u64_vec_to_i128_iter,
+    utils::u64_vec_to_i32_iter,
 };
 use jolt_core::jolt::instruction::LookupQuery;
 use onnx_tracer::{
@@ -16,11 +16,11 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for ReduceMaxInstruction
 
     fn virtual_trace(cycle: ONNXCycle) -> Vec<ONNXCycle> {
         assert_eq!(cycle.instr.opcode, ONNXOpcode::ReduceMax);
-        let zero_tensor = || Tensor::from((0..MAX_TENSOR_SIZE).map(|_| 0i128));
+        let zero_tensor = || Tensor::from((0..MAX_TENSOR_SIZE).map(|_| 0i32));
         let scalar_tensor = |scalar: u64| {
             let mut value = vec![0; MAX_TENSOR_SIZE];
             value[0] = scalar;
-            Some(Tensor::from(u64_vec_to_i128_iter(&value)))
+            Some(Tensor::from(u64_vec_to_i32_iter(&value)))
         };
 
         // Get the active output elements from the input tensor (ts1)
@@ -35,7 +35,7 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for ReduceMaxInstruction
         let gathered_ts1 = (0..MAX_TENSOR_SIZE)
             .map(|i| {
                 let mut tensor = zero_tensor();
-                tensor[0] = cycle.ts1_vals()[i] as u32 as i32 as i64 as i128;
+                tensor[0] = cycle.ts1_vals()[i] as u32 as i32;
                 tensor
             })
             .collect::<Vec<_>>();
@@ -44,7 +44,7 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for ReduceMaxInstruction
         let indices = (0..MAX_TENSOR_SIZE)
             .map(|i| {
                 let mut tensor = zero_tensor();
-                tensor[0] = i as i128;
+                tensor[0] = i as u32 as i32;
                 tensor
             })
             .collect::<Vec<_>>();
@@ -53,7 +53,7 @@ impl<const WORD_SIZE: usize> VirtualInstructionSequence for ReduceMaxInstruction
         let validity_masks = (0..MAX_TENSOR_SIZE)
             .map(|i| {
                 let mut tensor = zero_tensor();
-                tensor[0] = if i < active_elements { 1i128 } else { 0i128 };
+                tensor[0] = if i < active_elements { 1 } else { 0 };
                 tensor
             })
             .collect::<Vec<_>>();
@@ -380,11 +380,11 @@ mod test {
                     active_output_elements: 1,
                 },
                 memory_state: MemoryState {
-                    ts1_val: Some(Tensor::from(u64_vec_to_i128_iter(&input))),
+                    ts1_val: Some(Tensor::from(u64_vec_to_i32_iter(&input))),
                     ts2_val: None,
                     ts3_val: None,
                     td_pre_val: None,
-                    td_post_val: Some(Tensor::from(u64_vec_to_i128_iter(&expected_output))),
+                    td_post_val: Some(Tensor::from(u64_vec_to_i32_iter(&expected_output))),
                 },
                 advice_value: None,
             };

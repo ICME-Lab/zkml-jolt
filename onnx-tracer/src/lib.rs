@@ -106,12 +106,12 @@ pub fn decode_model(model: Model) -> Vec<ONNXInstr> {
 /// An execution trace is, a step-by-step record of what the VM did over the course of its execution.
 /// Roughly speaking, the trace describes just the changes to virtual machine state at each step of its execution (this includes read operations).
 /// These state transitions are later checked & verified in the Jolt proof system, ensuring the prover possesses a valid execution trace for the given model and input.
-pub fn trace(model_path: &PathBuf, input: &Tensor<i128>) -> (Vec<ONNXCycle>, ProgramOutput) {
+pub fn trace(model_path: &PathBuf, input: &Tensor<i32>) -> (Vec<ONNXCycle>, ProgramOutput) {
     execution_trace(model(model_path), input)
 }
 
 /// Given a model and input extract the execution trace
-pub fn execution_trace(model: Model, input: &Tensor<i128>) -> (Vec<ONNXCycle>, ProgramOutput) {
+pub fn execution_trace(model: Model, input: &Tensor<i32>) -> (Vec<ONNXCycle>, ProgramOutput) {
     // Run the model with the provided inputs.
     // The internal model tracer will automatically capture the execution trace during the forward pass
     let forward_result = model
