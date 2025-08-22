@@ -6,6 +6,7 @@ pub mod beq;
 pub mod div;
 pub mod ge;
 pub mod mul;
+pub mod rebase_scale;
 pub mod reduce_max;
 pub mod sub;
 pub mod virtual_advice;
