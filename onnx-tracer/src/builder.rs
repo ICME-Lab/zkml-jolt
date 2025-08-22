@@ -49,7 +49,6 @@ impl ModelBuilder {
         (id, O)
     }
 
-    // TODO(AntoineF4C5): generic quantization
     fn const_tensor(
         &mut self,
         tensor: Tensor<i32>,
@@ -63,7 +62,6 @@ impl ModelBuilder {
         (id, O)
     }
 
-    // TODO(AntoineF4C5): generic quantization
     fn poly(
         &mut self,
         op: PolyOp<i32>,
@@ -190,7 +188,6 @@ impl ModelBuilder {
         (id, O)
     }
 
-    // TODO(AntoineF4C5): generic quantization
     fn const_tensor_with_scale(
         &mut self,
         tensor: Tensor<i32>,
