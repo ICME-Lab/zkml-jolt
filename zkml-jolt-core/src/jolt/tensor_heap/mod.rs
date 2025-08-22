@@ -10,14 +10,14 @@ pub mod read_write_check;
 use crate::jolt::execution_trace::sanity_check_mcc;
 use crate::jolt::{
     JoltProverPreprocessing,
-    execution_trace::{CommittedPolynomials, JoltONNXCycle, project_heap_state},
+    execution_trace::{JoltONNXCycle, project_heap_state},
     tensor_heap::{
         output_check::{OutputProof, OutputSumcheck},
         read_write_check::ReadWriteCheckingProof,
     },
 };
 use jolt_core::{
-    field::{JoltField, OptimizedMul},
+    field::JoltField,
     poly::{
         commitment::commitment_scheme::CommitmentScheme,
         eq_poly::EqPolynomial,
@@ -27,10 +27,7 @@ use jolt_core::{
         opening_proof::{ProverOpeningAccumulator, VerifierOpeningAccumulator},
         unipoly::{CompressedUniPoly, UniPoly},
     },
-    subprotocols::{
-        ra_virtual::RASumcheck,
-        sumcheck::{BatchableSumcheckInstance, SumcheckInstanceProof},
-    },
+    subprotocols::sumcheck::SumcheckInstanceProof,
     utils::{
         errors::ProofVerifyError,
         math::Math,

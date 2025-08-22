@@ -16,7 +16,7 @@ use jolt_core::{
     utils::{
         errors::ProofVerifyError,
         math::Math,
-        thread::{drop_in_background_thread, unsafe_allocate_zero_vec},
+        thread::drop_in_background_thread,
         transcript::Transcript,
     },
 };
@@ -25,7 +25,7 @@ use rayon::prelude::*;
 
 use crate::jolt::{
     JoltProverPreprocessing,
-    execution_trace::{CommittedPolynomials, JoltONNXCycle, WitnessGenerator, project_heap_state},
+    execution_trace::{CommittedPolynomials, JoltONNXCycle, WitnessGenerator},
 };
 
 #[derive(Debug, Clone)]
@@ -126,7 +126,6 @@ pub struct OutputProof<F: JoltField, ProofTranscript: Transcript> {
 #[derive(Debug, Clone)]
 pub struct OutputSumcheck<F: JoltField> {
     K: usize,
-    T: usize,
     verifier_state: Option<OutputSumcheckVerifierState<F>>,
     prover_state: Option<OutputSumcheckProverState<F>>,
     /// Claimed evaluation Val_final(r_address) output by `OutputSumcheck`,
@@ -151,7 +150,6 @@ impl<F: JoltField> OutputSumcheck<F> {
             OutputSumcheckProverState::initialize(final_heap_state, r_address, program_output);
         let mut output_sumcheck = OutputSumcheck {
             K,
-            T,
             verifier_state: None,
             prover_state: Some(output_sumcheck_prover_state),
             val_final_claim: None,
@@ -194,16 +192,13 @@ impl<F: JoltField> OutputSumcheck<F> {
         program_output: ProgramOutput,
     ) -> Result<(), ProofVerifyError> {
         let K = r_address.len().pow2();
-        let output_sumcheck_verifier_state = OutputSumcheckVerifierState {
-            r_address: r_address.to_vec(),
-            // TODO: Maybe convert to fields earlier
-            // output_vals: program_io.outputs.into_iter().map(|v| F::from_u64(v as u64)).collect(),
-            program_output: program_output.clone(),
-        };
-
+        let output_sumcheck_verifier_state = OutputSumcheckVerifierState::initialize(
+            r_address,
+            &program_output,
+        ); 
+        
         let output_sumcheck = OutputSumcheck {
             K,
-            T: T * MAX_TENSOR_SIZE,
             verifier_state: Some(output_sumcheck_verifier_state),
             prover_state: None,
             val_final_claim: Some(proof.val_final_claim),
@@ -213,9 +208,8 @@ impl<F: JoltField> OutputSumcheck<F> {
             output_sumcheck.verify_single(&proof.output_sumcheck_proof, transcript)?;
 
         let val_final_sumcheck = ValFinalSumcheck {
-            T, // * MAX_TENSOR_SIZE,
+            T, 
             prover_state: None,
-            // val_init_eval: val_init.evaluate(&r_address_prime),
             val_final_claim: output_sumcheck.val_final_claim.unwrap(),
             output_claims: Some(proof.output_claims.clone()),
         };
@@ -234,7 +228,6 @@ impl<F: JoltField, ProofTranscript: Transcript> BatchableSumcheckInstance<F, Pro
     }
 
     fn num_rounds(&self) -> usize {
-        // println!("OutputSumcheck Num rounds: {:?}", self.K.log_2());
         self.K.log_2()
     }
 
@@ -315,12 +308,9 @@ impl<F: JoltField, ProofTranscript: Transcript> BatchableSumcheckInstance<F, Pro
         } = self.verifier_state.as_ref().unwrap();
 
         let tensor_addresses = get_tensor_addresses(program_output.output_address);
-        println!("Tensor addresses: {:?}", tensor_addresses);
 
         let output_start = tensor_addresses[0];
         let output_end = *tensor_addresses.last().unwrap();
-        println!("Output start: {:?}", output_start);
-        println!("Output end: {:?}", output_end);
 
         let val_final_claim = self.val_final_claim.as_ref().unwrap();
 

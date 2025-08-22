@@ -779,6 +779,7 @@ mod e2e_tests {
 
         let (raw_trace, program_io) = sentiment_select.trace();
         info!("Raw trace: {raw_trace:#?}");
+        info!("Program IO: {program_io:#?}");
     }
 
     #[ignore]

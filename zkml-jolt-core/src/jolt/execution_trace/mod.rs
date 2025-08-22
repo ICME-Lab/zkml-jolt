@@ -22,7 +22,7 @@ use jolt_core::{
 };
 
 use onnx_tracer::constants::{
-    MAX_TENSOR_SIZE, TENSOR_REGISTER_COUNT, TEST_TENSOR_REGISTER_COUNT,
+    MAX_TENSOR_SIZE, TEST_TENSOR_REGISTER_COUNT,
     VIRTUAL_TENSOR_REGISTER_COUNT,
 };
 use onnx_tracer::tensor::Tensor;
@@ -537,7 +537,6 @@ impl WitnessGenerator for CommittedPolynomials {
 
             CommittedPolynomials::TdInc => {
                 let coeffs: Vec<i64> = trace.par_iter().flat_map(|cycle| cycle.td_inc()).collect();
-                println!("Coefficients length: {:?}", coeffs.len());
                 coeffs.into()
             }
 
