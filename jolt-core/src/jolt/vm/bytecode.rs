@@ -546,22 +546,22 @@ struct BooleanityVerifierState<F: JoltField> {
 
 pub struct BooleanitySumcheck<F: JoltField> {
     /// Input claim: always F::zero() for booleanity
-    pub input_claim: F,
+    input_claim: F,
     /// K value shared by prover and verifier
-    pub K: usize,
+    K: usize,
     /// T value shared by prover and verifier
-    pub T: usize,
+    T: usize,
     /// Prover state
-    pub prover_state: Option<BooleanityProverState<F>>,
+    prover_state: Option<BooleanityProverState<F>>,
     /// Verifier state
-    pub verifier_state: Option<BooleanityVerifierState<F>>,
+    verifier_state: Option<BooleanityVerifierState<F>>,
     /// Cached ra claim after sumcheck completes
-    pub ra_claim_prime: Option<F>,
+    ra_claim_prime: Option<F>,
     /// Current round
-    pub current_round: usize,
+    current_round: usize,
     /// Store preprocessing and trace for phase transition
-    pub preprocessing: Option<Arc<BytecodePreprocessing>>,
-    pub trace: Option<Arc<[RV32IMCycle]>>,
+    preprocessing: Option<Arc<BytecodePreprocessing>>,
+    trace: Option<Arc<[RV32IMCycle]>>,
 }
 
 impl<F: JoltField> BooleanitySumcheck<F> {

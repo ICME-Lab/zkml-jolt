@@ -137,16 +137,8 @@ impl<F: JoltField, ProofTranscript: Transcript> TensorHeapTwistProof<F, ProofTra
             "Val evaluation sumcheck failed"
         );
 
-        // TODO: Append Inc claim to opening proof accumulator
-        // let initial_memory_state = vec![F::zero(); self.K];
-
-        // let val_init: MultilinearPolynomial<F> = MultilinearPolynomial::from(initial_memory_state);
-        let (r_address_prime, _r_cycle_prime) = r_address.split_at(log_K);
-        let r_address_prime = r_address_prime.iter().copied().rev().collect::<Vec<_>>();
-
         OutputSumcheck::verify(
-            // val_init,
-            &r_address_prime,
+            &r_address,
             T,
             &self.output_proof,
             transcript,
