@@ -69,6 +69,8 @@ impl<F: JoltField, ProofTranscript: Transcript> TensorHeapTwistProof<F, ProofTra
         );
         // Cycle variables are bound from low to high
         r_cycle_prime.reverse();
+        
+        let final_heap_state = project_heap_state(trace);
 
         let output_proof = OutputSumcheck::prove(
             preprocessing,
@@ -76,6 +78,7 @@ impl<F: JoltField, ProofTranscript: Transcript> TensorHeapTwistProof<F, ProofTra
             &r_address,
             transcript,
             program_output,
+            final_heap_state
         );
 
         TensorHeapTwistProof {

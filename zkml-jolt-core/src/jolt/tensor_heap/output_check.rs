@@ -142,8 +142,8 @@ impl<F: JoltField> OutputSumcheck<F> {
         r_address: &[F],
         transcript: &mut ProofTranscript,
         program_output: &ProgramOutput,
+        final_heap_state: Vec<u32>,
     ) -> OutputProof<F, ProofTranscript> {
-        let final_heap_state = project_heap_state(trace);
         let K = final_heap_state.len();
         let T = trace.len() * MAX_TENSOR_SIZE;
 
