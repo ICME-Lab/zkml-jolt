@@ -41,9 +41,9 @@
 
 use crate::{
     constants::BYTECODE_PREPEND_NOOP,
-    graph::model::{Model, NodeType},
+    graph::model::{ForwardResult, Model, NodeType},
     tensor::Tensor,
-    trace_types::{ONNXCycle, ONNXInstr},
+    trace_types::{normalize, ONNXCycle, ONNXInstr},
 };
 use clap::Args;
 use serde::{Deserialize, Serialize};
@@ -65,8 +65,21 @@ pub mod trace_types;
 
 #[derive(Debug, Clone)]
 pub struct ProgramOutput {
-    pub outputs: Vec<i128>,
+    pub outputs: Vec<u64>,
     pub output_address: usize,
+}
+
+impl ProgramOutput {
+    pub fn new(res: ForwardResult, output_address: usize) -> Self {
+        let outputs = res.outputs;
+        assert!(outputs.len() == 1);
+        let output = outputs[0].clone();
+        let vals: Vec<u64> = output.inner.iter().map(normalize).collect();
+        ProgramOutput {
+            outputs: vals,
+            output_address,
+        }
+    }
 }
 
 
@@ -106,12 +119,8 @@ pub fn execution_trace(model: Model, input: &Tensor<i128>) -> (Vec<ONNXCycle>, P
         .forward(&[input.clone()])
         .expect("Failed to run model");
     let execution_trace = model.tracer.execution_trace.borrow().clone();
-
-    let outputs = execution_trace.last().unwrap().memory_state.td_post_val.as_ref().unwrap().clone();
     let output_address = execution_trace.last().unwrap().instr.td.unwrap();
-
-    assert_eq!(forward_result.outputs[0], outputs);
-    (execution_trace, ProgramOutput { outputs: outputs.inner, output_address })
+    (execution_trace, ProgramOutput::new(forward_result, output_address))
 }
 
 /// Given a file path, load the ONNX model and return a [`Model`].

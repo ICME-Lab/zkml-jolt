@@ -344,7 +344,7 @@ pub fn get_tensor_addresses(t: usize) -> Vec<usize> {
 /// # Panics
 /// Panics if the value's absolute value exceeds `i128::from(u32::MAX)`.
 /// This is to ensure that the immediate value can be safely normalized to u32 and then store in 64 bits.
-fn normalize(value: &i128) -> u64 {
+pub fn normalize(value: &i128) -> u64 {
     // TODO: Temp assert. We will remove this when we migrate runtime to 32-bit quant strat.
     assert!(
         value.abs() <= i128::from(u32::MAX),

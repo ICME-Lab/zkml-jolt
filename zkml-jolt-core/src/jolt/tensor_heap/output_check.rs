@@ -195,9 +195,6 @@ impl<F: JoltField> OutputSumcheck<F> {
         program_output: ProgramOutput,
     ) -> Result<(), ProofVerifyError> {
         let K = r_address.len().pow2();
-        let output_vals =[210, 820, 1830, 3240, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0].to_vec();
-
-        println!("Output vals: {:?}", output_vals.len());
         let output_sumcheck_verifier_state = OutputSumcheckVerifierState {
             r_address: r_address.to_vec(),
             // TODO: Maybe convert to fields earlier
@@ -338,7 +335,7 @@ impl<F: JoltField, ProofTranscript: Transcript> BatchableSumcheckInstance<F, Pro
         val_output[output_start..output_end]
             .par_iter_mut()
             .zip(program_output.outputs.par_iter())
-            .for_each(|(dest, src)| *dest = F::from_i128(*src));
+            .for_each(|(dest, src)| *dest = F::from_u64(*src));
 
         let val_output = MultilinearPolynomial::from(val_output);
 
