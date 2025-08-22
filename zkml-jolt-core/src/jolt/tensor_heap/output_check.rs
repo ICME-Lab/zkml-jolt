@@ -331,39 +331,27 @@ impl<F: JoltField, ProofTranscript: Transcript> BatchableSumcheckInstance<F, Pro
 
         let r_address_prime = &r[..r_address.len()];
 
-        // TODO: Choose output addresses
-        let output_mask = RangeMaskPolynomial::new(
-            // (self.K - 1) as u64,
-            // self.K as u64,
+        let output_range = RangeMaskPolynomial::new(
             output_start as u64,
             output_end as u64
         );
 
-        let output_vals: Vec<_> = program_output.outputs.iter().map(|v| F::from_i128(*v)).collect();
-        let padded_output_vals = vec![F::zero(); self.K - output_vals.len()];
-        let extended_output_vals = [output_vals.clone(), padded_output_vals].concat();
+        let mut val_output = vec![F::zero(); self.K];
+        val_output[output_start..output_end]
+            .par_iter_mut()
+            .zip(program_output.outputs.par_iter())
+            .for_each(|(dest, src)| *dest = F::from_i128(*src));
 
-        let val_output = MultilinearPolynomial::from(extended_output_vals);
+        let val_output = MultilinearPolynomial::from(val_output);
 
         let eq_eval = EqPolynomial::mle(r_address, r_address_prime);
-        let output_mask_eval = output_mask.evaluate_mle(r_address_prime);
+        let output_range_eval = output_range.evaluate_mle(r_address_prime);
         let val_output_eval = val_output.evaluate(r_address_prime);
 
-        println!("K: {:?}", self.K);
-        println!("r_address: {:?}", r_address.len());
-        println!("r_address_prime: {:?}", r_address_prime.len());
-        // println!("output_vals: {:?}", output_vals.len());
-        println!("Eq eval: {:?}", eq_eval);
-        println!("Output mask eval: {:?}", output_mask_eval);
-        println!("Val output eval: {:?}", *val_final_claim - val_output_eval);
-
-        println!("Output claim: {:?}", eq_eval * output_mask_eval * (*val_final_claim - val_output_eval));
         // Recall that the sumcheck expression is:
-        //   0 = \sum_k eq(r_address, k) * io_range(k) * (Val_final(k) - Val_io(k))
-        // let result = eq_eval * output_mask_eval * (*val_final_claim - val_output_eval);
-        // assert_eq!(result, F::zero());
-        // result
-        F::zero()
+        //   0 = \sum_k eq(r_address, k) * output_range(k) * (Val_final(k) - Val_output(k))
+        let result = eq_eval * output_range_eval * (*val_final_claim - val_output_eval);
+        result
     }
 }
 
@@ -458,8 +446,6 @@ impl<F: JoltField, ProofTranscript: Transcript> BatchableSumcheckInstance<F, Pro
     }
 
     fn num_rounds(&self) -> usize {
-        // println!("T: {:?}", self.T);
-        // println!("ValFinalSumcheck Num rounds: {:?}", (self.T).log_2());
         self.T.log_2() 
     }
 
