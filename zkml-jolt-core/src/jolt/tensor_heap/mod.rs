@@ -25,7 +25,7 @@ use jolt_core::{
         transcript::{AppendToTranscript, Transcript},
     }
 };
-use onnx_tracer::{constants::MAX_TENSOR_SIZE, ProgramIO};
+use onnx_tracer::{constants::MAX_TENSOR_SIZE, ProgramOutput};
 use rayon::prelude::*;
 
 #[derive(Debug, Clone)]
@@ -48,6 +48,7 @@ impl<F: JoltField, ProofTranscript: Transcript> TensorHeapTwistProof<F, ProofTra
         K: usize,
         _opening_accumulator: &mut ProverOpeningAccumulator<F, PCS, ProofTranscript>,
         transcript: &mut ProofTranscript,
+        program_output: &ProgramOutput,
     ) -> TensorHeapTwistProof<F, ProofTranscript> {
         #[cfg(test)]
         sanity_check_mcc(trace);
@@ -76,6 +77,7 @@ impl<F: JoltField, ProofTranscript: Transcript> TensorHeapTwistProof<F, ProofTra
             final_heap_state,
             &r_address,
             transcript,
+            program_output,
         );
 
         TensorHeapTwistProof {
@@ -92,7 +94,7 @@ impl<F: JoltField, ProofTranscript: Transcript> TensorHeapTwistProof<F, ProofTra
         T: usize,
         _opening_accumulator: &mut VerifierOpeningAccumulator<F, PCS, ProofTranscript>,
         transcript: &mut ProofTranscript,
-        program_io: ProgramIO,
+        program_output: ProgramOutput,
     ) -> Result<(), ProofVerifyError> {
         let log_K = self.K.log_2();
         let log_T = T.log_2();
@@ -135,19 +137,19 @@ impl<F: JoltField, ProofTranscript: Transcript> TensorHeapTwistProof<F, ProofTra
         );
 
         // TODO: Append Inc claim to opening proof accumulator
-        let initial_memory_state = vec![F::zero(); self.K];
+        // let initial_memory_state = vec![F::zero(); self.K];
 
-        let val_init: MultilinearPolynomial<F> = MultilinearPolynomial::from(initial_memory_state);
+        // let val_init: MultilinearPolynomial<F> = MultilinearPolynomial::from(initial_memory_state);
         let (r_address_prime, _r_cycle_prime) = r_address.split_at(log_K);
         let r_address_prime = r_address_prime.iter().copied().rev().collect::<Vec<_>>();
 
         OutputSumcheck::verify(
-            val_init,
+            // val_init,
             &r_address_prime,
             T,
             &self.output_proof,
             transcript,
-            program_io,
+            program_output,
         )?;
         Ok(())
     }

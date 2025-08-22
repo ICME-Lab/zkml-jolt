@@ -27,7 +27,7 @@ use jolt_core::{
 };
 use onnx_tracer::{
     constants::MAX_TENSOR_SIZE,
-    trace_types::{ONNXInstr, ONNXOpcode}, ProgramIO,
+    trace_types::{ONNXInstr, ONNXOpcode}, ProgramOutput,
 };
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
@@ -129,6 +129,7 @@ where
     pub fn prove(
         mut preprocessing: JoltProverPreprocessing<F, PCS, ProofTranscript>,
         mut trace: Vec<JoltONNXCycle>,
+        program_output: &ProgramOutput,
     ) -> Self {
         let trace_length = trace.len();
         println!("Trace length: {trace_length}");
@@ -205,6 +206,7 @@ where
             tensor_heap_K,
             &mut opening_accumulator,
             &mut transcript,
+            program_output,
         );
         JoltSNARK {
             trace_length,
@@ -220,7 +222,7 @@ where
     pub fn verify(
         &self,
         preprocessing: JoltVerifierPreprocessing<F, PCS, ProofTranscript>,
-        program_io: ProgramIO,
+        program_output: ProgramOutput,
     ) -> Result<(), ProofVerifyError> {
         let mut transcript = ProofTranscript::new(b"Jolt transcript");
         let mut opening_accumulator: VerifierOpeningAccumulator<F, PCS, ProofTranscript> =
@@ -245,7 +247,7 @@ where
             padded_trace_length * MAX_TENSOR_SIZE,
             &mut opening_accumulator,
             &mut transcript,
-            program_io,
+            program_output,
         )?;
         Ok(())
     }
@@ -296,7 +298,7 @@ mod e2e_tests {
         );
         let execution_trace = jolt_execution_trace(raw_trace);
         let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
-            JoltSNARK::prove(pp.clone(), execution_trace);
+            JoltSNARK::prove(pp.clone(), execution_trace, &program_io);
 
         // --- Verify ---
         snark.verify((&pp).into(), program_io).unwrap();
@@ -429,7 +431,7 @@ mod e2e_tests {
         debug!("Execution trace: {execution_trace:#?}");
         debug!("Execution trace length: {}", execution_trace.len());
         let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
-            JoltSNARK::prove(pp.clone(), execution_trace);
+            JoltSNARK::prove(pp.clone(), execution_trace, &program_io);
 
         // --- Verify ---
         snark.verify((&pp).into(), program_io).unwrap();
@@ -458,7 +460,7 @@ mod e2e_tests {
         let execution_trace = jolt_execution_trace(raw_trace);
         debug!("Execution trace: {execution_trace:#?}");
         let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
-            JoltSNARK::prove(pp.clone(), execution_trace);
+            JoltSNARK::prove(pp.clone(), execution_trace, &program_io);
         // --- Verify ---
         snark.verify((&pp).into(), program_io).unwrap();
     }
@@ -480,7 +482,7 @@ mod e2e_tests {
         debug!("raw trace: {raw_trace:#?}");
         let execution_trace = jolt_execution_trace(raw_trace);
         let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
-            JoltSNARK::prove(pp.clone(), execution_trace);
+            JoltSNARK::prove(pp.clone(), execution_trace, &program_io);
 
         // --- Verification ---
         snark.verify((&pp).into(), program_io).unwrap();
@@ -502,7 +504,7 @@ mod e2e_tests {
         let (raw_trace, program_io) = onnx_tracer::execution_trace(custom_addsubmul_model, &input);
         let execution_trace = jolt_execution_trace(raw_trace);
         let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
-            JoltSNARK::prove(pp.clone(), execution_trace);
+            JoltSNARK::prove(pp.clone(), execution_trace, &program_io);
 
         // --- Verification ---
         snark.verify((&pp).into(), program_io).unwrap();
@@ -523,7 +525,7 @@ mod e2e_tests {
         let (raw_trace, program_io) = onnx_tracer::execution_trace(custom_addsubmul_model, &input);
         let execution_trace = jolt_execution_trace(raw_trace);
         let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
-            JoltSNARK::prove(pp.clone(), execution_trace);
+            JoltSNARK::prove(pp.clone(), execution_trace, &program_io);
 
         // --- Verification ---
         snark.verify((&pp).into(), program_io).unwrap();
@@ -546,7 +548,7 @@ mod e2e_tests {
         let execution_trace = jolt_execution_trace(raw_trace);
         debug!("Execution trace: {execution_trace:#?}");
         let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
-            JoltSNARK::prove(pp.clone(), execution_trace);
+            JoltSNARK::prove(pp.clone(), execution_trace, &program_io);
 
         // --- Verification ---
         snark.verify((&pp).into(), program_io).unwrap();
@@ -569,7 +571,7 @@ mod e2e_tests {
         debug!("raw trace: {raw_trace:#?}");
         let execution_trace = jolt_execution_trace(raw_trace);
         let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
-            JoltSNARK::prove(pp.clone(), execution_trace);
+            JoltSNARK::prove(pp.clone(), execution_trace, &program_io);
 
         // --- Verification ---
         snark.verify((&pp).into(), program_io).unwrap();
@@ -592,7 +594,7 @@ mod e2e_tests {
         let execution_trace = jolt_execution_trace(raw_trace);
 
         let snark: JoltSNARK<Fr, PCS, KeccakTranscript> =
-            JoltSNARK::prove(pp.clone(), execution_trace);
+            JoltSNARK::prove(pp.clone(), execution_trace, &program_io);
 
         // --- Verification ---
         snark.verify((&pp).into(), program_io).unwrap();
