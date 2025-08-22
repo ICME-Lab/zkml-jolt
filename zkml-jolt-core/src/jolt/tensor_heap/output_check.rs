@@ -328,7 +328,7 @@ impl<F: JoltField, ProofTranscript: Transcript> BatchableSumcheckInstance<F, Pro
 
         // Recall that the sumcheck expression is:
         //   0 = \sum_k eq(r_address, k) * output_range(k) * (Val_final(k) - Val_output(k))
-        eq_eval * output_range_eval * (*val_final_claim - val_output_eval);
+        eq_eval * output_range_eval * (*val_final_claim - val_output_eval)
     }
 }
 
