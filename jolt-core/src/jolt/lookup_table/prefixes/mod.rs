@@ -1,5 +1,7 @@
 use crate::jolt::lookup_table::prefixes::left_shift::LeftShiftPrefix;
 use crate::jolt::lookup_table::prefixes::left_shift_helper::LeftShiftHelperPrefix;
+use crate::jolt::lookup_table::prefixes::lower_word_no_msb::LowerWordNoMsbPrefix;
+use crate::jolt::lookup_table::prefixes::msb::MsbPrefix;
 use crate::{field::JoltField, subprotocols::sparse_dense_shout::LookupBits};
 use lsb::LsbPrefix;
 use negative_divisor_equals_remainder::NegativeDivisorEqualsRemainderPrefix;
@@ -38,8 +40,10 @@ pub mod left_msb;
 pub mod left_shift;
 pub mod left_shift_helper;
 pub mod lower_word;
+pub mod lower_word_no_msb;
 pub mod lsb;
 pub mod lt;
+pub mod msb;
 pub mod negative_divisor_equals_remainder;
 pub mod negative_divisor_greater_than_remainder;
 pub mod negative_divisor_zero_remainder;
@@ -113,11 +117,13 @@ pub enum Prefixes {
     NegativeDivisorEqualsRemainder,
     NegativeDivisorGreaterThanRemainder,
     Lsb,
+    Msb,
     Pow2,
     RightShift,
     SignExtension,
     LeftShift,
     LeftShiftHelper,
+    LowerWordNoMsb,
 }
 
 #[derive(Clone, Copy)]
@@ -178,6 +184,9 @@ impl Prefixes {
             Prefixes::LowerWord => {
                 LowerWordPrefix::<WORD_SIZE>::prefix_mle(checkpoints, r_x, c, b, j)
             }
+            Prefixes::LowerWordNoMsb => {
+                LowerWordNoMsbPrefix::<WORD_SIZE>::prefix_mle(checkpoints, r_x, c, b, j)
+            }
             Prefixes::UpperWord => {
                 UpperWordPrefix::<WORD_SIZE>::prefix_mle(checkpoints, r_x, c, b, j)
             }
@@ -211,6 +220,7 @@ impl Prefixes {
                 NegativeDivisorGreaterThanRemainderPrefix::prefix_mle(checkpoints, r_x, c, b, j)
             }
             Prefixes::Lsb => LsbPrefix::<WORD_SIZE>::prefix_mle(checkpoints, r_x, c, b, j),
+            Prefixes::Msb => MsbPrefix::<WORD_SIZE>::prefix_mle(checkpoints, r_x, c, b, j),
             Prefixes::Pow2 => Pow2Prefix::<WORD_SIZE>::prefix_mle(checkpoints, r_x, c, b, j),
             Prefixes::RightShift => RightShiftPrefix::prefix_mle(checkpoints, r_x, c, b, j),
             Prefixes::SignExtension => {
@@ -269,6 +279,14 @@ impl Prefixes {
         match self {
             Prefixes::LowerWord => {
                 LowerWordPrefix::<WORD_SIZE>::update_prefix_checkpoint(checkpoints, r_x, r_y, j)
+            }
+            Prefixes::LowerWordNoMsb => {
+                LowerWordNoMsbPrefix::<WORD_SIZE>::update_prefix_checkpoint(
+                    checkpoints,
+                    r_x,
+                    r_y,
+                    j,
+                )
             }
             Prefixes::UpperWord => {
                 UpperWordPrefix::<WORD_SIZE>::update_prefix_checkpoint(checkpoints, r_x, r_y, j)
@@ -343,6 +361,9 @@ impl Prefixes {
             }
             Prefixes::Lsb => {
                 LsbPrefix::<WORD_SIZE>::update_prefix_checkpoint(checkpoints, r_x, r_y, j)
+            }
+            Prefixes::Msb => {
+                MsbPrefix::<WORD_SIZE>::update_prefix_checkpoint(checkpoints, r_x, r_y, j)
             }
             Prefixes::Pow2 => {
                 Pow2Prefix::<WORD_SIZE>::update_prefix_checkpoint(checkpoints, r_x, r_y, j)

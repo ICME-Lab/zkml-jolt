@@ -1,4 +1,6 @@
 use crate::jolt::lookup_table::suffixes::left_shift::LeftShiftSuffix;
+use crate::jolt::lookup_table::suffixes::lower_word_no_msb::LowerWordNoMsbSuffix;
+use crate::jolt::lookup_table::suffixes::right_msb::RightMSB;
 use crate::{field::JoltField, subprotocols::sparse_dense_shout::LookupBits};
 use div_by_zero::DivByZeroSuffix;
 use eq::EqSuffix;
@@ -29,12 +31,14 @@ pub mod gt;
 pub mod left_is_zero;
 pub mod left_shift;
 pub mod lower_word;
+pub mod lower_word_no_msb;
 pub mod lsb;
 pub mod lt;
 pub mod one;
 pub mod or;
 pub mod pow2;
 pub mod right_is_zero;
+pub mod right_msb;
 pub mod right_shift;
 pub mod right_shift_helper;
 pub mod right_shift_padding;
@@ -71,6 +75,8 @@ pub enum Suffixes {
     RightShiftHelper,
     SignExtension,
     LeftShift,
+    RightMSB,
+    LowerWordNoMsb,
 }
 
 pub type SuffixEval<F: JoltField> = F;
@@ -99,6 +105,8 @@ impl Suffixes {
             Suffixes::RightShiftHelper => RightShiftHelperSuffix::suffix_mle(b),
             Suffixes::SignExtension => SignExtensionSuffix::<WORD_SIZE>::suffix_mle(b),
             Suffixes::LeftShift => LeftShiftSuffix::suffix_mle(b),
+            Suffixes::RightMSB => RightMSB::<WORD_SIZE>::suffix_mle(b),
+            Suffixes::LowerWordNoMsb => LowerWordNoMsbSuffix::<WORD_SIZE>::suffix_mle(b),
         }
     }
 }

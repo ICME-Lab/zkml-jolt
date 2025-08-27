@@ -27,7 +27,7 @@ use virtual_sra::VirtualSRATable;
 use virtual_srl::VirtualSRLTable;
 use xor::XorTable;
 
-use crate::field::JoltField;
+use crate::{field::JoltField, jolt::lookup_table::relu::ReLUTable};
 use derive_more::From;
 use std::fmt::Debug;
 
@@ -66,6 +66,7 @@ pub mod not_equal;
 pub mod or;
 pub mod pow2;
 pub mod range_check;
+pub mod relu;
 pub mod shift_right_bitmask;
 pub mod signed_greater_than_equal;
 pub mod signed_less_than;
@@ -110,6 +111,7 @@ pub enum LookupTables<const WORD_SIZE: usize> {
     VirtualSRL(VirtualSRLTable<WORD_SIZE>),
     VirtualSRA(VirtualSRATable<WORD_SIZE>),
     VirtualROTRI(VirtualRotrTable<WORD_SIZE>),
+    ReLU(ReLUTable<WORD_SIZE>),
 }
 
 impl<const WORD_SIZE: usize> LookupTables<WORD_SIZE> {
@@ -144,6 +146,7 @@ impl<const WORD_SIZE: usize> LookupTables<WORD_SIZE> {
             LookupTables::VirtualSRL(table) => table.materialize(),
             LookupTables::VirtualSRA(table) => table.materialize(),
             LookupTables::VirtualROTRI(table) => table.materialize(),
+            LookupTables::ReLU(table) => table.materialize(),
         }
     }
 
@@ -171,6 +174,7 @@ impl<const WORD_SIZE: usize> LookupTables<WORD_SIZE> {
             LookupTables::VirtualSRL(table) => table.materialize_entry(index),
             LookupTables::VirtualSRA(table) => table.materialize_entry(index),
             LookupTables::VirtualROTRI(table) => table.materialize_entry(index),
+            LookupTables::ReLU(table) => table.materialize_entry(index),
         }
     }
 
@@ -198,6 +202,7 @@ impl<const WORD_SIZE: usize> LookupTables<WORD_SIZE> {
             LookupTables::VirtualSRL(table) => table.evaluate_mle(r),
             LookupTables::VirtualSRA(table) => table.evaluate_mle(r),
             LookupTables::VirtualROTRI(table) => table.evaluate_mle(r),
+            LookupTables::ReLU(table) => table.evaluate_mle(r),
         }
     }
 
@@ -225,6 +230,7 @@ impl<const WORD_SIZE: usize> LookupTables<WORD_SIZE> {
             LookupTables::VirtualSRL(table) => table.suffixes(),
             LookupTables::VirtualSRA(table) => table.suffixes(),
             LookupTables::VirtualROTRI(table) => table.suffixes(),
+            LookupTables::ReLU(table) => table.suffixes(),
         }
     }
 
@@ -256,6 +262,7 @@ impl<const WORD_SIZE: usize> LookupTables<WORD_SIZE> {
             LookupTables::VirtualSRL(table) => table.combine(prefixes, suffixes),
             LookupTables::VirtualSRA(table) => table.combine(prefixes, suffixes),
             LookupTables::VirtualROTRI(table) => table.combine(prefixes, suffixes),
+            LookupTables::ReLU(table) => table.combine(prefixes, suffixes),
         }
     }
 }
