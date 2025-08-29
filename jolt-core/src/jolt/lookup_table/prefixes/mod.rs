@@ -120,7 +120,7 @@ pub enum Prefixes {
     LeftShiftHelper,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct PrefixEval<F>(F);
 pub type PrefixCheckpoint<F: JoltField> = PrefixEval<Option<F>>;
 

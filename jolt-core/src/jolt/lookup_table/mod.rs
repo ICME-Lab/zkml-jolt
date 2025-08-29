@@ -10,6 +10,7 @@ use prefixes::PrefixEval;
 use range_check::RangeCheckTable;
 use serde::{Deserialize, Serialize};
 use shift_right_bitmask::ShiftRightBitmaskTable;
+use sigmoid::SigmoidTable;
 use signed_greater_than_equal::SignedGreaterThanEqualTable;
 use signed_less_than::SignedLessThanTable;
 use std::marker::Sync;
@@ -67,6 +68,7 @@ pub mod or;
 pub mod pow2;
 pub mod range_check;
 pub mod shift_right_bitmask;
+pub mod sigmoid;
 pub mod signed_greater_than_equal;
 pub mod signed_less_than;
 pub mod sub;
@@ -110,6 +112,7 @@ pub enum LookupTables<const WORD_SIZE: usize> {
     VirtualSRL(VirtualSRLTable<WORD_SIZE>),
     VirtualSRA(VirtualSRATable<WORD_SIZE>),
     VirtualROTRI(VirtualRotrTable<WORD_SIZE>),
+    Sigmoid(SigmoidTable<WORD_SIZE>),
 }
 
 impl<const WORD_SIZE: usize> LookupTables<WORD_SIZE> {
@@ -144,6 +147,7 @@ impl<const WORD_SIZE: usize> LookupTables<WORD_SIZE> {
             LookupTables::VirtualSRL(table) => table.materialize(),
             LookupTables::VirtualSRA(table) => table.materialize(),
             LookupTables::VirtualROTRI(table) => table.materialize(),
+            LookupTables::Sigmoid(table) => table.materialize(),
         }
     }
 
@@ -171,6 +175,7 @@ impl<const WORD_SIZE: usize> LookupTables<WORD_SIZE> {
             LookupTables::VirtualSRL(table) => table.materialize_entry(index),
             LookupTables::VirtualSRA(table) => table.materialize_entry(index),
             LookupTables::VirtualROTRI(table) => table.materialize_entry(index),
+            LookupTables::Sigmoid(table) => table.materialize_entry(index),
         }
     }
 
@@ -198,6 +203,7 @@ impl<const WORD_SIZE: usize> LookupTables<WORD_SIZE> {
             LookupTables::VirtualSRL(table) => table.evaluate_mle(r),
             LookupTables::VirtualSRA(table) => table.evaluate_mle(r),
             LookupTables::VirtualROTRI(table) => table.evaluate_mle(r),
+            LookupTables::Sigmoid(table) => table.evaluate_mle(r),
         }
     }
 
@@ -225,6 +231,7 @@ impl<const WORD_SIZE: usize> LookupTables<WORD_SIZE> {
             LookupTables::VirtualSRL(table) => table.suffixes(),
             LookupTables::VirtualSRA(table) => table.suffixes(),
             LookupTables::VirtualROTRI(table) => table.suffixes(),
+            LookupTables::Sigmoid(table) => table.suffixes(),
         }
     }
 
@@ -256,6 +263,7 @@ impl<const WORD_SIZE: usize> LookupTables<WORD_SIZE> {
             LookupTables::VirtualSRL(table) => table.combine(prefixes, suffixes),
             LookupTables::VirtualSRA(table) => table.combine(prefixes, suffixes),
             LookupTables::VirtualROTRI(table) => table.combine(prefixes, suffixes),
+            LookupTables::Sigmoid(table) => table.combine(prefixes, suffixes),
         }
     }
 }
