@@ -46,3 +46,20 @@ jobs:
       - name: Build Wasm
         working-directory: ./jolt-core
         run: cargo build --release --target wasm32-unknown-unknown
+  
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Cache Jolt RISC-V Rust toolchain
+        uses: actions/cache@v4
+        with:
+          key: jolt-rust-toolchain-${{hashFiles('guest-toolchain-tag')}}
+          path: ~/.jolt
+      - name: Install Jolt RISC-V Rust toolchain
+        run: cargo run install-toolchain
+      - name: Install nextest
+        uses: taiki-e/install-action@nextest
+      - name: Run jolt-core tests
+        run: cargo nextest run --release -p jolt-core
