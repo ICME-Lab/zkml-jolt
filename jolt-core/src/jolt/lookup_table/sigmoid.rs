@@ -1,3 +1,5 @@
+use std::f64::consts::E;
+
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
@@ -38,27 +40,48 @@ impl<const WORD_SIZE: usize> JoltLookupTable for SigmoidTable<WORD_SIZE> {
 
     fn evaluate_mle<F: JoltField>(&self, r: &[F]) -> F {
         debug_assert_eq!(r.len(), 2 * WORD_SIZE);
-        // TODO: We only need the first half (only one input to sigmoid)
-        // let r_prime = &r[..r.len() / 2];
-        let r_prime = r;
-        let len = 1 << r_prime.len();
-        let max = F::from_u8(SCALE as u8);
-        let zero = F::zero();
-        let mut f_eval = vec![max; len as usize / 2];
-        let f_eval_r = vec![zero; len as usize / 2];
-        f_eval.extend_from_slice(&f_eval_r);
-        for i in 0..LUT_SIZE / 2 {
-            f_eval[i] = F::from_u8(SIGMOID_SCALED_TABLE[i + LUT_SIZE / 2]);
-            f_eval[len as usize - i - 1] = F::from_u8(SIGMOID_SCALED_TABLE[LUT_SIZE / 2 - i - 1]);
+
+        let is_neg = r[WORD_SIZE];
+
+        let mut is_small = F::one();
+        // We only consider the first 4 bits of the input to sigmoid
+        for i in 0..WORD_SIZE - 1 - 4 {
+            is_small *= F::one() - r[WORD_SIZE - 1 - 4 - i];
         }
 
-        // TODO: EqPolynomial::evals(r) is too slow
-        let eq_evals = EqPolynomial::evals(r_prime);
-        f_eval
-            .iter()
-            .zip_eq(eq_evals.iter())
-            .map(|(x, e)| *x * e)
-            .sum()
+        let is_big = F::one();
+        for i in 0..WORD_SIZE - 1 - 4 {
+            is_big *= r[WORD_SIZE - 1 - 4 - i];
+        }
+
+        let mut index = F::zero();
+        for i in 0..4 {
+            index += F::from_u64(1 << i) * r[WORD_SIZE - 1 - i];
+        }
+
+        F::from_u8(SIGMOID_SCALED_TABLE[SIGMOID_SCALED_TABLE.len() / 2 - index as usize - 1]) * is_big * is_neg 
+        + F::from_u8(SIGMOID_SCALED_TABLE[index as usize]) * is_small * (F::one() - is_neg)
+        // // TODO: We only need the first half (only one input to sigmoid)
+        // // let r_prime = &r[..r.len() / 2];
+        // let r_prime = r;
+        // let len = 1 << r_prime.len();
+        // let max = F::from_u8(SCALE as u8);
+        // let zero = F::zero();
+        // let mut f_eval = vec![max; len as usize / 2];
+        // let f_eval_r = vec![zero; len as usize / 2];
+        // f_eval.extend_from_slice(&f_eval_r);
+        // for i in 0..LUT_SIZE / 2 {
+        //     f_eval[i] = F::from_u8(SIGMOID_SCALED_TABLE[i + LUT_SIZE / 2]);
+        //     f_eval[len as usize - i - 1] = F::from_u8(SIGMOID_SCALED_TABLE[LUT_SIZE / 2 - i - 1]);
+        // }
+
+        // // TODO: EqPolynomial::evals(r) is too slow
+        // let eq_evals = EqPolynomial::evals(r_prime);
+        // f_eval
+        //     .iter()
+        //     .zip_eq(eq_evals.iter())
+        //     .map(|(x, e)| *x * e)
+        //     .sum()
     }
 }
 

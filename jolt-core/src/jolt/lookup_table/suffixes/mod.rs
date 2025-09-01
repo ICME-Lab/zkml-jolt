@@ -1,4 +1,5 @@
 use crate::jolt::lookup_table::suffixes::left_shift::LeftShiftSuffix;
+use crate::jolt::lookup_table::suffixes::relu::ReluSuffix;
 use crate::{field::JoltField, subprotocols::sparse_dense_shout::LookupBits};
 use div_by_zero::DivByZeroSuffix;
 use eq::EqSuffix;
@@ -34,6 +35,7 @@ pub mod lt;
 pub mod one;
 pub mod or;
 pub mod pow2;
+pub mod relu;
 pub mod right_is_zero;
 pub mod right_shift;
 pub mod right_shift_helper;
@@ -71,6 +73,7 @@ pub enum Suffixes {
     RightShiftHelper,
     SignExtension,
     LeftShift,
+    Relu,
 }
 
 pub type SuffixEval<F: JoltField> = F;
@@ -99,6 +102,7 @@ impl Suffixes {
             Suffixes::RightShiftHelper => RightShiftHelperSuffix::suffix_mle(b),
             Suffixes::SignExtension => SignExtensionSuffix::<WORD_SIZE>::suffix_mle(b),
             Suffixes::LeftShift => LeftShiftSuffix::suffix_mle(b),
+            Suffixes::Relu => ReluSuffix::<WORD_SIZE>::suffix_mle(b),
         }
     }
 }
