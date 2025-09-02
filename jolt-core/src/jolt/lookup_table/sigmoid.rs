@@ -1,9 +1,5 @@
-use std::f64::consts::E;
-
-use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
-use crate::poly::eq_poly::EqPolynomial;
 use crate::jolt::lookup_table::prefixes::{PrefixEval, Prefixes};
 use crate::jolt::lookup_table::suffixes::{SuffixEval, Suffixes};
 use crate::jolt::lookup_table::JoltLookupTable;
@@ -25,7 +21,7 @@ pub const SIGMOID_SCALED_TABLE: [u8; LUT_SIZE] = [
 pub const APPROXIMATE_SIGMOID_SCALED_TABLE: [u8; LUT_SIZE] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2,
+    0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2,
     2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5,
     5, 5, 5, 5, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7,
     7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
@@ -37,14 +33,19 @@ pub struct SigmoidTable<const WORD_SIZE: usize>;
 
 impl<const WORD_SIZE: usize> JoltLookupTable for SigmoidTable<WORD_SIZE> {
     fn materialize_entry(&self, index: u64) -> u64 {
-        let max = 1 << WORD_SIZE;
-        let i = index % max;
+        let max = match WORD_SIZE {
+            8 => u16::MAX as u64,
+            16 => u32::MAX as u64,
+            32 => u64::MAX,
+            _ => panic!("{WORD_SIZE}-bit word size is unsupported"),
+        };
+        let i = index;
         if i < (LUT_SIZE / 2) as u64 {
             APPROXIMATE_SIGMOID_SCALED_TABLE[i as usize + LUT_SIZE / 2] as u64
         } else if i > max - (LUT_SIZE / 2) as u64 {
             let diff = max - i;
             APPROXIMATE_SIGMOID_SCALED_TABLE[(LUT_SIZE / 2 - diff as usize) - 1] as u64
-        } else if i < max / 2 {
+        } else if i <= max / 2 {
             SCALE as u64
         } else {
             0
@@ -53,7 +54,7 @@ impl<const WORD_SIZE: usize> JoltLookupTable for SigmoidTable<WORD_SIZE> {
 
     fn evaluate_mle<F: JoltField>(&self, r: &[F]) -> F {
         debug_assert_eq!(r.len(), 2 * WORD_SIZE);
-        println!("r = {:?}", r);
+        // println!("r = {:?}", r);
 
         let is_neg = r[0];
 
@@ -68,27 +69,20 @@ impl<const WORD_SIZE: usize> JoltLookupTable for SigmoidTable<WORD_SIZE> {
             is_big *= r[i];
         }
 
+        // 4 is the output of sigmoid when the input is 0
         let mut pos_value = F::from_u8(4);
         // The first two bits don't affect the result of sigmoid
-        // for i in 0..2 {
-        //     index += F::from_u64(1 << i) * r[WORD_SIZE - 1 - i];
-        // }
-
         for i in 2..4 {
             pos_value += r[2 * WORD_SIZE - 1 - i];
         }
 
-        let mut neg_value = F::from_u8(3);
-        for i in 2..4 {
-            neg_value -= r[2 * WORD_SIZE - 1 - i];
+        let mut neg_value = F::from_u8(0);
+        for i in 2..5 {
+            neg_value += r[2 * WORD_SIZE - 1 - i];
         }
 
-        // println!("neg_value = {:?}", neg_value);
-        // println!("pos_value = {:?}", pos_value);
-        // println!("is_big = {:?}", is_big);
-        // println!("is_small = {:?}", is_small);
-        // println!("is_neg = {:?}", is_neg);
-        neg_value * is_big * is_neg + pos_value * is_small * (F::one() - is_neg) + F::from_u8(SCALE as u8) * (F::one() - is_small) * (F::one() - is_neg)
+        let res = neg_value * is_big * is_neg + pos_value * is_small * (F::one() - is_neg) + F::from_u8(SCALE as u8) * (F::one() - is_small) * (F::one() - is_neg);
+        res
     }
 }
 
