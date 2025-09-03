@@ -6,7 +6,7 @@ use crate::jolt::lookup_table::JoltLookupTable;
 use crate::jolt::lookup_table::PrefixSuffixDecomposition;
 use crate::field::JoltField;
 
-const LUT_SIZE: usize = 112;
+pub const LUT_SIZE: usize = 112;
 pub const SCALE: f32 = 7.;
 pub const SIGMOID_SCALED_TABLE: [u8; LUT_SIZE] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
