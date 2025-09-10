@@ -1,6 +1,7 @@
 use crate::jolt::lookup_table::suffixes::left_shift::LeftShiftSuffix;
 use crate::jolt::lookup_table::suffixes::relu::ReluSuffix;
-use crate::jolt::lookup_table::suffixes::sigmoid::SigmoidSuffix;
+use crate::jolt::lookup_table::suffixes::positive_sigmoid::PositiveSigmoidSuffix;
+use crate::jolt::lookup_table::suffixes::negative_sigmoid::NegativeSigmoidSuffix;
 use crate::{field::JoltField, subprotocols::sparse_dense_shout::LookupBits};
 use div_by_zero::DivByZeroSuffix;
 use eq::EqSuffix;
@@ -42,7 +43,8 @@ pub mod right_shift;
 pub mod right_shift_helper;
 pub mod right_shift_padding;
 pub mod sign_extension;
-pub mod sigmoid;
+pub mod positive_sigmoid;
+pub mod negative_sigmoid;
 pub mod upper_word;
 pub mod xor;
 
@@ -76,7 +78,8 @@ pub enum Suffixes {
     SignExtension,
     LeftShift,
     Relu,
-    Sigmoid,
+    PositiveSigmoid,
+    NegativeSigmoid,
 }
 
 pub type SuffixEval<F: JoltField> = F;
@@ -106,7 +109,8 @@ impl Suffixes {
             Suffixes::SignExtension => SignExtensionSuffix::<WORD_SIZE>::suffix_mle(b),
             Suffixes::LeftShift => LeftShiftSuffix::suffix_mle(b),
             Suffixes::Relu => ReluSuffix::<WORD_SIZE>::suffix_mle(b),
-            Suffixes::Sigmoid => SigmoidSuffix::<WORD_SIZE>::suffix_mle(b),
+            Suffixes::PositiveSigmoid => PositiveSigmoidSuffix::<WORD_SIZE>::suffix_mle(b),
+            Suffixes::NegativeSigmoid => NegativeSigmoidSuffix::<WORD_SIZE>::suffix_mle(b),
         }
     }
 }

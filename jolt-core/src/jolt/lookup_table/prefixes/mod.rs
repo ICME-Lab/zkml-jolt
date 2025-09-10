@@ -128,6 +128,7 @@ pub enum Prefixes {
     LowerWordNoMsb,
     NotUnaryMsb,
     Relu,
+    // Sigmoid
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -246,6 +247,7 @@ impl Prefixes {
                 LeftShiftHelperPrefix::prefix_mle(checkpoints, r_x, c, b, j)
             }
             Prefixes::Relu => ReluPrefix::<WORD_SIZE>::prefix_mle(checkpoints, r_x, c, b, j),
+            Prefixes::Sigmoid => SigmoidPrefix::<WORD_SIZE>::prefix_mle(checkpoints, r_x, c, b, j),
         };
         PrefixEval(eval)
     }
@@ -396,6 +398,9 @@ impl Prefixes {
             }
             Prefixes::Relu => {
                 ReluPrefix::<WORD_SIZE>::update_prefix_checkpoint(checkpoints, r_x, r_y, j)
+            }
+            Prefixes::Sigmoid => {
+                SigmoidPrefix::<WORD_SIZE>::update_prefix_checkpoint(checkpoints, r_x, r_y, j)
             }
         }
     }

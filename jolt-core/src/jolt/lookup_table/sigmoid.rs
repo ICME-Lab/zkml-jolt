@@ -1,30 +1,24 @@
 use serde::{Deserialize, Serialize};
 
+use crate::field::JoltField;
 use crate::jolt::lookup_table::prefixes::{PrefixEval, Prefixes};
 use crate::jolt::lookup_table::suffixes::{SuffixEval, Suffixes};
 use crate::jolt::lookup_table::JoltLookupTable;
 use crate::jolt::lookup_table::PrefixSuffixDecomposition;
-use crate::field::JoltField;
 
 pub const LUT_SIZE: usize = 112;
 pub const SCALE: f32 = 7.;
 pub const SIGMOID_SCALED_TABLE: [u8; LUT_SIZE] = [
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2,
-    2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5,
-    5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7,
-    7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5,
+    5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
     7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
 ];
 
 pub const APPROXIMATE_SIGMOID_SCALED_TABLE: [u8; LUT_SIZE] = [
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 2,
-    2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5,
-    5, 5, 5, 5, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7,
-    7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5,
+    5, 5, 5, 5, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
     7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
 ];
 
@@ -52,7 +46,7 @@ impl<const WORD_SIZE: usize> JoltLookupTable for SigmoidTable<WORD_SIZE> {
 
         let mut r_base_2 = F::zero();
         for i in 0..WORD_SIZE {
-            r_base_2 += F::from_u64(1 << i) * r[2*WORD_SIZE - 1 - i];
+            r_base_2 += F::from_u64(1 << i) * r[2 * WORD_SIZE - 1 - i];
         }
 
         let is_neg = r[WORD_SIZE];
@@ -61,8 +55,9 @@ impl<const WORD_SIZE: usize> JoltLookupTable for SigmoidTable<WORD_SIZE> {
         let mut is_big = F::one();
         // We only consider the first 4 bits of the input to sigmoid
         for i in 0..WORD_SIZE - 1 - 3 {
-            is_small *= F::one() - r[i + WORD_SIZE];
-            is_big *= r[i + WORD_SIZE];
+            let i_th_msb = r[i + WORD_SIZE];
+            is_small *= F::one() - i_th_msb;
+            is_big *= i_th_msb;
         }
 
         // 4 is the output of sigmoid when the input is 0
@@ -77,20 +72,25 @@ impl<const WORD_SIZE: usize> JoltLookupTable for SigmoidTable<WORD_SIZE> {
             neg_value += r[2 * WORD_SIZE - 1 - i];
         }
 
-        let res = neg_value * is_big * is_neg + pos_value * is_small * (F::one() - is_neg) + F::from_u8(SCALE as u8) * (F::one() - is_small) * (F::one() - is_neg);
+        let res = neg_value * is_big * is_neg
+            + pos_value * is_small * (F::one() - is_neg)
+            + F::from_u8(SCALE as u8) * (F::one() - is_small) * (F::one() - is_neg);
         res
     }
 }
 
 impl<const WORD_SIZE: usize> PrefixSuffixDecomposition<WORD_SIZE> for SigmoidTable<WORD_SIZE> {
     fn suffixes(&self) -> Vec<Suffixes> {
-        vec![Suffixes::One, Suffixes::LowerWord]
+        vec![Suffixes::PositiveSigmoid, Suffixes::NegativeSigmoid]
     }
 
     fn combine<F: JoltField>(&self, prefixes: &[PrefixEval<F>], suffixes: &[SuffixEval<F>]) -> F {
         debug_assert_eq!(self.suffixes().len(), suffixes.len());
-        let [one, lower_word] = suffixes.try_into().unwrap();
-        prefixes[Prefixes::LowerWord] * one + lower_word
+        let [positive_sigmoid, negative_sigmoid] = suffixes.try_into().unwrap();
+        // TODO: How do I select only the upper half?
+        // TODO: Checkout left_is_zero
+        prefixes[Prefixes::IsBig] * positive_sigmoid 
+        + prefixes[Prefixes::IsSmall] * negative_sigmoid 
     }
 }
 
