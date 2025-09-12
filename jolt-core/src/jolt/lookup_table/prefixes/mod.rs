@@ -3,6 +3,7 @@ use crate::jolt::lookup_table::prefixes::left_shift_helper::LeftShiftHelperPrefi
 use crate::jolt::lookup_table::prefixes::lower_word_no_msb::LowerWordNoMsbPrefix;
 use crate::jolt::lookup_table::prefixes::not_unary_msb::NotUnaryMsbPrefix;
 use crate::jolt::lookup_table::prefixes::relu::ReluPrefix;
+use crate::jolt::lookup_table::prefixes::left_is_one::{LeftOperandIsOnePrefix};
 use crate::{field::JoltField, subprotocols::sparse_dense_shout::LookupBits};
 use lsb::LsbPrefix;
 use negative_divisor_equals_remainder::NegativeDivisorEqualsRemainderPrefix;
@@ -55,6 +56,7 @@ pub mod positive_remainder_less_than_divisor;
 pub mod pow2;
 pub mod relu;
 pub mod right_is_zero;
+pub mod left_is_one;
 pub mod right_msb;
 pub mod right_shift;
 pub mod sign_extension;
@@ -111,6 +113,7 @@ pub enum Prefixes {
     LessThan,
     LeftOperandIsZero,
     RightOperandIsZero,
+    LeftOperandIsOne,
     LeftOperandMsb,
     RightOperandMsb,
     DivByZero,
@@ -128,7 +131,6 @@ pub enum Prefixes {
     LowerWordNoMsb,
     NotUnaryMsb,
     Relu,
-    // Sigmoid
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -213,6 +215,9 @@ impl Prefixes {
             Prefixes::RightOperandIsZero => {
                 RightOperandIsZeroPrefix::prefix_mle(checkpoints, r_x, c, b, j)
             }
+            Prefixes::LeftOperandIsOne => {
+                LeftOperandIsOnePrefix::prefix_mle(checkpoints, r_x, c, b, j)
+            }
             Prefixes::LeftOperandMsb => LeftMsbPrefix::prefix_mle(checkpoints, r_x, c, b, j),
             Prefixes::RightOperandMsb => RightMsbPrefix::prefix_mle(checkpoints, r_x, c, b, j),
             Prefixes::DivByZero => DivByZeroPrefix::prefix_mle(checkpoints, r_x, c, b, j),
@@ -247,7 +252,6 @@ impl Prefixes {
                 LeftShiftHelperPrefix::prefix_mle(checkpoints, r_x, c, b, j)
             }
             Prefixes::Relu => ReluPrefix::<WORD_SIZE>::prefix_mle(checkpoints, r_x, c, b, j),
-            Prefixes::Sigmoid => SigmoidPrefix::<WORD_SIZE>::prefix_mle(checkpoints, r_x, c, b, j),
         };
         PrefixEval(eval)
     }
@@ -326,6 +330,9 @@ impl Prefixes {
             Prefixes::RightOperandIsZero => {
                 RightOperandIsZeroPrefix::update_prefix_checkpoint(checkpoints, r_x, r_y, j)
             }
+            Prefixes::LeftOperandIsOne => {
+                LeftOperandIsOnePrefix::update_prefix_checkpoint(checkpoints, r_x, r_y, j)
+            }
             Prefixes::LeftOperandMsb => {
                 LeftMsbPrefix::update_prefix_checkpoint(checkpoints, r_x, r_y, j)
             }
@@ -398,9 +405,6 @@ impl Prefixes {
             }
             Prefixes::Relu => {
                 ReluPrefix::<WORD_SIZE>::update_prefix_checkpoint(checkpoints, r_x, r_y, j)
-            }
-            Prefixes::Sigmoid => {
-                SigmoidPrefix::<WORD_SIZE>::update_prefix_checkpoint(checkpoints, r_x, r_y, j)
             }
         }
     }

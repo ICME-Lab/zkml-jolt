@@ -81,16 +81,22 @@ impl<const WORD_SIZE: usize> JoltLookupTable for SigmoidTable<WORD_SIZE> {
 
 impl<const WORD_SIZE: usize> PrefixSuffixDecomposition<WORD_SIZE> for SigmoidTable<WORD_SIZE> {
     fn suffixes(&self) -> Vec<Suffixes> {
-        vec![Suffixes::PositiveSigmoid, Suffixes::NegativeSigmoid]
+        vec![Suffixes::PositiveSigmoid, Suffixes::NegativeSigmoid, Suffixes::One]
     }
 
     fn combine<F: JoltField>(&self, prefixes: &[PrefixEval<F>], suffixes: &[SuffixEval<F>]) -> F {
         debug_assert_eq!(self.suffixes().len(), suffixes.len());
-        let [positive_sigmoid, negative_sigmoid] = suffixes.try_into().unwrap();
-        // TODO: How do I select only the upper half?
-        // TODO: Checkout left_is_zero
-        prefixes[Prefixes::IsBig] * positive_sigmoid 
-        + prefixes[Prefixes::IsSmall] * negative_sigmoid 
+        let [positive_sigmoid, negative_sigmoid, one] = suffixes.try_into().unwrap();
+        println!("LeftOperandIsZero: {:?}", prefixes[Prefixes::LeftOperandIsZero]);
+        println!("positive_sigmoid: {:?}", positive_sigmoid);
+
+        println!("LeftOperandIsOne: {:?}", prefixes[Prefixes::LeftOperandIsOne]);
+        println!("negative_sigmoid: {:?}", negative_sigmoid);
+
+        println!("NotUnaryMsb: {:?}", prefixes[Prefixes::NotUnaryMsb]);
+        prefixes[Prefixes::LeftOperandIsZero] * positive_sigmoid 
+        + prefixes[Prefixes::LeftOperandIsOne] * negative_sigmoid 
+        + F::from_u8(SCALE as u8) * prefixes[Prefixes::NotUnaryMsb] * one
     }
 }
 

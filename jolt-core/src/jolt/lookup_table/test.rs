@@ -63,13 +63,16 @@ pub fn prefix_suffix_test<F: JoltField, T: PrefixSuffixDecomposition<32>>() {
     for _ in 0..1000 {
         let mut prefix_checkpoints: Vec<PrefixCheckpoint<F>> = vec![None.into(); Prefixes::COUNT];
         let lookup_index = T::random_lookup_index(&mut rng);
+        println!("Lookup index: {lookup_index}");
         let mut j = 0;
         let mut r: Vec<F> = vec![];
         for phase in 0..4 {
             let suffix_len = (3 - phase) * 16;
             let (mut prefix_bits, suffix_bits) =
                 LookupBits::new(lookup_index, 64 - phase * 16).split(suffix_len);
-
+            println!("Iteration {j}");
+            println!("Prefix bits: {prefix_bits}, prefix len: {:?}", prefix_bits.len());
+            println!("Suffix bits: {suffix_bits}, suffix len: {:?}", suffix_bits.len());
             let suffix_evals: Vec<_> = T::default()
                 .suffixes()
                 .iter()
@@ -81,6 +84,7 @@ pub fn prefix_suffix_test<F: JoltField, T: PrefixSuffixDecomposition<32>>() {
                 let c = if rng.next_u64().is_even() { 0 } else { 2 };
                 eval_point.push(F::from_u32(c));
                 prefix_bits.pop_msb();
+                println!("Prefix bits after pop_msb: {prefix_bits}, prefix len: {:?}", prefix_bits.len());
 
                 eval_point
                     .extend(index_to_field_bitvector(prefix_bits.into(), prefix_bits.len()).iter());
@@ -102,16 +106,8 @@ pub fn prefix_suffix_test<F: JoltField, T: PrefixSuffixDecomposition<32>>() {
                     .collect();
 
                 let combined = T::default().combine(&prefix_evals, &suffix_evals);
-                if combined != mle_eval {
-                    println!("Lookup index: {lookup_index}");
-                    println!("{j} {prefix_bits} {suffix_bits}");
-                    for (i, x) in prefix_evals.iter().enumerate() {
-                        println!("prefix_evals[{i}] = {x}");
-                    }
-                    for (i, x) in suffix_evals.iter().enumerate() {
-                        println!("suffix_evals[{i}] = {x}");
-                    }
-                }
+                println!("result: {combined}");
+
 
                 assert_eq!(combined, mle_eval);
                 r.push(F::from_u64(rng.next_u64()));
