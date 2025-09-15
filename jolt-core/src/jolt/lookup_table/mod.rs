@@ -58,6 +58,7 @@ pub trait PrefixSuffixDecomposition<const WORD_SIZE: usize>: JoltLookupTable + D
 pub mod prefixes;
 pub mod suffixes;
 
+pub mod abs;
 pub mod and;
 pub mod equal;
 pub mod halfword_alignment;

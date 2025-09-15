@@ -1,3 +1,4 @@
+use crate::jolt::lookup_table::prefixes::abs::AbsPrefix;
 use crate::jolt::lookup_table::prefixes::left_shift::LeftShiftPrefix;
 use crate::jolt::lookup_table::prefixes::left_shift_helper::LeftShiftHelperPrefix;
 use crate::jolt::lookup_table::prefixes::lower_word_no_msb::LowerWordNoMsbPrefix;
@@ -34,6 +35,7 @@ use right_msb::RightMsbPrefix;
 use upper_word::UpperWordPrefix;
 use xor::XorPrefix;
 
+pub mod abs;
 pub mod and;
 pub mod div_by_zero;
 pub mod eq;
@@ -128,6 +130,7 @@ pub enum Prefixes {
     LowerWordNoMsb,
     NotUnaryMsb,
     Relu,
+    Abs,
 }
 
 #[derive(Clone, Copy)]
@@ -246,6 +249,7 @@ impl Prefixes {
                 LeftShiftHelperPrefix::prefix_mle(checkpoints, r_x, c, b, j)
             }
             Prefixes::Relu => ReluPrefix::<WORD_SIZE>::prefix_mle(checkpoints, r_x, c, b, j),
+            Prefixes::Abs => AbsPrefix::<WORD_SIZE>::prefix_mle(checkpoints, r_x, c, b, j),
         };
         PrefixEval(eval)
     }
@@ -396,6 +400,9 @@ impl Prefixes {
             }
             Prefixes::Relu => {
                 ReluPrefix::<WORD_SIZE>::update_prefix_checkpoint(checkpoints, r_x, r_y, j)
+            }
+            Prefixes::Abs => {
+                AbsPrefix::<WORD_SIZE>::update_prefix_checkpoint(checkpoints, r_x, r_y, j)
             }
         }
     }

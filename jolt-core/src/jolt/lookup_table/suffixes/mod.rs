@@ -1,3 +1,4 @@
+use crate::jolt::lookup_table::suffixes::abs_negative_case::AbsNegativeCaseSuffix;
 use crate::jolt::lookup_table::suffixes::left_shift::LeftShiftSuffix;
 use crate::jolt::lookup_table::suffixes::relu::ReluSuffix;
 use crate::{field::JoltField, subprotocols::sparse_dense_shout::LookupBits};
@@ -23,6 +24,7 @@ use one::OneSuffix;
 use upper_word::UpperWordSuffix;
 use xor::XorSuffix;
 
+pub mod abs_negative_case;
 pub mod and;
 pub mod div_by_zero;
 pub mod eq;
@@ -74,6 +76,7 @@ pub enum Suffixes {
     SignExtension,
     LeftShift,
     Relu,
+    AbsNegativeCase, // TODO(AntoineF4C5): Implement Abs suffix/prefix
 }
 
 pub type SuffixEval<F: JoltField> = F;
@@ -103,6 +106,7 @@ impl Suffixes {
             Suffixes::SignExtension => SignExtensionSuffix::<WORD_SIZE>::suffix_mle(b),
             Suffixes::LeftShift => LeftShiftSuffix::suffix_mle(b),
             Suffixes::Relu => ReluSuffix::<WORD_SIZE>::suffix_mle(b),
+            Suffixes::AbsNegativeCase => AbsNegativeCaseSuffix::<WORD_SIZE>::suffix_mle(b),
         }
     }
 }
