@@ -29,6 +29,7 @@ pub enum ProofKeys {
     ReducedOpeningProof,
 }
 
+#[derive(Clone, Debug)]
 pub enum ProofData<F: JoltField, PCS: CommitmentScheme<Field = F>, ProofTranscript: Transcript> {
     SumcheckProof(SumcheckInstanceProof<F, ProofTranscript>),
     ReducedOpeningProof(ReducedOpeningProof<F, PCS, ProofTranscript>),

@@ -31,8 +31,8 @@ pub const Y_SVO_RELATED_COEFF_BLOCK_SIZE: usize = 4 * Y_SVO_SPACE_SIZE; // Az/Bz
 
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub struct SparseCoefficient<T> {
-    pub(crate) index: usize,
-    pub(crate) value: T,
+    pub index: usize,
+    pub value: T,
 }
 
 impl<T> Allocative for SparseCoefficient<T> {

@@ -21,12 +21,12 @@ use crate::{field::JoltField, poly::eq_poly::EqPolynomial};
 ///
 /// Implements both LowToHigh ordering and HighToLow ordering.
 pub struct GruenSplitEqPolynomial<F> {
-    pub(crate) current_index: usize,
-    pub(crate) current_scalar: F,
-    pub(crate) w: Vec<F>,
-    pub(crate) E_in_vec: Vec<Vec<F>>,
-    pub(crate) E_out_vec: Vec<Vec<F>>,
-    pub(crate) binding_order: BindingOrder,
+    pub current_index: usize,
+    pub current_scalar: F,
+    pub w: Vec<F>,
+    pub E_in_vec: Vec<Vec<F>>,
+    pub E_out_vec: Vec<Vec<F>>,
+    pub binding_order: BindingOrder,
 }
 
 impl<F: JoltField> GruenSplitEqPolynomial<F> {

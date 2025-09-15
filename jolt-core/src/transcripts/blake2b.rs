@@ -15,10 +15,8 @@ pub struct Blake2bTranscript {
     pub state: [u8; 32],
     /// We append an ordinal to each invocation of the hash
     n_rounds: u32,
-    #[cfg(test)]
     /// A complete history of the transcript's `state`; used for testing.
     state_history: Vec<[u8; 32]>,
-    #[cfg(test)]
     /// For a proof to be valid, the verifier's `state_history` should always match
     /// the prover's. In testing, the Jolt verifier may be provided the prover's
     /// `state_history` so that we can detect any deviations and the backtrace can
@@ -93,14 +91,11 @@ impl Transcript for Blake2bTranscript {
         Self {
             state: out.into(),
             n_rounds: 0,
-            #[cfg(test)]
             state_history: vec![out.into()],
-            #[cfg(test)]
             expected_state_history: None,
         }
     }
 
-    #[cfg(test)]
     /// Compare this transcript to `other` and panic if/when they deviate.
     /// Typically used to compare the verifier's transcript to the prover's.
     fn compare_to(&mut self, other: Self) {

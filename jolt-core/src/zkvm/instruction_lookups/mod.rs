@@ -29,14 +29,14 @@ pub mod ra_virtual;
 pub mod read_raf_checking;
 
 pub const WORD_SIZE: usize = 32;
-const LOG_K: usize = WORD_SIZE * 2;
-const PHASES: usize = 4;
-const LOG_M: usize = LOG_K / PHASES;
-const M: usize = 1 << LOG_M;
+pub const LOG_K: usize = WORD_SIZE * 2;
+pub const PHASES: usize = 4;
+pub const LOG_M: usize = LOG_K / PHASES;
+pub const M: usize = 1 << LOG_M;
 pub const D: usize = 8;
 pub const LOG_K_CHUNK: usize = LOG_K / D;
 pub const K_CHUNK: usize = 1 << LOG_K_CHUNK;
-const RA_PER_LOG_M: usize = LOG_M / LOG_K_CHUNK;
+pub const RA_PER_LOG_M: usize = LOG_M / LOG_K_CHUNK;
 
 #[derive(Default)]
 pub struct LookupsDag {}

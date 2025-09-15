@@ -143,9 +143,9 @@ where
     ProofTranscript: Transcript,
     PCS: CommitmentScheme<Field = F>,
 {
-    pub(crate) transcript: ProofTranscript,
-    pub(crate) opening_accumulator: ProverOpeningAccumulator<F>,
-    pub(crate) prover_setup: PCS::ProverSetup,
+    pub transcript: ProofTranscript,
+    pub opening_accumulator: ProverOpeningAccumulator<F>,
+    pub prover_setup: PCS::ProverSetup,
 }
 
 pub trait Jolt<F: JoltField, PCS, FS: Transcript>
