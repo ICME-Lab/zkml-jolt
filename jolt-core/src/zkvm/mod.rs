@@ -111,9 +111,9 @@ where
     ProofTranscript: Transcript,
     PCS: CommitmentScheme<Field = F>,
 {
-    pub(crate) transcript: ProofTranscript,
-    pub(crate) opening_accumulator: ProverOpeningAccumulator<F>,
-    pub(crate) prover_setup: PCS::ProverSetup,
+    pub transcript: ProofTranscript,
+    pub opening_accumulator: ProverOpeningAccumulator<F>,
+    pub prover_setup: PCS::ProverSetup,
 }
 
 // TODO: Perhaps better we have something like a JoltClaim with this stuff in

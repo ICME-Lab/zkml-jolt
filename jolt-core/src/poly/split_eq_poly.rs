@@ -64,19 +64,19 @@ use crate::{
 #[derive(Debug, Clone, PartialEq, Allocative)]
 pub struct GruenSplitEqPolynomial<F: JoltField> {
     /// Number of unbound variables remaining (decrements each round).
-    pub(crate) current_index: usize,
+    pub current_index: usize,
     /// Accumulated eq(w_bound, r_bound) from already-bound variables.
-    pub(crate) current_scalar: F,
+    pub current_scalar: F,
     /// The full challenge vector w.
-    pub(crate) w: Vec<F::Challenge>,
+    pub w: Vec<F::Challenge>,
     /// Prefix eq tables for w_in. E_in_vec[k] = eq(w_in[..k], ·) over {0,1}^k.
     /// Invariant: always non-empty; E_in_vec[0] = [1].
-    pub(crate) E_in_vec: Vec<Vec<F>>,
+    pub E_in_vec: Vec<Vec<F>>,
     /// Prefix eq tables for w_out. E_out_vec[k] = eq(w_out[..k], ·) over {0,1}^k.
     /// Invariant: always non-empty; E_out_vec[0] = [1].
-    pub(crate) E_out_vec: Vec<Vec<F>>,
+    pub E_out_vec: Vec<Vec<F>>,
     /// Binding order: LowToHigh (LSB first) or HighToLow (MSB first).
-    pub(crate) binding_order: BindingOrder,
+    pub binding_order: BindingOrder,
 }
 
 impl<F: JoltField> GruenSplitEqPolynomial<F> {
