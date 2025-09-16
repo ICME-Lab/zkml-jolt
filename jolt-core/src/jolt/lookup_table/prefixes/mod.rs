@@ -2,8 +2,10 @@ use crate::jolt::lookup_table::prefixes::abs::AbsPrefix;
 use crate::jolt::lookup_table::prefixes::left_shift::LeftShiftPrefix;
 use crate::jolt::lookup_table::prefixes::left_shift_helper::LeftShiftHelperPrefix;
 use crate::jolt::lookup_table::prefixes::lower_word_no_msb::LowerWordNoMsbPrefix;
+use crate::jolt::lookup_table::prefixes::not_lower_no_msb::NotLowerNoMsbPrefix;
 use crate::jolt::lookup_table::prefixes::not_unary_msb::NotUnaryMsbPrefix;
 use crate::jolt::lookup_table::prefixes::relu::ReluPrefix;
+use crate::jolt::lookup_table::prefixes::unary_msb::UnaryMsbPrefix;
 use crate::{field::JoltField, subprotocols::sparse_dense_shout::LookupBits};
 use lsb::LsbPrefix;
 use negative_divisor_equals_remainder::NegativeDivisorEqualsRemainderPrefix;
@@ -50,6 +52,7 @@ pub mod lt;
 pub mod negative_divisor_equals_remainder;
 pub mod negative_divisor_greater_than_remainder;
 pub mod negative_divisor_zero_remainder;
+pub mod not_lower_no_msb;
 pub mod not_unary_msb;
 pub mod or;
 pub mod positive_remainder_equals_divisor;
@@ -60,6 +63,7 @@ pub mod right_is_zero;
 pub mod right_msb;
 pub mod right_shift;
 pub mod sign_extension;
+pub mod unary_msb;
 pub mod upper_word;
 pub mod xor;
 
@@ -102,7 +106,7 @@ pub trait SparseDensePrefix<F: JoltField>: 'static + Sync {
 
 /// An enum containing all prefixes used by Jolt's instruction lookup tables.
 #[repr(u8)]
-#[derive(EnumCountMacro, EnumIter, FromPrimitive)]
+#[derive(EnumCountMacro, EnumIter, FromPrimitive, Debug)]
 pub enum Prefixes {
     LowerWord,
     UpperWord,
@@ -121,6 +125,7 @@ pub enum Prefixes {
     NegativeDivisorZeroRemainder,
     NegativeDivisorEqualsRemainder,
     NegativeDivisorGreaterThanRemainder,
+    NOTLowerNoMsb,
     Lsb,
     Pow2,
     RightShift,
@@ -129,6 +134,7 @@ pub enum Prefixes {
     LeftShiftHelper,
     LowerWordNoMsb,
     NotUnaryMsb,
+    UnaryMsb,
     Relu,
     Abs,
 }
@@ -233,9 +239,15 @@ impl Prefixes {
             Prefixes::NegativeDivisorGreaterThanRemainder => {
                 NegativeDivisorGreaterThanRemainderPrefix::prefix_mle(checkpoints, r_x, c, b, j)
             }
+            Prefixes::NOTLowerNoMsb => {
+                NotLowerNoMsbPrefix::<WORD_SIZE>::prefix_mle(checkpoints, r_x, c, b, j)
+            }
             Prefixes::Lsb => LsbPrefix::<WORD_SIZE>::prefix_mle(checkpoints, r_x, c, b, j),
             Prefixes::NotUnaryMsb => {
                 NotUnaryMsbPrefix::<WORD_SIZE>::prefix_mle(checkpoints, r_x, c, b, j)
+            }
+            Prefixes::UnaryMsb => {
+                UnaryMsbPrefix::<WORD_SIZE>::prefix_mle(checkpoints, r_x, c, b, j)
             }
             Prefixes::Pow2 => Pow2Prefix::<WORD_SIZE>::prefix_mle(checkpoints, r_x, c, b, j),
             Prefixes::RightShift => RightShiftPrefix::prefix_mle(checkpoints, r_x, c, b, j),
@@ -377,11 +389,17 @@ impl Prefixes {
                     j,
                 )
             }
+            Prefixes::NOTLowerNoMsb => {
+                NotLowerNoMsbPrefix::<WORD_SIZE>::update_prefix_checkpoint(checkpoints, r_x, r_y, j)
+            }
             Prefixes::Lsb => {
                 LsbPrefix::<WORD_SIZE>::update_prefix_checkpoint(checkpoints, r_x, r_y, j)
             }
             Prefixes::NotUnaryMsb => {
                 NotUnaryMsbPrefix::<WORD_SIZE>::update_prefix_checkpoint(checkpoints, r_x, r_y, j)
+            }
+            Prefixes::UnaryMsb => {
+                UnaryMsbPrefix::<WORD_SIZE>::update_prefix_checkpoint(checkpoints, r_x, r_y, j)
             }
             Prefixes::Pow2 => {
                 Pow2Prefix::<WORD_SIZE>::update_prefix_checkpoint(checkpoints, r_x, r_y, j)

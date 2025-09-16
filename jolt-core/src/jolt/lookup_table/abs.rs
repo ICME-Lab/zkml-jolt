@@ -29,6 +29,7 @@ impl<const WORD_SIZE: usize> JoltLookupTable for Abs<WORD_SIZE> {
             positive_case += F::from_u64(1 << i) * r[r.len() - 1 - i];
         }
 
+        // if x < 0, abs(x) = -x = (!x) + 1
         let mut negative_case = F::one();
         for i in 0..WORD_SIZE - 1 {
             negative_case += F::from_u64(1 << i) * (F::one() - r[r.len() - 1 - i]);
@@ -39,23 +40,18 @@ impl<const WORD_SIZE: usize> JoltLookupTable for Abs<WORD_SIZE> {
     }
 }
 
-// TODO(AntoineF4C5): Implement Abs suffix/prefix
 impl<const WORD_SIZE: usize> PrefixSuffixDecomposition<WORD_SIZE> for Abs<WORD_SIZE> {
     fn suffixes(&self) -> Vec<Suffixes> {
-        vec![
-            Suffixes::One,
-            Suffixes::AbsNegativeCase,
-            Suffixes::LowerWord,
-        ]
+        vec![Suffixes::One, Suffixes::Relu, Suffixes::AbsNegativeCase]
     }
 
-    // TODO(AntoineF4C5): Does not work yet - Unsure if valid expression
     fn combine<F: JoltField>(&self, prefixes: &[PrefixEval<F>], suffixes: &[SuffixEval<F>]) -> F {
         debug_assert_eq!(self.suffixes().len(), suffixes.len());
-        let [one, abs_negative_case, lower_word] = suffixes.try_into().unwrap();
+        let [one, relu, abs_negative_case] = suffixes.try_into().unwrap();
+
         prefixes[Prefixes::Abs] * one
-            + prefixes[Prefixes::NotUnaryMsb] * lower_word
-            + (F::one() - prefixes[Prefixes::NotUnaryMsb]) * abs_negative_case
+            + prefixes[Prefixes::NotUnaryMsb] * relu
+            + prefixes[Prefixes::UnaryMsb] * abs_negative_case
     }
 }
 
@@ -63,13 +59,15 @@ impl<const WORD_SIZE: usize> PrefixSuffixDecomposition<WORD_SIZE> for Abs<WORD_S
 mod test {
     use ark_bn254::Fr;
     use ark_ff::AdditiveGroup;
+    use rand::prelude::*;
 
     use crate::{
         field::JoltField,
         jolt::lookup_table::{
+            prefixes::Prefixes,
             test::{
                 lookup_table_mle_full_hypercube_test, lookup_table_mle_random_test,
-                prefix_suffix_test,
+                prefix_suffix_on_hypercube, prefix_suffix_test,
             },
             JoltLookupTable,
         },
@@ -85,6 +83,18 @@ mod test {
     #[test]
     fn mle_random() {
         lookup_table_mle_random_test::<Fr, Abs<32>>();
+    }
+
+    #[test]
+    fn test_prefix_suffix_hypercube() {
+        let lookup_index = -5i32 as u32 as u64;
+        // the operands that are multiplied in `combine`
+        let prefix_suffix_combinations = [
+            (Prefixes::Abs as usize, 0),
+            (Prefixes::NotUnaryMsb as usize, 1),
+            (Prefixes::UnaryMsb as usize, 2),
+        ];
+        prefix_suffix_on_hypercube::<Fr, Abs<32>>(lookup_index, Some(&prefix_suffix_combinations));
     }
 
     #[test]
@@ -111,6 +121,19 @@ mod test {
         // i32::MAX = 2^31 - 1
         let abs_number = abs.materialize_entry((2i64.pow(31) - 1) as i32 as u64);
         assert_eq!(abs_number, 2u64.pow(31) - 1); // abs(2^31 - 1) = 2^31 - 1
+
+        let mut rng = StdRng::seed_from_u64(12345);
+        for _ in 0..1000 {
+            let x = rng.next_u64();
+
+            let abs_number = abs.materialize_entry(x);
+            assert_eq!(
+                abs_number,
+                (x as u32 as i32).unsigned_abs() as u64,
+                "abs({x}) = {abs_number}, expected {}",
+                (x as u32 as i32).abs()
+            );
+        }
     }
 
     #[test]
@@ -138,6 +161,19 @@ mod test {
         let r = int_to_field_bits::<32>((2i64.pow(31) - 1) as i32 as u64);
         let mle = abs.evaluate_mle::<Fr>(&r);
         assert_eq!(mle, Fr::from_u64(2u64.pow(31) - 1)); // abs(2^31 - 1) = 2^31 - 1
+
+        let mut rng = StdRng::seed_from_u64(12345);
+        for _ in 0..1000 {
+            let x = rng.next_u64();
+            let r = int_to_field_bits::<32>(x);
+            let mle = abs.evaluate_mle::<Fr>(&r);
+            assert_eq!(
+                mle,
+                Fr::from_u64((x as u32 as i32).unsigned_abs() as u64),
+                "abs({x}) = {mle}, expected {}",
+                (x as u32 as i32).abs()
+            );
+        }
     }
 
     fn int_to_field_bits<const WORD_SIZE: usize>(number: u64) -> Vec<Fr> {

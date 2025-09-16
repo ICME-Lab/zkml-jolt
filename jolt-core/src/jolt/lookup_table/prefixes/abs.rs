@@ -16,16 +16,15 @@ impl<const WORD_SIZE: usize, F: JoltField> SparseDensePrefix<F> for AbsPrefix<WO
         if j < WORD_SIZE {
             return F::zero();
         }
-        let nsign_bit =
-            *Prefixes::NotUnaryMsb.prefix_mle::<WORD_SIZE, F>(checkpoints, r_x, c, b, j);
+        let sign_bit = *Prefixes::UnaryMsb.prefix_mle::<WORD_SIZE, F>(checkpoints, r_x, c, b, j);
         let word = *Prefixes::LowerWordNoMsb.prefix_mle::<WORD_SIZE, F>(checkpoints, r_x, c, b, j);
-        let word_two_complement = F::from_u64(1 << (WORD_SIZE - 1)) - word; // Word without sign bit is only WORD_SIZE - 1 bits, so 2's complement is 2^(WORD_SIZE-1) - word
+        let negated_word =
+            *Prefixes::NOTLowerNoMsb.prefix_mle::<WORD_SIZE, F>(checkpoints, r_x, c, b, j);
 
-        // nsign_bit * word + (1 - nsign_bit) * word_two_complement
-        nsign_bit * (word - word_two_complement) + word_two_complement
+        // (1 - sign_bit) * word + sign_bit * negated_word
+        sign_bit * (negated_word - word) + word
     }
 
-    // TODO(AntoineF4C5): Verify Abs git prefix
     fn update_prefix_checkpoint(
         checkpoints: &[PrefixCheckpoint<F>],
         r_x: F,
@@ -42,33 +41,22 @@ impl<const WORD_SIZE: usize, F: JoltField> SparseDensePrefix<F> for AbsPrefix<WO
                 let y_shift = two - j - 1;
                 let updated = checkpoints[Prefixes::Abs].unwrap_or(F::zero())
                     + F::from_u64(1 << y_shift)
-                        * (r_y * (F::one() - sign_bit) + (F::one() - r_y) * sign_bit); // if positive then r_y, else !r_y
-                                                                                       // + sign_bit; // TODO(AntoineF4C5): Maybe need to set only at last iteration.
-                                                                                       // if negative then +1 for two's complement (two complement of x = !x + 1)
-                Some(updated).into()
-            }
-            // last iteration
-            j if j == two - 1 => {
-                let x_shift = two - j;
-                let y_shift = x_shift - 1;
-                let nsign_bit = checkpoints[Prefixes::NotUnaryMsb].unwrap();
-                let updated = checkpoints[Prefixes::Abs].unwrap_or(F::zero())
-                    + F::from_u64(1 << x_shift)
-                        * (r_x * nsign_bit + (F::one() - r_x) * (F::one() - nsign_bit)) // if positive then r_x, else !r_x
-                    + F::from_u64(1 << y_shift)
-                        * (r_y * nsign_bit + (F::one() - r_y) * (F::one() - nsign_bit)) // if positive then r_y, else !r_y
-                    + (F::one() - nsign_bit); // if negative then +1 for two's complement (two complement of x = !x + 1)
+                        * ((F::one() - sign_bit) * r_y + sign_bit * (F::one() - r_y)); // if positive then r_y, else !r_y
                 Some(updated).into()
             }
             _ => {
                 let x_shift = two - j;
                 let y_shift = x_shift - 1;
-                let nsign_bit = checkpoints[Prefixes::NotUnaryMsb].unwrap();
-                let updated = checkpoints[Prefixes::Abs].unwrap_or(F::zero())
+                let sign_bit = checkpoints[Prefixes::UnaryMsb].unwrap();
+                let mut updated = checkpoints[Prefixes::Abs].unwrap_or(F::zero())
                     + F::from_u64(1 << x_shift)
-                        * (r_x * nsign_bit + (F::one() - r_x) * (F::one() - nsign_bit)) // if positive then r_x, else !r_x
+                        * ((F::one() - sign_bit) * r_x + sign_bit * (F::one() - r_x)) // if positive then r_x, else !r_x
                     + F::from_u64(1 << y_shift)
-                        * (r_y * nsign_bit + (F::one() - r_y) * (F::one() - nsign_bit)); // if positive then r_y, else !r_y
+                        * ((F::one() - sign_bit) * r_y + sign_bit * (F::one() - r_y)); // if positive then r_y, else !r_y
+                if j == two - 1 {
+                    // Add the +1 for the negative case (from -x = (!x) + 1)
+                    updated += sign_bit;
+                }
                 Some(updated).into()
             }
         }

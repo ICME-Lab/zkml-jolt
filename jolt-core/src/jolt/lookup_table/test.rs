@@ -8,7 +8,7 @@ use crate::{
     subprotocols::sparse_dense_shout::LookupBits,
     utils::index_to_field_bitvector,
 };
-use num::Integer;
+use num::{FromPrimitive, Integer};
 use rand::prelude::*;
 use strum::{EnumCount, IntoEnumIterator};
 
@@ -55,6 +55,89 @@ pub fn gen_bitmask_lookup_index(rng: &mut rand::rngs::StdRng) -> u64 {
     }
 
     result
+}
+
+// Tests the prefix-suffix combination on boolean hypercube, allows to troubleshoot easier
+// Notably, at each round j, `c` and `r_x` are set to the lookup bit at corresponding index
+// instead of being random. This allows to have easier to read values round-by-round when debugging
+pub fn prefix_suffix_on_hypercube<F: JoltField, T: PrefixSuffixDecomposition<32>>(
+    lookup_index: u64,
+    // the list of (prefix, suffix) pairs multiplied in `combine`, to print in case of failure
+    prefix_suffix_combinations: Option<&[(usize, usize)]>,
+) {
+    let mut prefix_checkpoints: Vec<PrefixCheckpoint<F>> = vec![None.into(); Prefixes::COUNT];
+
+    let mut j = 0;
+    let mut r: Vec<F> = vec![];
+    for phase in 0..4 {
+        let suffix_len = (3 - phase) * 16;
+        let (mut prefix_bits, suffix_bits) =
+            LookupBits::new(lookup_index, 64 - phase * 16).split(suffix_len);
+
+        let suffix_evals: Vec<_> = T::default()
+            .suffixes()
+            .iter()
+            .map(|suffix| SuffixEval::from(F::from_u32(suffix.suffix_mle::<32>(suffix_bits))))
+            .collect();
+
+        for _ in 0..16 {
+            let mut eval_point = r.clone();
+            let c = (lookup_index >> (63 - j)) as u32 & 1;
+            eval_point.push(F::from_u32(c));
+            prefix_bits.pop_msb();
+
+            eval_point
+                .extend(index_to_field_bitvector(prefix_bits.into(), prefix_bits.len()).iter());
+            eval_point
+                .extend(index_to_field_bitvector(suffix_bits.into(), suffix_bits.len()).iter());
+
+            let mle_eval = T::default().evaluate_mle(&eval_point);
+
+            let r_x = if j % 2 == 1 {
+                Some(*r.last().unwrap())
+            } else {
+                None
+            };
+
+            let prefix_evals: Vec<_> = Prefixes::iter()
+                .map(|prefix| {
+                    prefix.prefix_mle::<32, F>(&prefix_checkpoints, r_x, c, prefix_bits, j)
+                })
+                .collect();
+
+            let combined = T::default().combine(&prefix_evals, &suffix_evals);
+            if combined != mle_eval {
+                println!("Round [{j}] - prefix-suffix: {prefix_bits} {suffix_bits}");
+                let lookup_suffixes: Vec<_> = T::default().suffixes();
+                if let Some(prefix_suffix_combinations) = prefix_suffix_combinations {
+                    for (prefix, suffix) in prefix_suffix_combinations {
+                        println!(
+                            "prefix_evals[{:?}] * suffix_evals[{:?}] = {} * {}",
+                            Prefixes::from_usize(*prefix).unwrap(),
+                            lookup_suffixes[*suffix],
+                            prefix_evals[*prefix],
+                            suffix_evals[*suffix],
+                        );
+                    }
+                }
+                println!("combined = {combined} | mle_eval = {mle_eval}\n");
+            }
+
+            assert_eq!(combined, mle_eval);
+            r.push(F::from_u64(lookup_index >> (63 - j) & 1));
+
+            if r.len() % 2 == 0 {
+                Prefixes::update_checkpoints::<32, F>(
+                    &mut prefix_checkpoints,
+                    r[r.len() - 2],
+                    r[r.len() - 1],
+                    j,
+                );
+            }
+
+            j += 1;
+        }
+    }
 }
 
 pub fn prefix_suffix_test<F: JoltField, T: PrefixSuffixDecomposition<32>>() {
