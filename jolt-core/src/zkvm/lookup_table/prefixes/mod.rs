@@ -122,7 +122,7 @@ pub enum Prefixes {
 }
 
 #[derive(Clone, Copy, Allocative)]
-pub struct PrefixEval<F>(F);
+pub struct PrefixEval<F>(pub F);
 pub type PrefixCheckpoint<F: JoltField> = PrefixEval<Option<F>>;
 
 impl<F: Display> Display for PrefixEval<F> {
