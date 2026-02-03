@@ -181,7 +181,7 @@ impl<'a, F: JoltField, PCS: StreamingCommitmentScheme<Field = F>, ProofTranscrip
             max_input_size: preprocessing.shared.memory_layout.max_input_size,
             max_output_size: preprocessing.shared.memory_layout.max_output_size,
             stack_size: preprocessing.shared.memory_layout.stack_size,
-            memory_size: preprocessing.shared.memory_layout.memory_size,
+            heap_size: preprocessing.shared.memory_layout.heap_size,
             program_size: Some(preprocessing.shared.memory_layout.program_size),
         };
 
@@ -627,7 +627,8 @@ impl<'a, F: JoltField, PCS: StreamingCommitmentScheme<Field = F>, ProofTranscrip
 
         // Append commitments to transcript
         for commitment in &commitments {
-            self.transcript.append_serializable(commitment);
+            self.transcript
+                .append_serializable(b"commitment", commitment);
         }
 
         (commitments, hint_map)
@@ -658,7 +659,8 @@ impl<'a, F: JoltField, PCS: StreamingCommitmentScheme<Field = F>, ProofTranscrip
             DoryGlobals::initialize_context(1, advice_len, DoryContext::UntrustedAdvice, None);
         let _ctx = DoryGlobals::with_context(DoryContext::UntrustedAdvice);
         let (commitment, hint) = PCS::commit(&poly, &self.preprocessing.generators);
-        self.transcript.append_serializable(&commitment);
+        self.transcript
+            .append_serializable(b"untrusted_advice", &commitment);
 
         self.advice.untrusted_advice_polynomial = Some(poly);
         self.advice.untrusted_advice_hint = Some(hint);
@@ -683,8 +685,10 @@ impl<'a, F: JoltField, PCS: StreamingCommitmentScheme<Field = F>, ProofTranscrip
 
         let poly = MultilinearPolynomial::from(trusted_advice_vec);
         self.advice.trusted_advice_polynomial = Some(poly);
-        self.transcript
-            .append_serializable(self.advice.trusted_advice_commitment.as_ref().unwrap());
+        self.transcript.append_serializable(
+            b"trusted_advice",
+            self.advice.trusted_advice_commitment.as_ref().unwrap(),
+        );
     }
 
     #[tracing::instrument(skip_all)]
@@ -1435,7 +1439,7 @@ impl<'a, F: JoltField, PCS: StreamingCommitmentScheme<Field = F>, ProofTranscrip
 
         // 2. Sample gamma and compute powers for RLC
         let claims: Vec<F> = polynomial_claims.iter().map(|(_, c)| *c).collect();
-        self.transcript.append_scalars(&claims);
+        self.transcript.append_scalars(b"rlc_claims", &claims);
         let gamma_powers: Vec<F> = self.transcript.challenge_scalar_powers(claims.len());
 
         // Build DoryOpeningState
@@ -1676,13 +1680,13 @@ mod tests {
             bytecode.clone(),
             io_device.memory_layout.clone(),
             init_memory_state,
-            256,
+            8192,
         );
 
         let prover_preprocessing = JoltProverPreprocessing::new(shared_preprocessing.clone());
         let elf_contents_opt = program.get_elf_contents();
         let elf_contents = elf_contents_opt.as_deref().expect("elf contents is None");
-        let log_chunk = 8; // Use default log_chunk for tests
+        let log_chunk = 13; // Use default log_chunk for tests
         let prover = RV64IMACProver::gen_from_elf(
             &prover_preprocessing,
             elf_contents,
@@ -1923,7 +1927,7 @@ mod tests {
             bytecode.clone(),
             io_device.memory_layout.clone(),
             init_memory_state,
-            256,
+            4096,
         );
         let prover_preprocessing = JoltProverPreprocessing::new(shared_preprocessing.clone());
         tracing::info!(
@@ -1945,8 +1949,9 @@ mod tests {
         );
 
         // Trace is tiny but advice is max-sized
-        assert!(prover.unpadded_trace_len < 512);
-        assert_eq!(prover.padded_trace_len, 256);
+        // (unpadded ~4185 after ECALL a7 constraint, padded to 8192)
+        assert!(prover.unpadded_trace_len < 8192);
+        assert_eq!(prover.padded_trace_len, 4096);
 
         let io_device = prover.program_io.clone();
         let (jolt_proof, debug_info) = prover.prove();
@@ -2062,7 +2067,7 @@ mod tests {
             final_memory_state,
         );
 
-        assert_eq!(prover.padded_trace_len, 256, "test expects small trace");
+        assert_eq!(prover.padded_trace_len, 4096, "test expects small trace");
 
         let io_device = prover.program_io.clone();
         let (jolt_proof, debug_info) = prover.prove();
@@ -2236,7 +2241,7 @@ mod tests {
         let prover = RV64IMACProver::gen_from_elf(
             &prover_preprocessing,
             elf_contents,
-            &[50],
+            &inputs,
             &[],
             &[],
             None,
